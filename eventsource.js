@@ -64,7 +64,7 @@
   }
 
   var ua = navigator.userAgent,
-    polling = ua.indexOf('Gecko') !== -1 && ua.indexOf('KHTML') === -1; //? long polling ?!
+    polling = ua.indexOf('Gecko') === -1 || ua.indexOf('KHTML') !== -1; //? long polling ?!
 
   if (global.EventSource) {
     return;
