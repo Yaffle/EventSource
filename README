@@ -1,12 +1,15 @@
   EventSource polyfill for browsers, that doesn't implement native EventSource
   
+  
   Uses XMLHttpRequest:
   "server push" (XMLHTTPRequest Interactive state) logic for Firefox
   "long polling" or "polling" logic for other browsers
 
+  
   Browser Support:
   IE7+, others
 
+  
   Advantages:
   Based on last specification of EventSource.
   "server push" for Firefox
@@ -20,9 +23,11 @@
   sending a data.
 
   
-  http://weblog.bocoup.com/javascript-eventsource-now-available-in-firefox
+  Specs:
   http://www.w3.org/TR/eventsource/
 
+  
   Other EventSource polyfills:
+  http://weblog.bocoup.com/javascript-eventsource-now-available-in-firefox
   https://github.com/remy/polyfills/blob/master/EventSource.js by Remy Sharp
   https://github.com/rwldrn/jquery.eventsource by rick waldron
