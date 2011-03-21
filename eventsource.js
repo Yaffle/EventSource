@@ -119,7 +119,6 @@
 
     function parseStream(responseText, eof) {
       var stream = responseText.replace(/^\uFEFF/, '').replace(/\r\n?/, '\n').split('\n'),
-        queue = [],
         i,
         line,
         dataIndex,
@@ -131,21 +130,9 @@
         stream.length = Math.max(0, stream.length - 1);
       }
 
-      //  abandon if empty
-      if (stream.length < offset) {
-        return;
-      }
-
       for (i = offset; i < stream.length; i++) {
-        queue.push(stream[i]);
-      }
-      offset = stream.length - 1;//?
+        line = stream[i];
 
-      queue.reverse();//? pop
-
-      while (queue.length) {
-
-        line = queue.pop();
         dataIndex = line.indexOf(':');
         field = null;
         value = '';
@@ -184,7 +171,8 @@
         if (field === 'data') {
           data += value + '\n';
         }
-      }      
+      }
+      offset = stream.length;
     }
 
     function openConnection() {
