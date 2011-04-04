@@ -2,25 +2,28 @@
   EventSource polyfill for browsers, that doesn't implement native EventSource
   
   Uses XMLHttpRequest:
-  "server push" (XMLHTTPRequest Interactive state) logic for Firefox
+  "server push" (XMLHTTPRequest Interactive state) logic for Firefox, XDomainRequest for IE8+
   "long polling" or "polling" logic for other browsers
 
   Browser Support:
   IE7+, others
 
   Advantages:
-  Based on last specification of EventSource.
-  "server push" for Firefox
-  Polyfill is independent form document methods (addEventListener), so you
-  can use it in a Web Worker's scope.
+  * Based on last specification of EventSource.
+  * "server push" for Firefox
+  * "server push" for IE 8+ with XDomainRequest
+  * Polyfill is independent form document methods (addEventListener), so you
+  * can use it in a Web Worker's scope.
   
   
   Server-side requirements:
   When "server push" not supported, "Polling" HTTP Header is sended on each request
   to tell your server side script to close connection after 
   sending a data.
+  XDomainRequest sends "Last-Event-ID" with POST body (XDomainRequest object does not have a setRequestHeader method)
+  Also XDomainRequest requires send two kilobyte “prelude” at the top of the response stream.
+  ( http://blogs.msdn.com/b/ieinternals/archive/2010/04/06/comet-streaming-in-internet-explorer-with-xmlhttprequest-and-xdomainrequest.aspx?PageIndex=1 )
 
-  
   http://weblog.bocoup.com/javascript-eventsource-now-available-in-firefox
   http://www.w3.org/TR/eventsource/
 
@@ -34,6 +37,55 @@
 /*global XMLHttpRequest, setTimeout, clearTimeout, navigator*/
 
 (function (global) {
+  "use strict";
+
+  // http://blogs.msdn.com/b/ieinternals/archive/2010/04/06/comet-streaming-in-internet-explorer-with-xmlhttprequest-and-xdomainrequest.aspx?PageIndex=1#comments
+  // XDomainRequest does not have a binary interface. To use with non-text, first base64 to string.
+  // http://cometdaily.com/2008/page/3/
+  function XDomainRequestWrapper() {
+    var x = new global.XDomainRequest(),
+      that = this;
+
+    that.status = 0;
+    that.readyState = 0;
+    that.responseText = '';
+
+    x.onload = function () {
+      that.readyState = 4;
+      that.status = 200;
+      that.responseText = x.responseText;
+      that.onreadystatechange.call(that);
+    };
+
+    x.onerror = function () {
+      that.readyState = 4;
+      that.status = 0;
+      that.responseText = '';
+      that.onreadystatechange.call(that);
+    };
+
+    x.onprogress = function () {
+      that.readyState = 3;
+      that.status = 200;
+      that.responseText = x.responseText;
+      that.onreadystatechange.call(that);
+    };
+
+    that.open = function (method, url) {
+      return x.open(method, url);
+    };
+
+    that.abort = function () {
+      return x.abort();
+    };
+
+    that.send = function (postData) {
+      return x.send(postData);
+    };
+
+    return that;
+  }
+
 
   function extendAsEventDispatcher(obj) {
     var listeners = {};
@@ -73,9 +125,9 @@
 
     var that = (this === global) ? {} : this,
       retry = 1000,
-      offset  = 0,
+      offset = 0,
       lastEventId = '',
-      xhr     = null,
+      xhr = null,
       reconnectTimeout = null,
       data = '', 
       name = '';
@@ -180,20 +232,30 @@
       offset = 0;
       data = '';
       name = '';
+      
+      var postData = null;
 
-      xhr = new XMLHttpRequest();
+      if (global.XDomainRequest) {
+        xhr = new XDomainRequestWrapper();
 
-      // with GET method in FF xhr.onreadystate with readyState === 3 doesn't work
-      xhr.open('POST', that.url, true);
+        polling = false;
+        postData = 'xdomainrequest=1' + (lastEventId !== '' ? '&Last-Event-ID=' + encodeURIComponent(lastEventId) : '');
+        xhr.open('POST', that.url);
+      } else {
+        xhr = new XMLHttpRequest();
 
-      xhr.setRequestHeader('Cache-Control', 'no-cache');//?
-
-      if (polling) {
-        xhr.setRequestHeader('Polling', '1');//!
+        // with GET method in FF xhr.onreadystate with readyState === 3 doesn't work
+        xhr.open('POST', that.url, true);
+        xhr.setRequestHeader('Cache-Control', 'no-cache');//?
+        if (polling) {
+          xhr.setRequestHeader('Polling', '1');//!
+        }
+        if (lastEventId !== '') {
+          xhr.setRequestHeader('Last-Event-ID', lastEventId);
+        }
       }
-      if (lastEventId !== '') {
-        xhr.setRequestHeader('Last-Event-ID', lastEventId);
-      }
+
+
       xhr.onreadystatechange = function () {
         // responseText
         // The response to the request as text, or null if the request was unsucessful or has not yet been sent. Read-only.
@@ -231,7 +293,7 @@
           parseStream(xhr.responseText || '', false);
         }
       };
-      xhr.send(null);
+      xhr.send(postData);
     }
 
     reconnectTimeout = setTimeout(openConnection, 1);
