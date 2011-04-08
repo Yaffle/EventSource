@@ -31,12 +31,13 @@
   https://github.com/rwldrn/jquery.eventsource by rick waldron
 
 
-EXAMPLE:
+EXAMPLE
+---------------
+
 
 server-side (node.js)
-<pre>
-var http = require('http');
-var fs = require('fs');
+    var http = require('http');
+    var fs = require('fs');
 
 http.createServer(function (req, res) {
   var t = null;
