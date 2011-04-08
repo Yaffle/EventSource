@@ -34,7 +34,7 @@
 EXAMPLE:
 
 server-side (node.js)
-
+<pre>
 var http = require('http');
 var fs = require('fs');
 
@@ -72,10 +72,11 @@ http.createServer(function (req, res) {
     res.end();
   }
 }).listen(8081); //! port :8081
-
+</pre>
 
 example.html:
 
+<pre>
 <!DOCTYPE html>
 <html>
 <head>
@@ -92,3 +93,4 @@ example.html:
 <body id="body">
 </body>
 </html>
+</pre>
