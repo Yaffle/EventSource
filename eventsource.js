@@ -6,7 +6,7 @@
   "long polling" or "polling" logic for other browsers
 
   Browser Support:
-  IE7+, others
+  IE6+, others
 
   Advantages:
   * Based on last specification of EventSource.
@@ -34,7 +34,18 @@
 */
 
 /*jslint white: true, onevar: true, undef: true, newcap: true, nomen: true, regexp: true, bitwise: true, maxerr: 50, indent: 2 */
-/*global XMLHttpRequest, setTimeout, clearTimeout, navigator*/
+/*global XMLHttpRequest, setTimeout, clearTimeout, navigator, XDomainRequest*/
+
+/* 
+  XMLHttpRequest for IE6
+*/
+if (typeof XMLHttpRequest === "undefined" && typeof ActiveXObject !== "undefined") {
+  XMLHttpRequest = function () {
+ 	try {
+      return new window.ActiveXObject("Microsoft.XMLHTTP");
+	} catch(e) {}
+  };
+}
 
 (function (global) {
   "use strict";
@@ -46,27 +57,23 @@
     var x = new global.XDomainRequest(),
       that = this;
 
-    that.status = 0;
     that.readyState = 0;
     that.responseText = '';
 
     x.onload = function () {
       that.readyState = 4;
-      that.status = 200;
       that.responseText = x.responseText;
       that.onreadystatechange.call(that);
     };
 
     x.onerror = function () {
       that.readyState = 4;
-      that.status = 0;
       that.responseText = '';
       that.onreadystatechange.call(that);
     };
 
     x.onprogress = function () {
       that.readyState = 3;
-      that.status = 200;
       that.responseText = x.responseText;
       that.onreadystatechange.call(that);
     };
@@ -255,13 +262,10 @@
         }
       }
 
-
       xhr.onreadystatechange = function () {
-        // responseText
-        // The response to the request as text, or null if the request was unsucessful or has not yet been sent. Read-only.
 
         if (that.readyState === that.CONNECTING) {
-          if (+xhr.readyState !== 4  || +xhr.status === 200) {//?
+		  if (+xhr.readyState !== 4  || xhr.responseText) {//use xhr.responseText instead of xhr.status (http://bugs.jquery.com/ticket/8135)
             that.readyState = that.OPEN;
           }
           if (that.readyState === that.OPEN) {
