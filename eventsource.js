@@ -2,7 +2,7 @@
   EventSource polyfill for browsers, that doesn't implement native EventSource
   
   Uses XMLHttpRequest:
-  "server push" (XMLHTTPRequest Interactive state) logic for Firefox, XDomainRequest for IE8+
+  "server push" (using XMLHTTPRequest Interactive state, XDomainRequest) logic for Firefox, IE8+ (Opera11+, Chrome8, Safari5 has native support for EventSource)
   "long polling" or "polling" logic for other browsers
 
   Browser Support:
@@ -12,7 +12,7 @@
   * Based on last specification of EventSource.
   * "server push" for Firefox
   * "server push" for IE 8+ with XDomainRequest
-  * Polyfill is independent form document methods (addEventListener), so you
+  * Polyfill is independent from document methods (addEventListener), so you
   * can use it in a Web Worker's scope.
   
   
@@ -32,18 +32,18 @@
   https://github.com/rwldrn/jquery.eventsource by rick waldron
   
 */
-
+// Server Push: IE8+, FF?+, O11+, S5+, C7+
 /*jslint white: true, onevar: true, undef: true, newcap: true, nomen: true, regexp: true, bitwise: true, maxerr: 50, indent: 2 */
-/*global XMLHttpRequest, setTimeout, clearTimeout, navigator, XDomainRequest*/
+/*global XMLHttpRequest, setTimeout, clearTimeout, navigator, XDomainRequest, ActiveXObject*/
 
 /* 
   XMLHttpRequest for IE6
 */
 if (typeof XMLHttpRequest === "undefined" && typeof ActiveXObject !== "undefined") {
   XMLHttpRequest = function () {
- 	try {
-      return new window.ActiveXObject("Microsoft.XMLHTTP");
-	} catch(e) {}
+    try {
+      return new ActiveXObject("Microsoft.XMLHTTP");
+    } catch (e) {}
   };
 }
 
@@ -59,23 +59,23 @@ if (typeof XMLHttpRequest === "undefined" && typeof ActiveXObject !== "undefined
 
     that.readyState = 0;
     that.responseText = '';
+	
+    function onChange(readyState, responseText) {
+      that.readyState = readyState;
+      that.responseText = responseText;
+      that.onreadystatechange();
+    }
 
     x.onload = function () {
-      that.readyState = 4;
-      that.responseText = x.responseText;
-      that.onreadystatechange.call(that);
+      onChange(4, x.responseText);
     };
 
     x.onerror = function () {
-      that.readyState = 4;
-      that.responseText = '';
-      that.onreadystatechange.call(that);
+      onChange(4, '');
     };
 
     x.onprogress = function () {
-      that.readyState = 3;
-      that.responseText = x.responseText;
-      that.onreadystatechange.call(that);
+      onChange(3, x.responseText);
     };
 
     that.open = function (method, url) {
@@ -92,7 +92,6 @@ if (typeof XMLHttpRequest === "undefined" && typeof ActiveXObject !== "undefined
 
     return that;
   }
-
 
   function extendAsEventDispatcher(obj) {
     var listeners = {};
@@ -128,6 +127,7 @@ if (typeof XMLHttpRequest === "undefined" && typeof ActiveXObject !== "undefined
   if (global.EventSource) {
     return;
   }
+
   global.EventSource = function (resource) {
 
     var that = (this === global) ? {} : this,
@@ -139,15 +139,15 @@ if (typeof XMLHttpRequest === "undefined" && typeof ActiveXObject !== "undefined
       data = '', 
       name = '';
 
-    that.url  = resource;
+    that.url = resource;
     that.CONNECTING = 0;
     that.OPEN = 1;
     that.CLOSED = 2;
     that.readyState = that.CONNECTING;
-    
+
     that.close = function () {
       if (xhr !== null) {
-        xhr.abort();//?
+        xhr.abort();
         xhr = null;
       }
       if (reconnectTimeout !== null) {
@@ -177,7 +177,7 @@ if (typeof XMLHttpRequest === "undefined" && typeof ActiveXObject !== "undefined
     }
 
     function parseStream(responseText, eof) {
-      var stream = responseText.replace(/^\uFEFF/, '').replace(/\r\n?/, '\n').split('\n'),
+      var stream = responseText.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').split('\n'),
         i,
         line,
         dataIndex,
@@ -253,9 +253,10 @@ if (typeof XMLHttpRequest === "undefined" && typeof ActiveXObject !== "undefined
 
         // with GET method in FF xhr.onreadystate with readyState === 3 doesn't work
         xhr.open('POST', that.url, true);
-        xhr.setRequestHeader('Cache-Control', 'no-cache');//?
+        xhr.setRequestHeader('Cache-Control', 'no-cache');
         if (polling) {
-          xhr.setRequestHeader('Polling', '1');//!
+          xhr.setRequestHeader('Polling', '1');//!		  
+		  //xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
         }
         if (lastEventId !== '') {
           xhr.setRequestHeader('Last-Event-ID', lastEventId);
@@ -265,13 +266,13 @@ if (typeof XMLHttpRequest === "undefined" && typeof ActiveXObject !== "undefined
       xhr.onreadystatechange = function () {
 
         if (that.readyState === that.CONNECTING) {
-		  if (+xhr.readyState !== 4  || xhr.responseText) {//use xhr.responseText instead of xhr.status (http://bugs.jquery.com/ticket/8135)
+          if (+xhr.readyState !== 4  || xhr.responseText) {//use xhr.responseText instead of xhr.status (http://bugs.jquery.com/ticket/8135)
             that.readyState = that.OPEN;
           }
           if (that.readyState === that.OPEN) {
             that.dispatchEvent({'type': 'open'});
             if (typeof that.onopen === 'function') {
-              that.onopen.call({'type': 'open'});
+              that.onopen({'type': 'open'});
             }
           }
         }
@@ -286,7 +287,7 @@ if (typeof XMLHttpRequest === "undefined" && typeof ActiveXObject !== "undefined
           }*/
           that.dispatchEvent({'type': 'error'});
           if (typeof that.onerror === 'function') {
-            that.onerror.call({'type': 'error'});
+            that.onerror({'type': 'error'});
           }
 
           if (that.readyState !== that.CLOSED) { // reestablishes the connection
