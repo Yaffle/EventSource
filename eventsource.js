@@ -36,19 +36,7 @@
 /*jslint white: true, onevar: true, undef: true, newcap: true, nomen: true, regexp: true, bitwise: true, maxerr: 50, indent: 2 */
 /*global XMLHttpRequest, setTimeout, clearTimeout, navigator, XDomainRequest, ActiveXObject*/
 
-/* 
-  XMLHttpRequest for IE6
-*/
-if (typeof XMLHttpRequest === "undefined" && typeof ActiveXObject !== "undefined") {
-  XMLHttpRequest = function () {
-    try {
-      return new ActiveXObject("Microsoft.XMLHTTP");
-    } catch (e) {}
-  };
-}
-
 (function (global) {
-  "use strict";
 
   // http://blogs.msdn.com/b/ieinternals/archive/2010/04/06/comet-streaming-in-internet-explorer-with-xmlhttprequest-and-xdomainrequest.aspx?PageIndex=1#comments
   // XDomainRequest does not have a binary interface. To use with non-text, first base64 to string.
@@ -121,9 +109,6 @@ if (typeof XMLHttpRequest === "undefined" && typeof ActiveXObject !== "undefined
     return obj;    
   }
 
-  var ua = navigator.userAgent,
-    polling = ua.indexOf('Gecko') === -1 || ua.indexOf('KHTML') !== -1; //? long polling ?!
-
   if (global.EventSource) {
     return;
   }
@@ -145,7 +130,7 @@ if (typeof XMLHttpRequest === "undefined" && typeof ActiveXObject !== "undefined
     that.CLOSED = 2;
     that.readyState = that.CONNECTING;
 
-    that.close = function () {
+    function close() {
       if (xhr !== null) {
         xhr.abort();
         xhr = null;
@@ -156,25 +141,9 @@ if (typeof XMLHttpRequest === "undefined" && typeof ActiveXObject !== "undefined
       }
       that.readyState = that.CLOSED;
     };
+    that.close = close;
 
     extendAsEventDispatcher(that);
-
-    function dEvent() {
-      if (data) {
-        var event = {
-          'type': name || 'message',
-          lastEventId: lastEventId,
-          data: data.replace(/\u000A$/, '')
-        };
-        that.dispatchEvent(event);
-        if ((name || 'message') === 'message' && typeof that.onmessage === 'function') {
-          that.onmessage(event);
-        }
-      }
-      // Set the data buffer and the event name buffer to the empty string.
-      data = '';
-      name = '';
-    }
 
     function parseStream(responseText, eof) {
       var stream = responseText.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').split('\n'),
@@ -182,11 +151,16 @@ if (typeof XMLHttpRequest === "undefined" && typeof ActiveXObject !== "undefined
         line,
         dataIndex,
         field,
-        value;
+        value,
+        event;
 
       if (!eof) {
         // last string
         stream.length = Math.max(0, stream.length - 1);
+      } else {
+        // Once the end of the file is reached, the user agent must dispatch the event one final time
+        // add empty line to dispatch the event
+        stream.push('');
       }
 
       for (i = offset; i < stream.length; i++) {
@@ -197,7 +171,21 @@ if (typeof XMLHttpRequest === "undefined" && typeof ActiveXObject !== "undefined
         value = '';
 
         if (!line) {
-          dEvent();
+          // dispatch the event
+          if (data) {
+            event = {
+              'type': name || 'message',
+              lastEventId: lastEventId,
+              data: data.replace(/\u000A$/, '')
+            };
+            that.dispatchEvent(event);
+            if ((name || 'message') === 'message' && typeof that.onmessage === 'function') {
+              that.onmessage(event);
+            }
+          }
+          // Set the data buffer and the event name buffer to the empty string.
+          data = '';
+          name = '';
         }
         
         if (dataIndex !== 0) {
@@ -219,9 +207,6 @@ if (typeof XMLHttpRequest === "undefined" && typeof ActiveXObject !== "undefined
         }
 
         if (field === 'retry') {
-          // If the field value consists of only characters in the range U+0030 DIGIT ZERO (0) 
-          // to U+0039 DIGIT NINE (9), then interpret the field value as an integer in base ten, 
-          // and set the event stream's reconnection time to that integer. Otherwise, ignore the field.
           if (/^\d+$/.test(value)) {
             retry = +value;
           }
@@ -234,13 +219,15 @@ if (typeof XMLHttpRequest === "undefined" && typeof ActiveXObject !== "undefined
       offset = stream.length;
     }
 
-    function openConnection() {
+    reconnectTimeout = setTimeout(function openConnection() {
       reconnectTimeout = null;
       offset = 0;
       data = '';
       name = '';
       
-      var postData = null;
+      var postData = null,
+        polling = false,
+        ua = navigator.userAgent;
 
       if (global.XDomainRequest) {
         xhr = new XDomainRequestWrapper();
@@ -249,11 +236,16 @@ if (typeof XMLHttpRequest === "undefined" && typeof ActiveXObject !== "undefined
         postData = 'xdomainrequest=1' + (lastEventId !== '' ? '&Last-Event-ID=' + encodeURIComponent(lastEventId) : '');
         xhr.open('POST', that.url);
       } else {
-        xhr = new XMLHttpRequest();
+        if (global.XMLHttpRequest) {
+          xhr = new global.XMLHttpRequest();
+        } else {
+          xhr = new ActiveXObject("Microsoft.XMLHTTP"); // IE 6
+        }
 
         // with GET method in FF xhr.onreadystate with readyState === 3 doesn't work
         xhr.open('POST', that.url, true);
         xhr.setRequestHeader('Cache-Control', 'no-cache');
+        polling = ua.indexOf('Gecko') === -1 || ua.indexOf('KHTML') !== -1;
         if (polling) {
           xhr.setRequestHeader('Polling', '1');//!		  
 		  //xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
@@ -278,8 +270,7 @@ if (typeof XMLHttpRequest === "undefined" && typeof ActiveXObject !== "undefined
         }
 
         if (+xhr.readyState === 4) {
-          parseStream(xhr.responseText || '', true);//?my
-          dEvent();//? Once the end of the file is reached, the user agent must dispatch the event one final time
+          parseStream(xhr.responseText || '', true);
           
           that.readyState = that.CONNECTING;
           /*if (+xhr.status !== 200) {//fail the connection
@@ -299,9 +290,12 @@ if (typeof XMLHttpRequest === "undefined" && typeof ActiveXObject !== "undefined
         }
       };
       xhr.send(postData);
+    }, 1);
+    
+    if ('\v' === 'v' && window.attachEvent) {
+      window.attachEvent('onunload', close);
     }
 
-    reconnectTimeout = setTimeout(openConnection, 1);
     return that;
   };
 }(this));
