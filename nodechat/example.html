@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>EventSource example</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <script type="text/javascript" src="eventsource.js"></script>
+  <script type="text/javascript">
+  setTimeout(function () { // избавляемся от индикации в Chrome
+    var es = (new EventSource('/events'));
+    
+    es.addEventListener('message', function (e) {
+
+      var div = document.createElement('div');
+      var text = document.createTextNode(decodeURIComponent(e.data));
+      div.appendChild(text);  
+
+      var p = document.getElementById('msgs');
+      p.insertBefore(div, p.firstChild);
+    }, false);
+    
+    es.addEventListener('sse', function (e) {
+      document.getElementById('sse').innerHTML = e.data;
+    }, false);
+  }, 10);  
+    function post() {
+      var message = document.getElementById('message').value;
+      
+      if (!message) return !1;
+      document.getElementById('s').disabled = true;
+      var xhr = typeof XMLHttpRequest === "undefined" ? new ActiveXObject("Microsoft.XMLHTTP") : new XMLHttpRequest();
+      xhr.open('POST', '?message=' + encodeURIComponent(message) + '&nc=' + Math.random(), true);
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState === 4) {
+          document.getElementById('s').disabled = false;
+          document.getElementById('message').value = '';
+        }
+      };
+      xhr.send(null);
+      return false;
+    }
+
+  </script>
+  <style type="text/css">
+    #msgs div {
+      border-top: 1px solid silver;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body>
+Кол-во длинных http-соединений к серверу на данный момент: <span id="sse"></span>
+<form action="?"><input type="text" name="message" id="message" required /><input type="submit" id="s" onclick="return post();" value="Отправить сообщение" /></form>
+<div id="msgs"></div>
+</body>
+</html>
