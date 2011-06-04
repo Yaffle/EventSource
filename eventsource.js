@@ -81,32 +81,46 @@
     return that;
   }
 
-  function extendAsEventDispatcher(obj) {
-    var listeners = {};
+  function extendAsEventTarget(obj) {
+    var listeners = [],
+        id = 1;
+
+    function indexOf(type, callback, i) {
+      for (i = 0; i < listeners.length; i++) {
+        if (listeners[i].callback === callback && listeners[i].type === type) {
+          return i;
+        }
+      }
+      return -1;
+    }
 
     obj.dispatchEvent = function (eventObject) {
-      var x = (listeners[eventObject.type] || []), i;
-      for (i = x.length - 1; i >= 0; i--) {
-        x[i].call(obj, eventObject);
+      var i = 0, lowerId = 0, upperId = id, type = eventObject.type;
+      while (i < listeners.length) {
+        if (lowerId < listeners[i].id && listeners[i].id < upperId && listeners[i].type === type) {
+          lowerId = listeners[i].id;
+          listeners[i].callback.call(obj, eventObject);
+          i = -1;
+        }
+        i++;
       }
     };
 
     obj.addEventListener = function (type, callback) {
-      obj.removeEventListener(type, callback);
-      listeners[type].push(callback);
+      if (indexOf(type, callback) === -1) {
+        listeners.push({id: id, type: type, callback: callback});
+        id++;
+      }
     };
 
     obj.removeEventListener = function (type, callback) {
-      var x = listeners[type] || [], y = [], i;
-      for (i = x.length - 1; i >= 0; i--) {
-        if (x[i] !== callback) {
-          y.push(x[i]);
-        }
+      var i = indexOf(type, callback);
+      if (i !== -1) {
+        listeners.splice(i, 1);
       }
-      listeners[type] = y;
     };
 
-    return obj;    
+    return obj;
   }
 
   if (global.EventSource) {
@@ -143,7 +157,7 @@
     };
     that.close = close;
 
-    extendAsEventDispatcher(that);
+    extendAsEventTarget(that);
 
     function parseStream(responseText, eof) {
       var stream = responseText.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').split('\n'),
