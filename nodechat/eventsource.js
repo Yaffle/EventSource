@@ -154,7 +154,7 @@
         reconnectTimeout = null;
       }
       that.readyState = that.CLOSED;
-    };
+    }
     that.close = close;
 
     extendAsEventTarget(that);
@@ -253,12 +253,13 @@
         if (global.XMLHttpRequest) {
           xhr = new global.XMLHttpRequest();
         } else {
-          xhr = new ActiveXObject("Microsoft.XMLHTTP"); // IE 6
+          xhr = new ActiveXObject('Microsoft.XMLHTTP'); // IE 6
         }
 
         // with GET method in FF xhr.onreadystate with readyState === 3 doesn't work
         xhr.open('POST', that.url, true);
         xhr.setRequestHeader('Cache-Control', 'no-cache');
+		xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
         polling = ua.indexOf('Gecko') === -1 || ua.indexOf('KHTML') !== -1;
         if (polling) {
           xhr.setRequestHeader('Polling', '1');//!		  
@@ -306,8 +307,8 @@
       xhr.send(postData);
     }, 1);
     
-    if ('\v' === 'v' && window.attachEvent) {
-      window.attachEvent('onunload', close);
+    if ('\v' === 'v' && global.attachEvent) {
+      global.attachEvent('onunload', close);
     }
 
     return that;
