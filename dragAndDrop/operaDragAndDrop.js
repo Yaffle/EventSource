@@ -57,7 +57,7 @@
       realDragTarget = null,
       lastDropTarget = null;
 
-  function createEvent(name) {
+  function createEvent(name, relatedTarget) {
     var event = document.createEvent('Event');
     event.initEvent(name, true, true);
     if ('dragenter dragover dragleave drop'.indexOf(name) !== -1) {
@@ -81,15 +81,16 @@
         }
       };
     }
+    event.relatedTarget = relatedTarget || null;
     return event;
   }
 
   function getDropTarget(event) {
     dragTarget.style.display = 'none';
-	var dropTarget = document.elementFromPoint(event.clientX, event.clientY);
-	if (dropTarget.nodeType === 3) { // Opera
+    var dropTarget = document.elementFromPoint(event.clientX, event.clientY);
+    if (dropTarget.nodeType === 3) { // Opera
       dropTarget = dropTarget.parentNode;
-	}
+    }
     dragTarget.style.display = '';
     return dropTarget;
   }
@@ -113,7 +114,7 @@
 
       if (lastDropTarget !== dropTarget) {
         if (lastDropTarget) {
-          lastDropTarget.dispatchEvent(createEvent('dragleave'));
+          lastDropTarget.dispatchEvent(createEvent('dragleave', dropTarget));
         }
         lastDropTarget = dropTarget;
         if (dropTarget && dropTarget.dispatchEvent(createEvent('dragenter'))) {
@@ -172,7 +173,7 @@
         lastDropTarget.dispatchEvent(createEvent('drop'));
       }
     }
-	stop();
+    stop();
   }, false);
 
   document.addEventListener('mousedown', function (event) {
@@ -185,7 +186,7 @@
 
     if (target && (+event.which === 1 || (!event.which && event.button === 1))) {
       realDragTarget = target;
-	  //if (!initDrag(event)) {// init on mouse down!!!! not on mouse move!!! to prevent text selection
+      //if (!initDrag(event)) {// init on mouse down!!!! not on mouse move!!! to prevent text selection
       //  realDragTarget = null;
       //} else {
         document.addEventListener('mousemove', onMouseMove, false);
