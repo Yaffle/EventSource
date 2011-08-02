@@ -95,7 +95,17 @@
   }
 
   function onMouseMove(event) {
+    if (!dragTarget && realDragTarget) {
+      if (!initDrag(event)) {
+        stop();
+      }
+      return;
+    }
+    
+  
     if (dragTarget) {
+      window.getSelection().removeAllRanges();
+    
       dragTarget.style.left = event.pageX + 'px';
       dragTarget.style.top = event.pageY + 'px';
 
@@ -127,7 +137,7 @@
       event.stopPropagation();
     }
   }
-  
+
   function initDrag(event) {
     if (realDragTarget.dispatchEvent(createEvent('dragstart'))) {
       dragTarget = document.createElement('div');
@@ -161,8 +171,8 @@
       if (lastDropTarget) {
         lastDropTarget.dispatchEvent(createEvent('drop'));
       }
-	  stop();
-    }    
+    }
+	stop();
   }, false);
 
   document.addEventListener('mousedown', function (event) {
@@ -175,11 +185,11 @@
 
     if (target && (+event.which === 1 || (!event.which && event.button === 1))) {
       realDragTarget = target;
-	  if (!initDrag(event)) {// init on mouse down!!!! not on mouse move!!! to prevent text selection
-        realDragTarget = null;
-      } else {
+	  //if (!initDrag(event)) {// init on mouse down!!!! not on mouse move!!! to prevent text selection
+      //  realDragTarget = null;
+      //} else {
         document.addEventListener('mousemove', onMouseMove, false);
-      }
+     // }
     }
   }, false);
 
