@@ -77,8 +77,14 @@ document.addEventListener('dragstart', function (event) {
   event.dataTransfer.setData('Text', event.target.getAttribute('data-x'));
 }, false);
 
+setTimeout(function () {
+  var d = document.querySelector('#dragme');
+  d.addEventListener('click', function () {
+    alert('clicked!');
+  }, false);
+}, 1);
 
 </script>
 <div class="dropzone" style="border:1px solid blue;width: 100px; height: 50px;">dropzone</div>
 <div draggable="true" data-x="12345" class="dropzone" style="border:1px solid blue;width: 100px; height: 50px;">dropzone</div>
-<div draggable="true" data-x="!!! dropped" style="background:#eee">draggaple</div>
+<div draggable="true" id="dragme" data-x="!!! dropped" style="background:#eee">draggaple</div>
