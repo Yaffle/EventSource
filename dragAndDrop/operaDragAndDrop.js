@@ -54,6 +54,7 @@
 
   var dragTarget = null,
       dragData = {},
+      dragImage = null,
       realDragTarget = null,
       lastDropTarget = null;
 
@@ -67,8 +68,11 @@
         }
       };
     }
-    if (name === 'dragstart') {
+    if (name === 'dragstart') {// read/write mode
       event.dataTransfer = {
+        setDragImage: function (image, x, y) {
+          dragImage = image;
+        },
         setData: function (dataFormat, data) {
           dragData[dataFormat] = data;
         },
@@ -140,11 +144,38 @@
   }
 
   function initDrag(event) {
+    if (realDragTarget.tagName === 'IMG') {
+      dragData['Text'] = realDragTarget.src;
+      dragData['URL'] = realDragTarget.src;
+      dragImage = realDragTarget;
+    }
+    if (realDragTarget.tagName === 'A' && realDragTarget.href) {
+      dragData['Text'] = realDragTarget.href;
+      dragData['URL'] = realDragTarget.href;
+    }
     if (realDragTarget.dispatchEvent(createEvent('dragstart'))) {
       dragTarget = document.createElement('div');
       dragTarget.className = 'dragNode';
       dragTarget.innerHTML = '<div>Drag<br />and<br />Drop</div>';
       onMouseMove(event);
+      if (dragImage) {
+        if (dragImage.tagName === 'IMG' && dragImage.src) {
+          dragTarget.innerHTML = '<img src="' + dragImage.src + '" />';
+        } else {
+          try {
+            var canvas = document.createElement('canvas');
+            var context = canvas.getContext('2d');
+            canvas.width = realDragTarget.width;
+            canvas.height = realDragTarget.height;
+            context.drawImage(realDragTarget, 0, 0);
+          
+            dragTarget.innerHTML = '<img src="' + canvas.toDataURL() + '" />';
+          } catch (e) {
+            // same origin or not img element...
+          }
+        }
+
+      }
       document.body.appendChild(dragTarget);
       return true;
     }
@@ -159,6 +190,7 @@
     }
     dragTarget = null;
     dragData = {};
+    dragImage = null;
     if (lastDropTarget) {
       lastDropTarget.dispatchEvent(createEvent('dragleave'));
       lastDropTarget = null;
@@ -180,7 +212,7 @@
     stop();
 
     var target = event.target;
-    while (target && !(target.hasAttribute && target.hasAttribute('draggable'))) {
+    while (target && !((target.hasAttribute && target.hasAttribute('draggable')) || target.tagName === 'IMG' || (target.tagName === 'A' && target.href))) {
       target = target.parentNode;
     }
 

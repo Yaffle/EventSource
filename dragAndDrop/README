@@ -22,7 +22,7 @@ Add this to your html page:
   line-height: 16px;
   box-shadow: inset 0 0 24px silver, 0 0 12px gray;
   z-index: 10;
-
+  opacity: 0.8;
   display: table;
 }
 
