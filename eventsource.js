@@ -1,39 +1,4 @@
-/**
-  EventSource polyfill for browsers, that doesn't implement native EventSource
-  
-  Uses XMLHttpRequest:
-  "server push" (using XMLHTTPRequest Interactive state, XDomainRequest) logic for Firefox, IE8+ (Opera11+, Chrome8, Safari5 has native support for EventSource)
-  "long polling" or "polling" logic for other browsers
-
-  Browser Support:
-  IE6+, others
-
-  Advantages:
-  * Based on last specification of EventSource.
-  * "server push" for Firefox
-  * "server push" for IE 8+ with XDomainRequest
-  * Polyfill is independent from document methods (addEventListener), so you
-  * can use it in a Web Worker's scope.
-  
-  
-  Server-side requirements:
-  When "server push" not supported, "Polling" HTTP Header is sended on each request
-  to tell your server side script to close connection after 
-  sending a data.
-  XDomainRequest sends "Last-Event-ID" with POST body (XDomainRequest object does not have a setRequestHeader method)
-  Also XDomainRequest requires send two kilobyte “prelude” at the top of the response stream.
-  ( http://blogs.msdn.com/b/ieinternals/archive/2010/04/06/comet-streaming-in-internet-explorer-with-xmlhttprequest-and-xdomainrequest.aspx?PageIndex=1 )
-
-  http://weblog.bocoup.com/javascript-eventsource-now-available-in-firefox
-  http://www.w3.org/TR/eventsource/
-
-  Other EventSource polyfills:
-  https://github.com/remy/polyfills/blob/master/EventSource.js by Remy Sharp
-  https://github.com/rwldrn/jquery.eventsource by rick waldron
-  
-*/
-// Server Push: IE8+, FF?+, O11+, S5+, C7+
-/*jslint white: true, onevar: true, undef: true, newcap: true, nomen: true, regexp: true, bitwise: true, maxerr: 50, indent: 2 */
+/*jslint plusplus: true, indent: 2 */
 /*global XMLHttpRequest, setTimeout, clearTimeout, navigator, XDomainRequest, ActiveXObject*/
 
 (function (global) {
@@ -47,7 +12,7 @@
 
     that.readyState = 0;
     that.responseText = '';
-	
+    
     function onChange(readyState, responseText) {
       that.readyState = readyState;
       that.responseText = responseText;
@@ -82,41 +47,35 @@
   }
 
   function extendAsEventTarget(obj) {
-    var listeners = [],
-        id = 1;
-
-    function indexOf(type, callback, i) {
-      for (i = 0; i < listeners.length; i++) {
-        if (listeners[i].callback === callback && listeners[i].type === type) {
-          return i;
-        }
-      }
-      return -1;
-    }
+    var listeners = [];
 
     obj.dispatchEvent = function (eventObject) {
-      var i = 0, lowerId = 0, upperId = id, type = eventObject.type;
-      while (i < listeners.length) {
-        if (lowerId < listeners[i].id && listeners[i].id < upperId && listeners[i].type === type) {
-          lowerId = listeners[i].id;
-          listeners[i].callback.call(obj, eventObject);
-          i = -1;
+      var clone = listeners.slice(0),
+          type = eventObject.type, i;
+      for (i = 0; i < clone.length; i++) {
+        if (clone[i].type === type) {
+          clone[i].callback.call(obj, eventObject);
         }
-        i++;
       }
     };
 
     obj.addEventListener = function (type, callback) {
-      if (indexOf(type, callback) === -1) {
-        listeners.push({id: id, type: type, callback: callback});
-        id++;
+      var i;
+      for (i = 0; i < listeners.length; i++) {
+        if (listeners[i].type === type && listeners[i].callback === callback) {
+          return;
+        }
       }
+      listeners.push({type: type, callback: callback});
     };
 
     obj.removeEventListener = function (type, callback) {
-      var i = indexOf(type, callback);
-      if (i !== -1) {
-        listeners.splice(i, 1);
+      var i;
+      for (i = 0; i < listeners.length; i++) {
+        if (listeners[i].type === type && listeners[i].callback === callback) {
+          listeners[i].type = {};// mark as removed
+          listeners.splice(i, 1);
+        }
       }
     };
 
@@ -159,7 +118,7 @@
 
     extendAsEventTarget(that);
 
-    function parseStream(responseText, eof) {
+    function parseStream(responseText) {
       var stream = responseText.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').split('\n'),
         i,
         line,
@@ -168,14 +127,7 @@
         value,
         event;
 
-      if (!eof) {
-        // last string
-        stream.length = Math.max(0, stream.length - 1);
-      } else {
-        // Once the end of the file is reached, the user agent must dispatch the event one final time
-        // add empty line to dispatch the event
-        stream.push('');
-      }
+      stream.pop();
 
       for (i = offset; i < stream.length; i++) {
         line = stream[i];
@@ -201,7 +153,7 @@
           data = '';
           name = '';
         }
-        
+
         if (dataIndex !== 0) {
           if (dataIndex !== -1) {
             field = line.slice(0, dataIndex);
@@ -259,11 +211,11 @@
         // with GET method in FF xhr.onreadystate with readyState === 3 doesn't work
         xhr.open('POST', that.url, true);
         xhr.setRequestHeader('Cache-Control', 'no-cache');
-		xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+        xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
         polling = ua.indexOf('Gecko') === -1 || ua.indexOf('KHTML') !== -1;
         if (polling) {
-          xhr.setRequestHeader('Polling', '1');//!		  
-		  //xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+          xhr.setRequestHeader('Polling', '1');//!
+          //xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
         }
         if (lastEventId !== '') {
           xhr.setRequestHeader('Last-Event-ID', lastEventId);
@@ -285,7 +237,7 @@
         }
 
         if (+xhr.readyState === 4) {
-          parseStream(xhr.responseText || '', true);
+          parseStream(xhr.responseText || '');
           
           that.readyState = that.CONNECTING;
           /*if (+xhr.status !== 200) {//fail the connection
@@ -301,7 +253,7 @@
           }
         }
         if (!polling && +xhr.readyState === 3) {
-          parseStream(xhr.responseText || '', false);
+          parseStream(xhr.responseText || '');
         }
       };
       xhr.send(postData);
