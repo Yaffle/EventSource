@@ -212,7 +212,7 @@
     stop();
 
     var target = event.target;
-    while (target && !((target.hasAttribute && target.hasAttribute('draggable')) || target.tagName === 'IMG' || (target.tagName === 'A' && target.href))) {
+    while (target && !(target.hasAttribute && (target.hasAttribute('draggable') || target.tagName === 'IMG' || (target.tagName === 'A' && target.href)) && target.getAttribute('draggable') !== 'false')) {
       target = target.parentNode;
     }
 
