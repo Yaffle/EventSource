@@ -12,7 +12,7 @@
 
     that.readyState = 0;
     that.responseText = '';
-    
+
     function onChange(readyState, responseText) {
       that.readyState = readyState;
       that.responseText = responseText;
@@ -59,23 +59,25 @@
       }
     };
 
-    obj.addEventListener = function (type, callback) {
-      var i;
-      for (i = 0; i < listeners.length; i++) {
-        if (listeners[i].type === type && listeners[i].callback === callback) {
-          return;
-        }
+    function lastIndexOf(type, callback) {
+      var i = listeners.length - 1;
+      while (i >= 0 && !(listeners[i].type === type && listeners[i].callback === callback)) {
+        i--;
       }
-      listeners.push({type: type, callback: callback});
+      return i;
+    }
+
+    obj.addEventListener = function (type, callback) {      
+      if (lastIndexOf(type, callback) === -1) {
+        listeners.push({type: type, callback: callback});
+      }
     };
 
     obj.removeEventListener = function (type, callback) {
-      var i;
-      for (i = 0; i < listeners.length; i++) {
-        if (listeners[i].type === type && listeners[i].callback === callback) {
-          listeners[i].type = {};// mark as removed
-          listeners.splice(i, 1);
-        }
+      var i = lastIndexOf(type, callback);
+      if (i !== -1) {
+        listeners[i].type = {};// mark as removed
+        listeners.splice(i, 1);      
       }
     };
 
@@ -122,7 +124,6 @@
       var stream = responseText.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').split('\n'),
         i,
         line,
-        dataIndex,
         field,
         value,
         event;
@@ -131,10 +132,6 @@
 
       for (i = offset; i < stream.length; i++) {
         line = stream[i];
-
-        dataIndex = line.indexOf(':');
-        field = null;
-        value = '';
 
         if (!line) {
           // dispatch the event
@@ -154,15 +151,9 @@
           name = '';
         }
 
-        if (dataIndex !== 0) {
-          if (dataIndex !== -1) {
-            field = line.slice(0, dataIndex);
-            value = line.slice(dataIndex + 1).replace(/^\u0020/, '');
-          } else {
-            field = line;
-            value = '';
-          }
-        }
+        field = line.match(/([^\:]*)(?:\:\u0020?([\s\S]+))?/);
+        value = field[2];
+        field = field[1];
 
         if (field === 'event') {
           name = value;
@@ -216,12 +207,13 @@
         if (lastEventId !== '') {
           xhr.setRequestHeader('Last-Event-ID', lastEventId);
         }
+        //xhr.withCredentials = true;
       }
 
       xhr.onreadystatechange = function () {
 
         if (that.readyState === that.CONNECTING) {
-          if (+xhr.readyState !== 4  || xhr.responseText) {//use xhr.responseText instead of xhr.status (http://bugs.jquery.com/ticket/8135)
+          if (+xhr.readyState !== 4 || xhr.responseText) {//use xhr.responseText instead of xhr.status (http://bugs.jquery.com/ticket/8135)
             that.readyState = that.OPEN;
           }
           if (that.readyState === that.OPEN) {

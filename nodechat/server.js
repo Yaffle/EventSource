@@ -13,7 +13,6 @@ var EventEmitter = require('events').EventEmitter;
 var emitter = new EventEmitter();
 var querystring = require('querystring');
 var history = [];
-var countSSE = 0;
 
 
 
@@ -29,7 +28,7 @@ http.createServer(function (req, res) {
   var q = require('url').parse(req.url, true);
   if (q.query.message) {
     var time = new Date();
-    emitter.emit('message', (time.getDate() + '.' + ('0' + (1+time.getMonth())).slice(-2) + '.' + time.getFullYear()) + ' ' + time.toLocaleTimeString() + ' IP: ' + req.connection.remoteAddress + ' :: ' + q.query.message);
+    emitter.emit('message', (time.getDate() + '.' + ('0' + (1 + time.getMonth())).slice(-2) + '.' + time.getFullYear()) + ' ' + time.toLocaleTimeString() + ' IP: ' + req.connection.remoteAddress + ' :: ' + q.query.message);
     res.writeHead(200, {'Content-Type': 'text/html'});
     res.end('1');    
   }
@@ -39,53 +38,47 @@ http.createServer(function (req, res) {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
-      'Access-Control-Allow-Origin': '*'
+     // 'Access-Control-Allow-Origin': reg.headers['origin'],
+     // 'Access-Control-Allow-Credentials': 'true',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'X-Requested-With, Polling, Cache-Control, Last-Event-ID',
+      'Access-Control-Max-Age': '8640'
     });
     var lastEventId = +req.headers['last-event-id'] || +post['Last-Event-ID'] || 0;
-    
-    // с двоеточия начинается комментарий - отсылаем ввиде комментарий 2 килобайта пробелов для работы
-    // XDomainRequest
+    var polling = req.headers.polling;
+
+    // 2 kb comment message for XDomainRequest
     res.write(':' + Array(2049).join(' ') + '\n');
-    
-    function sendSSE() {
-      res.write('event: sse\ndata: ' + countSSE + '\n\n');
-    }
+
     function sendMessages() {
+      var somethignSended = lastEventId < history.length;
       while (lastEventId < history.length) {
         res.write('id: ' + (lastEventId + 1) + '\n' + 'data: ' + encodeURIComponent(history[lastEventId]) + '\n\n');
         lastEventId++;
       }
-    }
-    sendMessages();
-    sendSSE();
-    
-    if (req.headers.polling) { // если был заголовок polling - нужно прерывать соединение после отправки данных
-      res.end();
-      return;
+      if (somethignSended && polling) {
+        emitter.removeListener('message', sendMessages);
+        res.end();
+      }
     }
 
-    emitter.addListener('sse', sendSSE);
     emitter.addListener('message', sendMessages);
     emitter.setMaxListeners(0);
 
-    countSSE++;
-    emitter.emit('sse', countSSE);
-
-    // когда пользователь отключился:
+    // client closes connection
     res.socket.on('close', function () {
       emitter.removeListener('message', sendMessages);
-      emitter.removeListener('sse', sendSSE);
       res.end();
-
-      countSSE--;
-      emitter.emit('sse', countSSE);
     });
+
+    sendMessages();
 
   }
   
   if (req.url === '/events') {
-  
-    var post = '';  
+
+    var post = '';
     if (req.method === 'POST') {
       req.addListener('data', function (data) {
 		post += data;
@@ -97,7 +90,7 @@ http.createServer(function (req, res) {
     } else {
       eventStream({});
     }
-    
+
   } else {
     if (req.url !== '/example.html' && req.url !== '/eventsource.js') {
       req.url = '/example.html';

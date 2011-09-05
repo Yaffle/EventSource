@@ -14,7 +14,7 @@
   * "server push" for IE 8+ with XDomainRequest
   * Polyfill is independent from document methods (addEventListener), so you
   * can use it in a Web Worker's scope.
-  
+  * CORS supported for IE 8+, Firefox
   
   Server-side requirements:
   When "server push" not supported, "Polling" HTTP Header is sended on each request
