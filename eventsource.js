@@ -190,7 +190,7 @@
       offset = 0;
       data = '';
       name = '';
-      
+
       var postData = null,
         polling = false,
         ua = navigator.userAgent;
@@ -202,11 +202,7 @@
         postData = 'xdomainrequest=1' + (lastEventId !== '' ? '&Last-Event-ID=' + encodeURIComponent(lastEventId) : '');
         xhr.open('POST', that.url);
       } else {
-        if (global.XMLHttpRequest) {
-          xhr = new global.XMLHttpRequest();
-        } else {
-          xhr = new ActiveXObject('Microsoft.XMLHTTP'); // IE 6
-        }
+        xhr = global.XMLHttpRequest ? (new global.XMLHttpRequest()) : (new ActiveXObject('Microsoft.XMLHTTP'));
 
         // with GET method in FF xhr.onreadystate with readyState === 3 doesn't work
         xhr.open('POST', that.url, true);
@@ -215,7 +211,7 @@
         polling = ua.indexOf('Gecko') === -1 || ua.indexOf('KHTML') !== -1;
         if (polling) {
           xhr.setRequestHeader('Polling', '1');//!
-          //xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+          xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
         }
         if (lastEventId !== '') {
           xhr.setRequestHeader('Last-Event-ID', lastEventId);
@@ -258,7 +254,7 @@
       };
       xhr.send(postData);
     }, 1);
-    
+
     if ('\v' === 'v' && global.attachEvent) {
       global.attachEvent('onunload', close);
     }
