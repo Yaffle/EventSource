@@ -96,6 +96,7 @@
     var that = (this === global) ? {} : this,
       retry = 1000,
       offset = 0,
+      charOffset = 0,
       lastEventId = '',
       xhr = null,
       reconnectTimeout = null,
@@ -124,16 +125,18 @@
     extendAsEventTarget(that);
 
     function parseStream(responseText) {
-      var stream = responseText.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').split('\n'),
-        i,
-        line,
-        field,
-        value,
-        event;
+      if (responseText.indexOf('\r', charOffset) === -1 && responseText.indexOf('\n', charOffset) === -1) {
+        charOffset = responseText.length;
+        return;
+      }
+      charOffset = responseText.length;
 
-      stream.pop();
+      var part = responseText.slice(offset),
+          stream = (offset ? part : part.replace(/^\uFEFF/, '')).replace(/\r\n?/g, '\n').split('\n'),
+          line, field, value, event, i;
+      offset += Math.max(part.lastIndexOf('\n'), part.lastIndexOf('\r')) + 1;
 
-      for (i = offset; i < stream.length; i++) {
+      for (i = 0; i < stream.length - 1; i++) {
         line = stream[i];
 
         if (!line) {
@@ -176,12 +179,12 @@
           data += value + '\n';
         }
       }
-      offset = stream.length;
     }
 
     reconnectTimeout = setTimeout(function openConnection() {
       reconnectTimeout = null;
       offset = 0;
+      charOffset = 0;
       data = '';
       name = '';
 
