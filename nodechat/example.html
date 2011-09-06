@@ -7,44 +7,44 @@
   <script type="text/javascript" src="eventsource.js"></script>
   <script type="text/javascript">
 
-  function onDomReady() {
-    setTimeout(function () { // prevent Chrome loading indication
+    var origin = ''; // http://www.example.xxx:8001/
+    if (!EventSource.supportCORS) { origin = ''; }
 
-      var es = (new EventSource('/events'));
+    function onDomReady() {
+      setTimeout(function () { // prevent Chrome loading indication
 
-      es.addEventListener('message', function (e) {
+        var es = (new EventSource(origin + 'events'));
 
-        var div = document.createElement('div');
-        var text = document.createTextNode(decodeURIComponent(e.data));
-        div.appendChild(text);
+        es.addEventListener('message', function (e) {
 
-        var p = document.getElementById('msgs');
-        p.insertBefore(div, p.firstChild);
-      }, false);
+          var div = document.createElement('div');
+          var text = document.createTextNode(decodeURIComponent(e.data));
+          div.appendChild(text);
 
-    }, 10);
-  }
-  
-  if (document.addEventListener) {
-    document.addEventListener('DOMContentLoaded', onDomReady, false);
-  } else {
-    onDomReady();
-  }
+          var p = document.getElementById('msgs');
+          p.insertBefore(div, p.firstChild);
+        }, false);
+
+      }, 10);
+    }
+
+    if (document.addEventListener) {
+      document.addEventListener('DOMContentLoaded', onDomReady, false);
+    } else {
+      onDomReady();
+    }
 
     function post() {
       var message = document.getElementById('message').value;
-      
+
       if (!message) return false;
-      document.getElementById('s').disabled = true;
-      var xhr = typeof XMLHttpRequest === "undefined" ? new ActiveXObject("Microsoft.XMLHTTP") : new XMLHttpRequest();
-      xhr.open('POST', '?message=' + encodeURIComponent(message) + '&nc=' + Math.random(), true);
-      xhr.onreadystatechange = function () {
-        if (xhr.readyState === 4) {
-          document.getElementById('s').disabled = false;
-          document.getElementById('message').value = '';
-        }
-      };
-      xhr.send(null);
+      document.getElementById('message').value = '';
+
+      var script = document.createElement('script');        
+      script.setAttribute('src', origin + '?message=' + encodeURIComponent(message) + '&nc=' + Math.random());
+      script.setAttribute('type', 'text/javascript');                
+      document.body.appendChild(script);
+
       return false;
     }
 

@@ -1,5 +1,5 @@
 /*jslint plusplus: true, indent: 2 */
-/*global XMLHttpRequest, setTimeout, clearTimeout, navigator, XDomainRequest, ActiveXObject*/
+/*global XMLHttpRequest, setTimeout, clearTimeout, XDomainRequest, ActiveXObject*/
 
 (function (global) {
 
@@ -84,7 +84,10 @@
     return obj;
   }
 
-  if (global.EventSource) {
+  var XHR2CORSSupported = global.XDomainRequest || (global.XMLHttpRequest && ('onprogress' in (new XMLHttpRequest())) && ('withCredentials' in (new XMLHttpRequest())));
+
+  // FF 6 doesn't support SSE + CORS
+  if (global.EventSource && !XHR2CORSSupported) {
     return;
   }
 
@@ -183,13 +186,12 @@
       name = '';
 
       var postData = null,
-        polling = false,
-        ua = navigator.userAgent;
+        polling = false;
+        //ua = navigator.userAgent;
 
       if (global.XDomainRequest) {
         xhr = new XDomainRequestWrapper();
 
-        polling = false;
         postData = 'xdomainrequest=1' + (lastEventId !== '' ? '&Last-Event-ID=' + encodeURIComponent(lastEventId) : '');
         xhr.open('POST', that.url);
       } else {
@@ -197,9 +199,10 @@
 
         // with GET method in FF xhr.onreadystate with readyState === 3 doesn't work
         xhr.open('POST', that.url, true);
-        xhr.setRequestHeader('Cache-Control', 'no-cache');
+        //xhr.setRequestHeader('Cache-Control', 'no-cache'); Chrome bug
         xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
-        polling = ua.indexOf('Gecko') === -1 || ua.indexOf('KHTML') !== -1;
+
+        polling = !XHR2CORSSupported;//ua.indexOf('Gecko') === -1 || ua.indexOf('KHTML') !== -1;
         if (polling) {
           xhr.setRequestHeader('Polling', '1');//!
           xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
@@ -226,7 +229,7 @@
 
         if (+xhr.readyState === 4) {
           parseStream(xhr.responseText || '');
-          
+
           that.readyState = that.CONNECTING;
           /*if (+xhr.status !== 200) {//fail the connection
             that.readyState = that.CLOSED;
@@ -253,4 +256,5 @@
 
     return that;
   };
+  global.EventSource.supportCORS = XHR2CORSSupported;
 }(this));

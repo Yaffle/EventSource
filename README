@@ -14,8 +14,8 @@
   * "server push" for IE 8+ with XDomainRequest
   * Polyfill is independent from document methods (addEventListener), so you
   * can use it in a Web Worker's scope.
-  * CORS supported for IE 8+, Firefox
-  
+  * CORS supported for IE 8+, Firefox, Chrome, Safari
+
   Server-side requirements:
   When "server push" not supported, "Polling" HTTP Header is sended on each request
   to tell your server side script to close connection after 
@@ -30,9 +30,13 @@
   Other EventSource polyfills:
   https://github.com/remy/polyfills/blob/master/EventSource.js by Remy Sharp
   https://github.com/rwldrn/jquery.eventsource by rick waldron
- 
 
 
+
+
+  CORS in native SSE (not implemented yet):
+  https://bugzilla.mozilla.org/show_bug.cgi?id=664179
+  https://bugs.webkit.org/show_bug.cgi?id=61862
 
 
 EXAMPLE
