@@ -92,7 +92,7 @@ http.createServer(function (req, res) {
     }
 
   } else {
-    if (req.url !== '/example.html' && req.url !== '/eventsource.js') {
+    if (req.url !== '/example.html' && req.url !== '/eventsource.js' && req.url !== '/sharedworker.js') {
       req.url = '/example.html';
     }
     res.writeHead(200, {'Content-Type': (req.url.indexOf('.js') !== -1 ? 'text/javascript' : 'text/html')});

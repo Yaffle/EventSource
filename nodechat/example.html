@@ -8,22 +8,28 @@
   <script type="text/javascript">
 
     var origin = ''; // http://www.example.xxx:8001/
-    if (!EventSource.supportCORS) { origin = ''; }
+    if (!EventSource.supportCORS) { origin = ''; }//!
+
+    function onSSEMessage(e) {
+      var div = document.createElement('div');
+      var text = document.createTextNode(decodeURIComponent(e.data));
+      div.appendChild(text);
+
+      var p = document.getElementById('msgs');
+      p.insertBefore(div, p.firstChild);
+    }
 
     function onDomReady() {
       setTimeout(function () { // prevent Chrome loading indication
 
-        var es = (new EventSource(origin + 'events'));
-
-        es.addEventListener('message', function (e) {
-
-          var div = document.createElement('div');
-          var text = document.createTextNode(decodeURIComponent(e.data));
-          div.appendChild(text);
-
-          var p = document.getElementById('msgs');
-          p.insertBefore(div, p.firstChild);
-        }, false);
+        if (window.SharedWorker) {
+          var x = new window.SharedWorker('sharedworker.js', origin); // x.name === origin
+          x.port.addEventListener('message', onSSEMessage, false);
+          x.port.start();
+        } else {
+          var es = (new EventSource(origin + 'events'));
+          es.addEventListener('message', onSSEMessage, false);
+        }
 
       }, 10);
     }
