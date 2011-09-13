@@ -81,12 +81,12 @@ http.createServer(function (req, res) {
     var post = '';
     if (req.method === 'POST') {
       req.addListener('data', function (data) {
-		post += data;
-	  });
+        post += data;
+      });
       req.addListener('end', function () {
-		post = querystring.parse(post);
+        post = querystring.parse(post);
         eventStream(post);
-	  });
+      });
     } else {
       eventStream({});
     }
