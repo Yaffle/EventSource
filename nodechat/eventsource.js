@@ -1,4 +1,4 @@
-/*jslint plusplus: true, indent: 2 */
+/*jslint sloppy: true, white: true, plusplus: true, indent: 2 */
 /*global XMLHttpRequest, setTimeout, clearTimeout, XDomainRequest, ActiveXObject*/
 
 (function (global) {
@@ -43,6 +43,12 @@
       return x.send(postData);
     };
 
+    that.setRequestHeader = function () {};
+    
+    that.getResponseHeader = function (name) {
+      return (/^content\-type$/i).test(name) ? x.contentType : '';
+    };
+
     return that;
   }
 
@@ -59,25 +65,24 @@
       }
     };
 
-    function lastIndexOf(type, callback) {
+    obj.addEventListener = function (type, callback) {
       var i = listeners.length - 1;
       while (i >= 0 && !(listeners[i].type === type && listeners[i].callback === callback)) {
         i--;
       }
-      return i;
-    }
-
-    obj.addEventListener = function (type, callback) {      
-      if (lastIndexOf(type, callback) === -1) {
+      if (i === -1) {
         listeners.push({type: type, callback: callback});
       }
     };
 
     obj.removeEventListener = function (type, callback) {
-      var i = lastIndexOf(type, callback);
-      if (i !== -1) {
+      var i = listeners.length - 1;
+      while (i >= 0 && !(listeners[i].type === type && listeners[i].callback === callback)) {
+        i--;
+      }
+      if (i === -1) {
         listeners[i].type = {};// mark as removed
-        listeners.splice(i, 1);      
+        listeners.splice(i, 1);
       }
     };
 
@@ -87,126 +92,61 @@
   var XHR2CORSSupported = global.XDomainRequest || (global.XMLHttpRequest && ('onprogress' in (new XMLHttpRequest())) && ('withCredentials' in (new XMLHttpRequest())));
 
   // FF 6 doesn't support SSE + CORS
-  if (global.EventSource && !XHR2CORSSupported) {
-    return;
-  }
+  if (!global.EventSource || XHR2CORSSupported) {
+    global.EventSource = function (url) {
+      url = String(url);
 
-  global.EventSource = function (resource) {
-
-    var that = (this === global) ? {} : this,
-      retry = 1000,
-      offset = 0,
-      charOffset = 0,
-      lastEventId = '',
-      xhr = null,
-      reconnectTimeout = null,
-      data = '', 
-      name = '';
-
-    that.url = resource;
-    that.CONNECTING = 0;
-    that.OPEN = 1;
-    that.CLOSED = 2;
-    that.readyState = that.CONNECTING;
-
-    function close() {
-      if (xhr !== null) {
-        xhr.abort();
-        xhr = null;
-      }
-      if (reconnectTimeout !== null) {
-        clearTimeout(reconnectTimeout);
+      var that = (this === global) ? {} : this,
+        retry = 1000,
+        lastEventId = '',
+        xhr = null,
         reconnectTimeout = null;
-      }
-      that.readyState = that.CLOSED;
-    }
-    that.close = close;
 
-    extendAsEventTarget(that);
+      that.url = url;
+      that.CONNECTING = 0;
+      that.OPEN = 1;
+      that.CLOSED = 2;
+      that.readyState = that.CONNECTING;
 
-    function parseStream(responseText) {
-      if (responseText.indexOf('\r', charOffset) === -1 && responseText.indexOf('\n', charOffset) === -1) {
-        charOffset = responseText.length;
-        return;
-      }
-      charOffset = responseText.length;
-
-      var part = responseText.slice(offset),
-          stream = (offset ? part : part.replace(/^\uFEFF/, '')).replace(/\r\n?/g, '\n').split('\n'),
-          line, field, value, event, i;
-      offset += Math.max(part.lastIndexOf('\n'), part.lastIndexOf('\r')) + 1;
-
-      for (i = 0; i < stream.length - 1; i++) {
-        line = stream[i];
-
-        if (!line) {
-          // dispatch the event
-          if (data) {
-            event = {
-              'type': name || 'message',
-              lastEventId: lastEventId,
-              data: data.replace(/\u000A$/, '')
-            };
-            that.dispatchEvent(event);
-            if ((name || 'message') === 'message' && typeof that.onmessage === 'function') {
-              that.onmessage(event);
-            }
-          }
-          // Set the data buffer and the event name buffer to the empty string.
-          data = '';
-          name = '';
-        }
-
-        field = line.match(/([^\:]*)(?:\:\u0020?([\s\S]+))?/);
-        value = field[2];
-        field = field[1];
-
-        if (field === 'event') {
-          name = value;
-        }
-
-        if (field === 'id') {
-          lastEventId = value;
-        }
-
-        if (field === 'retry') {
-          if (/^\d+$/.test(value)) {
-            retry = +value;
-          }
-        }
-
-        if (field === 'data') {
-          data += value + '\n';
+      function dispatchEvent(event) {
+        that.dispatchEvent(event);
+        if (/message|error|open/.test(event.type) && typeof that['on' + event.type] === 'function') {
+          that['on' + event.type](event);
         }
       }
-    }
 
-    reconnectTimeout = setTimeout(function openConnection() {
-      reconnectTimeout = null;
-      offset = 0;
-      charOffset = 0;
-      data = '';
-      name = '';
+      function close() {
+        if (xhr !== null) {
+          xhr.abort();
+          xhr = null;
+        }
+        if (reconnectTimeout !== null) {
+          clearTimeout(reconnectTimeout);
+          reconnectTimeout = null;
+        }
+        that.readyState = that.CLOSED;
+      }
+      that.close = close;
 
-      var postData = null,
-        polling = false;
-        //ua = navigator.userAgent;
+      extendAsEventTarget(that);
 
-      if (global.XDomainRequest) {
-        xhr = new XDomainRequestWrapper();
+      reconnectTimeout = setTimeout(function openConnection() {
+        reconnectTimeout = null;
 
-        postData = 'xdomainrequest=1' + (lastEventId !== '' ? '&Last-Event-ID=' + encodeURIComponent(lastEventId) : '');
-        xhr.open('POST', that.url);
-      } else {
-        xhr = global.XMLHttpRequest ? (new global.XMLHttpRequest()) : (new ActiveXObject('Microsoft.XMLHTTP'));
+        var postData = (lastEventId !== '' ? 'Last-Event-ID=' + encodeURIComponent(lastEventId) : ''),
+            offset = 0,
+            charOffset = 0,
+            data = '',
+            name = '';
 
-        // with GET method in FF xhr.onreadystate with readyState === 3 doesn't work
-        xhr.open('POST', that.url, true);
+        xhr = global.XDomainRequest ? (new XDomainRequestWrapper()) : (global.XMLHttpRequest ? (new global.XMLHttpRequest()) : (new ActiveXObject('Microsoft.XMLHTTP')));
+
+        // with GET method in FF xhr.onreadystatechange with readyState === 3 doesn't work
+        xhr.open('POST', url, true);
         //xhr.setRequestHeader('Cache-Control', 'no-cache'); Chrome bug
         xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
 
-        polling = !XHR2CORSSupported;//ua.indexOf('Gecko') === -1 || ua.indexOf('KHTML') !== -1;
-        if (polling) {
+        if (!XHR2CORSSupported) {
           xhr.setRequestHeader('Polling', '1');//!
           xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
         }
@@ -214,50 +154,92 @@
           xhr.setRequestHeader('Last-Event-ID', lastEventId);
         }
         //xhr.withCredentials = true;
-      }
 
-      xhr.onreadystatechange = function () {
+        xhr.onreadystatechange = function () {
+          var readyState = +xhr.readyState,
+              responseText = '', line, i, part, stream;
 
-        if (that.readyState === that.CONNECTING) {
-          if (+xhr.readyState !== 4 || xhr.responseText) {//use xhr.responseText instead of xhr.status (http://bugs.jquery.com/ticket/8135)
-            that.readyState = that.OPEN;
+          if (readyState === 3 || readyState === 4) {
+            try {
+              responseText = xhr.responseText || '';
+            } catch (ex) {}
           }
-          if (that.readyState === that.OPEN) {
-            that.dispatchEvent({'type': 'open'});
-            if (typeof that.onopen === 'function') {
-              that.onopen({'type': 'open'});
+
+          //use xhr.responseText instead of xhr.status (http://bugs.jquery.com/ticket/8135)
+          if (that.readyState === that.CONNECTING && readyState > 1 && /^text\/event\-stream/i.test(xhr.getResponseHeader('Content-Type')) && (readyState !== 4 || responseText)) {
+            that.readyState = that.OPEN;
+            dispatchEvent({'type': 'open'});
+          }
+
+          if (that.readyState === that.OPEN && /\r|\n/.test(responseText.slice(charOffset))) {
+            part = responseText.slice(offset);
+            stream = (offset ? part : part.replace(/^\uFEFF/, '')).replace(/\r\n?/g, '\n').split('\n');
+
+            offset += part.length - stream[stream.length - 1].length;
+
+            for (i = 0; i < stream.length - 1; i++) {
+              line = stream[i].match(/([^\:]*)(?:\:\u0020?([\s\S]+))?/);
+
+              if (!line[0]) {
+                // dispatch the event
+                if (data) {
+                  dispatchEvent({
+                    'type': name || 'message',
+                    lastEventId: lastEventId,
+                    data: data.replace(/\u000A$/, '')
+                  });
+                  if (that.readyState === that.CLOSED) {
+                    //! not defined by spec
+                    return;
+                  }
+                }
+                // Set the data buffer and the event name buffer to the empty string.
+                data = '';
+                name = '';
+              }
+
+              if (line[1] === 'event') {
+                name = line[2];
+              }
+
+              if (line[1] === 'id') {
+                lastEventId = line[2];
+              }
+
+              if (line[1] === 'retry') {
+                if (/^\d+$/.test(line[2])) {
+                  retry = +line[2];
+                }
+              }
+
+              if (line[1] === 'data') {
+                data += line[2] + '\n';
+              }
             }
           }
-        }
+          charOffset = responseText.length;
 
-        if (+xhr.readyState === 4) {
-          parseStream(xhr.responseText || '');
-
-          that.readyState = that.CONNECTING;
-          /*if (+xhr.status !== 200) {//fail the connection
-            that.readyState = that.CLOSED;
-          }*/
-          that.dispatchEvent({'type': 'error'});
-          if (typeof that.onerror === 'function') {
-            that.onerror({'type': 'error'});
+          if (readyState === 4) {
+            if (that.readyState === that.OPEN) {
+              that.readyState = that.CONNECTING;// reestablishes the connection
+              reconnectTimeout = setTimeout(openConnection, retry);
+            } else {
+              that.readyState = that.CLOSED;//fail the connection
+            }
+            dispatchEvent({'type': 'error'});
           }
+        };
+        xhr.send(postData);
+      }, 1);
 
-          if (that.readyState !== that.CLOSED) { // reestablishes the connection
-            reconnectTimeout = setTimeout(openConnection, retry);
-          }
-        }
-        if (!polling && +xhr.readyState === 3) {
-          parseStream(xhr.responseText || '');
-        }
-      };
-      xhr.send(postData);
-    }, 1);
+      if ('\v' === 'v' && global.attachEvent) {
+        global.attachEvent('onunload', close);
+      }
 
-    if ('\v' === 'v' && global.attachEvent) {
-      global.attachEvent('onunload', close);
-    }
+      return that;
+    };
+  }
 
-    return that;
-  };
   global.EventSource.supportCORS = XHR2CORSSupported;
+
 }(this));
