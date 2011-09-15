@@ -2,20 +2,20 @@ EventSource polyfill for browsers, that doesn't implement native EventSource
 ============================================================================
 
   Uses XMLHttpRequest:
-  "server push" (using XMLHTTPRequest Interactive state, XDomainRequest) logic for Firefox, IE8+ (Opera11+, Chrome8, Safari5 has native support for EventSource)
+  "server push" (using XMLHTTPRequest Interactive state for Firefox/Webkit, XDomainRequest for IE)
   "long polling" or "polling" logic for other browsers
 
   Browser Support:
-  IE6+, others
+  IE6+, Firefox, Chrome, Opera, Safari
 
   Advantages:
 
+  * Simple server-side code
   * Based on last specification of EventSource.
-  * "server push" for Firefox
-  * "server push" for IE 8+ with XDomainRequest
-  * Polyfill is independent from document methods (addEventListener), so you
-  * can use it in a Web Worker's scope.
-  * CORS supported for IE 8+, Firefox, Chrome, Safari
+  * "server push" for IE 8+, Firefox 3.5+, Chrome 7+, Safari 5+, Opera 11+
+  * Polyfill is independent from document methods (addEventListener), so you can use it in a Web Worker's
+  * cross-domain requests supported for IE 8+, Firefox 3.5+, Chrome 7+, Safari 5+
+
 
   Server-side requirements:
   When "server push" not supported, "Polling" HTTP Header is sended on each request
