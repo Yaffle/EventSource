@@ -76,10 +76,10 @@ server-side (node.js)
         if (req.headers.polling) {
           res.end();
         }
-    
+
       } else {
         if (req.url === '/example.html' || req.url === '/eventsource.js') {
-          res.writeHead(200, {'Content-Type': 'text/html'});
+          res.writeHead(200, {'Content-Type': req.url === '/example.html' ? 'text/html' : 'text/javascript'});
           res.write(fs.readFileSync(__dirname + req.url));
         }
         res.end();
@@ -99,10 +99,10 @@ example.html:
       <script type="text/javascript" src="eventsource.js"></script>
       <script type="text/javascript">
         (new EventSource('/events')).addEventListener('message', function (e) {
-          document.getElementById('body').innerHTML += e.data + '<br>';
+          document.body.innerHTML += e.data + '<br>';
         }, false);
       </script>
     </head>
-    <body id="body">
+    <body>
     </body>
     </html>

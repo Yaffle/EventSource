@@ -44,7 +44,7 @@
     };
 
     that.setRequestHeader = function () {};
-    
+
     that.getResponseHeader = function (name) {
       return (/^content\-type$/i).test(name) ? x.contentType : '';
     };
@@ -116,6 +116,7 @@
       }
 
       function close() {
+        // http://dev.w3.org/html5/eventsource/ The close() method must close the connection, if any; must abort any instances of the fetch algorithm started for this EventSource object; and must set the readyState attribute to CLOSED.
         if (xhr !== null) {
           xhr.abort();
           xhr = null;
@@ -137,6 +138,7 @@
             offset = 0,
             charOffset = 0,
             data = '',
+            newLastEventId = lastEventId,
             name = '';
 
         xhr = global.XDomainRequest ? (new XDomainRequestWrapper()) : (global.XMLHttpRequest ? (new global.XMLHttpRequest()) : (new ActiveXObject('Microsoft.XMLHTTP')));
@@ -157,7 +159,7 @@
 
         xhr.onreadystatechange = function () {
           var readyState = +xhr.readyState,
-              responseText = '', line, i, part, stream;
+              responseText = '', i = 0, line, part, stream;
 
           if (readyState === 3 || readyState === 4) {
             try {
@@ -177,21 +179,18 @@
 
             offset += part.length - stream[stream.length - 1].length;
 
-            for (i = 0; i < stream.length - 1; i++) {
+            while (that.readyState !== that.CLOSED && i < stream.length - 1) {
               line = stream[i].match(/([^\:]*)(?:\:\u0020?([\s\S]+))?/);
 
               if (!line[0]) {
                 // dispatch the event
                 if (data) {
+                  lastEventId = newLastEventId;
                   dispatchEvent({
                     'type': name || 'message',
                     lastEventId: lastEventId,
                     data: data.replace(/\u000A$/, '')
                   });
-                  if (that.readyState === that.CLOSED) {
-                    //! not defined by spec
-                    return;
-                  }
                 }
                 // Set the data buffer and the event name buffer to the empty string.
                 data = '';
@@ -203,7 +202,8 @@
               }
 
               if (line[1] === 'id') {
-                lastEventId = line[2];
+                newLastEventId = line[2];
+                //lastEventId = line[2];//!!! see bug http://www.w3.org/Bugs/Public/show_bug.cgi?id=13761
               }
 
               if (line[1] === 'retry') {
@@ -215,11 +215,13 @@
               if (line[1] === 'data') {
                 data += line[2] + '\n';
               }
+
+              i++;
             }
           }
           charOffset = responseText.length;
 
-          if (readyState === 4) {
+          if (that.readyState !== that.CLOSED && readyState === 4) {
             if (that.readyState === that.OPEN) {
               that.readyState = that.CONNECTING;// reestablishes the connection
               reconnectTimeout = setTimeout(openConnection, retry);
