@@ -2,22 +2,25 @@ EventSource polyfill for browsers, that doesn't implement native EventSource
 ============================================================================
 
   Uses XMLHttpRequest:
+
   "server push" (using XMLHTTPRequest Interactive state for Firefox/Webkit, XDomainRequest for IE)
-  "long polling" or "polling" logic for other browsers
+  "long polling" or "polling" logic for old browsers
 
   Browser Support:
+
   IE6+, Firefox, Chrome, Opera, Safari
 
   Advantages:
 
   * Simple server-side code
-  * Based on last specification of EventSource.
+  * Based on last specification of EventSource
   * "server push" for IE 8+, Firefox 3.5+, Chrome 7+, Safari 5+, Opera 11+
   * Polyfill is independent from document methods (addEventListener), so you can use it in a Web Worker's
   * cross-domain requests supported for IE 8+, Firefox 3.5+, Chrome 7+, Safari 5+
 
 
   Server-side requirements:
+
   When "server push" not supported, "Polling" HTTP Header is sended on each request
   to tell your server side script to close connection after 
   sending a data.
@@ -25,19 +28,17 @@ EventSource polyfill for browsers, that doesn't implement native EventSource
   Also XDomainRequest requires send two kilobyte “prelude” at the top of the response stream.
   ( http://blogs.msdn.com/b/ieinternals/archive/2010/04/06/comet-streaming-in-internet-explorer-with-xmlhttprequest-and-xdomainrequest.aspx?PageIndex=1 )
 
-  http://weblog.bocoup.com/javascript-eventsource-now-available-in-firefox
-  http://www.w3.org/TR/eventsource/
+  * http://www.w3.org/TR/eventsource/
 
   Other EventSource polyfills:
-  https://github.com/remy/polyfills/blob/master/EventSource.js by Remy Sharp
-  https://github.com/rwldrn/jquery.eventsource by rick waldron
 
-
-
+  * https://github.com/remy/polyfills/blob/master/EventSource.js by Remy Sharp
+  * https://github.com/rwldrn/jquery.eventsource by rick waldron
 
   CORS in native SSE (not implemented yet):
-  https://bugzilla.mozilla.org/show_bug.cgi?id=664179
-  https://bugs.webkit.org/show_bug.cgi?id=61862
+
+  * https://bugzilla.mozilla.org/show_bug.cgi?id=664179
+  * https://bugs.webkit.org/show_bug.cgi?id=61862
 
 
 EXAMPLE
@@ -54,25 +55,25 @@ server-side (node.js)
     http.createServer(function (req, res) {
       var t = null;
       if (req.url === '/events') {
-    
+
         res.writeHead(200, {
           'Content-Type': 'text/event-stream',
           'Cache-Control': 'no-cache',
           'Connection': 'keep-alive',
           'Access-Control-Allow-Origin': '*'
         });
-    
+
         res.write(':' + Array(2049).join(' ') + '\n'); //2kb padding for IE
         res.write('data: ' + Date() + '\n\n');
 
         t = setInterval(function () {
           res.write('data: ' + Date() + '\n\n');
         }, 1000);
-    
+
         res.socket.on('close', function () {
           clearInterval(t);
         });
-    
+
         if (req.headers.polling) {
           res.end();
         }
@@ -86,7 +87,21 @@ server-side (node.js)
       }
     }).listen(8081); //! port :8081
 
+or use PHP:
+---------------------
+    @apache_setenv('no-gzip', 1);
+    @ini_set('zlib.output_compression', 0);
+    @ini_set('implicit_flush', 1);
+    for ($i = 0; $i < ob_get_level(); $i++) { ob_end_flush(); }
+    ob_implicit_flush(1);
 
+    header("Content-Type: text/event-stream");
+    for ($i = 0; $i < 10; $i++) {
+        echo "data: $i\n\n";
+        sleep(1);
+    }
+
+    
 example.html:
 -------------
 
@@ -96,8 +111,8 @@ example.html:
       <meta charset="utf-8" />
       <title>EventSource example</title>
       <meta http-equiv="X-UA-Compatible" content="IE=edge">
-      <script type="text/javascript" src="eventsource.js"></script>
-      <script type="text/javascript">
+      <script src="eventsource.js"></script>
+      <script>
         (new EventSource('/events')).addEventListener('message', function (e) {
           document.body.innerHTML += e.data + '<br>';
         }, false);

@@ -1,7 +1,60 @@
-/*jslint sloppy: true, white: true, plusplus: true, indent: 2 */
+/*jslint sloppy: true, white: true, plusplus: true, indent: 2, regexp: true */
 /*global XMLHttpRequest, setTimeout, clearTimeout, XDomainRequest, ActiveXObject*/
 
 (function (global) {
+
+  function parseURI(url) {
+    var m = String(url).replace(/^\s+|\s+$/g, '').match(/^([^:\/?#]+:)?(\/\/(?:[^:@]*(?::[^:@]*)?@)?(([^:\/?#]*)(?::(\d*))?))?([^?#]*)(\?[^#]*)?(#[\s\S]*)?/);
+    // authority = '//' + user + ':' + pass '@' + hostname + ':' port
+    return (m ? {
+      href     : m[0] || '',
+      protocol : m[1] || '',
+      authority: m[2] || '',
+      host     : m[3] || '',
+      hostname : m[4] || '',
+      port     : m[5] || '',
+      pathname : m[6] || '',
+      search   : m[7] || '',
+      hash     : m[8] || ''
+    } : null);
+  }
+
+  function absolutizeURI(base, href) {// RFC 3986
+
+    function removeDotSegments(input) {
+      var output = [];
+      input.replace(/^(\.\.?(\/|$))+/, '')
+           .replace(/\/(\.(\/|$))+/g, '/')
+           .replace(/\/\.\.$/, '/../')
+           .replace(/\/?[^\/]*/g, function (p) {
+        if (p === '/..') {
+          output.pop();
+        } else {
+          output.push(p);
+        }
+      });
+      return output.join('').replace(/^\//, input.charAt(0) === '/' ? '/' : '');
+    }
+
+    href = parseURI(href || '');
+    base = parseURI(base || '');
+
+    return !href || !base ? null : (href.protocol || base.protocol) +
+           (href.protocol || href.authority ? href.authority : base.authority) +
+           removeDotSegments(href.protocol || href.authority || href.pathname.charAt(0) === '/' ? href.pathname : (href.pathname ? ((base.authority && !base.pathname ? '/' : '') + base.pathname.slice(0, base.pathname.lastIndexOf('/') + 1) + href.pathname) : base.pathname)) +
+           (href.protocol || href.authority || href.pathname ? href.search : (href.search || base.search)) +
+           href.hash;
+  }
+
+  function loc() {
+    try {
+      return global.location.href;
+    } catch (e) {
+      var a = document.createElement('a');
+      a.href = '';
+      return a.href;
+    }
+  }
 
   // http://blogs.msdn.com/b/ieinternals/archive/2010/04/06/comet-streaming-in-internet-explorer-with-xmlhttprequest-and-xdomainrequest.aspx?PageIndex=1#comments
   // XDomainRequest does not have a binary interface. To use with non-text, first base64 to string.
@@ -94,13 +147,19 @@
   // FF 6 doesn't support SSE + CORS
   if (!global.EventSource || XHR2CORSSupported) {
     global.EventSource = function (url) {
-      url = String(url);
+      url = absolutizeURI(loc(), String(url));
+      if (!url) {
+        throw new Error('');
+      }
 
-      var that = (this === global) ? {} : this,
+      var that = {},
         retry = 1000,
         lastEventId = '',
         xhr = null,
-        reconnectTimeout = null;
+        reconnectTimeout = null,
+        origin = parseURI(url);
+
+      origin = origin.protocol + origin.authority;
 
       that.url = url;
       that.CONNECTING = 0;
@@ -109,6 +168,7 @@
       that.readyState = that.CONNECTING;
 
       function dispatchEvent(event) {
+        event.target = that;
         that.dispatchEvent(event);
         if (/message|error|open/.test(event.type) && typeof that['on' + event.type] === 'function') {
           that['on' + event.type](event);
@@ -131,6 +191,7 @@
 
       extendAsEventTarget(that);
 
+      // setTimeout (XDomainRequest calls onopen before returning the send() method call...) (!? when postData is null or empty string or method === 'GET' !?)
       reconnectTimeout = setTimeout(function openConnection() {
         reconnectTimeout = null;
 
@@ -188,6 +249,7 @@
                   lastEventId = newLastEventId;
                   dispatchEvent({
                     'type': name || 'message',
+                    origin: origin,
                     lastEventId: lastEventId,
                     data: data.replace(/\u000A$/, '')
                   });
