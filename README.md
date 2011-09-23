@@ -117,9 +117,6 @@ or use PHP (see php/events.php)
       // event-stream
       for ($i = intval($lastEventId) + 1; $i < 100; $i++) {
         echo "id: $i\n";
-        if (mt_rand(0, 20) < 5) {
-          exit(); // drop connection
-        }
         echo "data: $i;\n\n";
         sleep(1);
       }
