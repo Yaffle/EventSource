@@ -25,7 +25,7 @@ EventSource polyfill for browsers, that doesn't implement native EventSource
   to tell your server side script to close connection after 
   sending a data.
   XDomainRequest sends "Last-Event-ID" with POST body (XDomainRequest object does not have a setRequestHeader method)
-  Also XDomainRequest requires send two kilobyte “prelude” at the top of the response stream.
+  Also XDomainRequest requires send two kilobyte padding at the top of the response stream.
   ( http://blogs.msdn.com/b/ieinternals/archive/2010/04/06/comet-streaming-in-internet-explorer-with-xmlhttprequest-and-xdomainrequest.aspx?PageIndex=1 )
 
   * http://www.w3.org/TR/eventsource/
@@ -54,7 +54,7 @@ server-side (node.js)
 
     http.createServer(function (req, res) {
       var t = null;
-      if (req.url === '/events') {
+      if (req.url.indexOf('/events') === 0) {
 
         res.writeHead(200, {
           'Content-Type': 'text/event-stream',
@@ -79,44 +79,79 @@ server-side (node.js)
         }
 
       } else {
-        if (req.url === '/example.html' || req.url === '/eventsource.js') {
-          res.writeHead(200, {'Content-Type': req.url === '/example.html' ? 'text/html' : 'text/javascript'});
+        if (req.url === '/index.html' || req.url === '/eventsource.js') {
+          res.writeHead(200, {'Content-Type': req.url === '/index.html' ? 'text/html' : 'text/javascript'});
           res.write(fs.readFileSync(__dirname + req.url));
         }
         res.end();
       }
     }).listen(8081); //! port :8081
 
-or use PHP:
----------------------
-    @apache_setenv('no-gzip', 1);
-    @ini_set('zlib.output_compression', 0);
-    @ini_set('implicit_flush', 1);
-    for ($i = 0; $i < ob_get_level(); $i++) { ob_end_flush(); }
-    ob_implicit_flush(1);
+or use PHP (see php/events.php)
+-------------------------------
 
-    header("Content-Type: text/event-stream");
-    for ($i = 0; $i < 10; $i++) {
-        echo "data: $i\n\n";
+    <?
+
+      header('Content-Type: text/event-stream');
+      header('Access-Control-Allow-Origin: *');
+      header('Cache-Control: no-cache');
+
+      // prevent bufferring
+      @apache_setenv('no-gzip', 1);
+      @ini_set('zlib.output_compression', 0);
+      @ini_set('implicit_flush', 1);
+      for ($i = 0; $i < ob_get_level(); $i++) { ob_end_flush(); }
+      ob_implicit_flush(1);
+
+      // getting last-event-id from POST (for IE) and from Headers
+      if (preg_match('#Last\\-Event\\-ID\\=([\\s\\S]+)#ui', @$HTTP_RAW_POST_DATA, $tmp)) {
+        $lastEventId = urldecode(@$tmp[1]);
+      } else {
+        $headers = getallheaders();
+        $lastEventId = @$headers['Last-Event-ID'];    
+      }
+
+      // 2kb padding for IE
+      echo ':' . str_repeat(' ', 2048) . "\n";
+
+      // event-stream
+      for ($i = intval($lastEventId) + 1; $i < 100; $i++) {
+        echo "id: $i\n";
+        if (mt_rand(0, 20) < 5) {
+          exit(); // drop connection
+        }
+        echo "data: $i;\n\n";
         sleep(1);
-    }
+      }
 
-    
-example.html:
--------------
+    ?>
+
+index.html (php/index.html):
+----------------------------
 
     <!DOCTYPE html>
     <html>
     <head>
-      <meta charset="utf-8" />
-      <title>EventSource example</title>
-      <meta http-equiv="X-UA-Compatible" content="IE=edge">
-      <script src="eventsource.js"></script>
-      <script>
-        (new EventSource('/events')).addEventListener('message', function (e) {
-          document.body.innerHTML += e.data + '<br>';
-        }, false);
-      </script>
+        <meta charset="utf-8" />
+        <title>EventSource example</title>
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <script src="../eventsource.js"></script>
+        <script>
+          var es = new EventSource('events.php');
+          es.addEventListener('open', function (event) {
+            var div = document.createElement('div');
+            div.innerHTML = 'opened: ' + es.url;
+            document.body.appendChild(div);
+          }, false);
+          es.addEventListener('message', function (event) {
+            document.body.appendChild(document.createTextNode(event.data));
+          }, false);
+          es.addEventListener('error', function (event) {
+            var div = document.createElement('div');
+            div.innerHTML = 'closed';
+            document.body.appendChild(div);
+          }, false);
+        </script>
     </head>
     <body>
     </body>
