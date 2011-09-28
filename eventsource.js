@@ -142,7 +142,9 @@
     return obj;
   }
 
-  var XHR2CORSSupported = global.XDomainRequest || (global.XMLHttpRequest && ('onprogress' in (new XMLHttpRequest())) && ('withCredentials' in (new XMLHttpRequest())));
+  function empty() {};
+
+  var XHR2CORSSupported = !!(global.XDomainRequest || (global.XMLHttpRequest && ('onprogress' in (new XMLHttpRequest())) && ('withCredentials' in (new XMLHttpRequest()))));
 
   // FF 6 doesn't support SSE + CORS
   if (!global.EventSource || XHR2CORSSupported) {
@@ -170,7 +172,7 @@
       function dispatchEvent(event) {
         event.target = that;
         that.dispatchEvent(event);
-        if (/message|error|open/.test(event.type) && typeof that['on' + event.type] === 'function') {
+        if (/^(message|error|open)$/.test(event.type) && typeof that['on' + event.type] === 'function') {
           that['on' + event.type](event);
         }
       }
@@ -178,6 +180,7 @@
       function close() {
         // http://dev.w3.org/html5/eventsource/ The close() method must close the connection, if any; must abort any instances of the fetch algorithm started for this EventSource object; and must set the readyState attribute to CLOSED.
         if (xhr !== null) {
+          xhr.onreadystatechange = empty;
           xhr.abort();
           xhr = null;
         }
@@ -186,7 +189,11 @@
           reconnectTimeout = null;
         }
         that.readyState = that.CLOSED;
+        if ('\v' === 'v' && global.detachEvent) {
+          global.detachEvent('onunload', close);
+        }
       }
+
       that.close = close;
 
       extendAsEventTarget(that);
@@ -213,6 +220,7 @@
           xhr.setRequestHeader('Polling', '1');//!
           xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
         }
+
         if (lastEventId !== '') {
           xhr.setRequestHeader('Last-Event-ID', lastEventId);
         }
@@ -220,7 +228,7 @@
 
         xhr.onreadystatechange = function () {
           var readyState = +xhr.readyState,
-              responseText = '', i = 0, line, part, stream;
+              responseText = '', contentType = '', i = 0, line, part, stream;
 
           if (readyState === 3 || readyState === 4) {
             try {
@@ -229,9 +237,14 @@
           }
 
           //use xhr.responseText instead of xhr.status (http://bugs.jquery.com/ticket/8135)
-          if (that.readyState === that.CONNECTING && readyState > 1 && /^text\/event\-stream/i.test(xhr.getResponseHeader('Content-Type')) && (readyState !== 4 || responseText)) {
-            that.readyState = that.OPEN;
-            dispatchEvent({'type': 'open'});
+          if (that.readyState === that.CONNECTING && readyState > 1) {
+            try {
+              contentType = xhr.getResponseHeader('Content-Type') || '';// old FF bug ?
+            } catch (ex2) {}
+            if (/^text\/event\-stream/i.test(contentType) && (readyState !== 4 || responseText)) {
+              that.readyState = that.OPEN;
+              dispatchEvent({'type': 'open'});
+            }
           }
 
           if (that.readyState === that.OPEN && /\r|\n/.test(responseText.slice(charOffset))) {
@@ -284,11 +297,13 @@
           charOffset = responseText.length;
 
           if (that.readyState !== that.CLOSED && readyState === 4) {
+            xhr.onreadystatechange = empty;// old IE bug?
+            xhr = null;
             if (that.readyState === that.OPEN) {
               that.readyState = that.CONNECTING;// reestablishes the connection
               reconnectTimeout = setTimeout(openConnection, retry);
             } else {
-              that.readyState = that.CLOSED;//fail the connection
+              close();//fail the connection
             }
             dispatchEvent({'type': 'error'});
           }
