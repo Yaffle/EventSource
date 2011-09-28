@@ -49,107 +49,111 @@ EXAMPLE
 server-side (node.js)
 ---------------------
 
-    var http = require('http');
-    var fs = require('fs');
+```javascript
+var http = require('http');
+var fs = require('fs');
 
-    http.createServer(function (req, res) {
-      var t = null;
-      if (req.url.indexOf('/events') === 0) {
+http.createServer(function (req, res) {
+  var t = null;
+  if (req.url.indexOf('/events') === 0) {
 
-        res.writeHead(200, {
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive',
-          'Access-Control-Allow-Origin': '*'
-        });
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*'
+    });
 
-        res.write(':' + Array(2049).join(' ') + '\n'); //2kb padding for IE
-        res.write('data: ' + Date() + '\n\n');
+    res.write(':' + Array(2049).join(' ') + '\n'); //2kb padding for IE
+    res.write('data: ' + Date() + '\n\n');
 
-        t = setInterval(function () {
-          res.write('data: ' + Date() + '\n\n');
-        }, 1000);
+    t = setInterval(function () {
+      res.write('data: ' + Date() + '\n\n');
+    }, 1000);
 
-        res.socket.on('close', function () {
-          clearInterval(t);
-        });
+    res.socket.on('close', function () {
+      clearInterval(t);
+    });
 
-        if (req.headers.polling) {
-          res.end();
-        }
+    if (req.headers.polling) {
+      res.end();
+    }
 
-      } else {
-        if (req.url === '/index.html' || req.url === '/eventsource.js') {
-          res.writeHead(200, {'Content-Type': req.url === '/index.html' ? 'text/html' : 'text/javascript'});
-          res.write(fs.readFileSync(__dirname + req.url));
-        }
-        res.end();
-      }
-    }).listen(8081); //! port :8081
+  } else {
+    if (req.url === '/index.html' || req.url === '/eventsource.js') {
+      res.writeHead(200, {'Content-Type': req.url === '/index.html' ? 'text/html' : 'text/javascript'});
+      res.write(fs.readFileSync(__dirname + req.url));
+    }
+    res.end();
+  }
+}).listen(8081); //! port :8081
+```
 
 or use PHP (see php/events.php)
 -------------------------------
+```php
+<?
 
-    <?
+  header('Content-Type: text/event-stream');
+  header('Access-Control-Allow-Origin: *');
+  header('Cache-Control: no-cache');
 
-      header('Content-Type: text/event-stream');
-      header('Access-Control-Allow-Origin: *');
-      header('Cache-Control: no-cache');
+  // prevent bufferring
+  @apache_setenv('no-gzip', 1);
+  @ini_set('zlib.output_compression', 0);
+  @ini_set('implicit_flush', 1);
+  for ($i = 0; $i < ob_get_level(); $i++) { ob_end_flush(); }
+  ob_implicit_flush(1);
 
-      // prevent bufferring
-      @apache_setenv('no-gzip', 1);
-      @ini_set('zlib.output_compression', 0);
-      @ini_set('implicit_flush', 1);
-      for ($i = 0; $i < ob_get_level(); $i++) { ob_end_flush(); }
-      ob_implicit_flush(1);
+  // getting last-event-id from POST (for IE) and from Headers
+  if (preg_match('#Last\\-Event\\-ID\\=([\\s\\S]+)#ui', @$HTTP_RAW_POST_DATA, $tmp)) {
+    $lastEventId = urldecode(@$tmp[1]);
+  } else {
+    $headers = getallheaders();
+    $lastEventId = @$headers['Last-Event-ID'];    
+  }
 
-      // getting last-event-id from POST (for IE) and from Headers
-      if (preg_match('#Last\\-Event\\-ID\\=([\\s\\S]+)#ui', @$HTTP_RAW_POST_DATA, $tmp)) {
-        $lastEventId = urldecode(@$tmp[1]);
-      } else {
-        $headers = getallheaders();
-        $lastEventId = @$headers['Last-Event-ID'];    
-      }
+  // 2kb padding for IE
+  echo ':' . str_repeat(' ', 2048) . "\n";
 
-      // 2kb padding for IE
-      echo ':' . str_repeat(' ', 2048) . "\n";
+  // event-stream
+  for ($i = intval($lastEventId) + 1; $i < 100; $i++) {
+    echo "id: $i\n";
+    echo "data: $i;\n\n";
+    sleep(1);
+  }
 
-      // event-stream
-      for ($i = intval($lastEventId) + 1; $i < 100; $i++) {
-        echo "id: $i\n";
-        echo "data: $i;\n\n";
-        sleep(1);
-      }
-
-    ?>
+?>
+```
 
 index.html (php/index.html):
 ----------------------------
-
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8" />
-        <title>EventSource example</title>
-        <meta http-equiv="X-UA-Compatible" content="IE=edge">
-        <script src="../eventsource.js"></script>
-        <script>
-          var es = new EventSource('events.php');
-          es.addEventListener('open', function (event) {
-            var div = document.createElement('div');
-            div.innerHTML = 'opened: ' + es.url;
-            document.body.appendChild(div);
-          }, false);
-          es.addEventListener('message', function (event) {
-            document.body.appendChild(document.createTextNode(event.data));
-          }, false);
-          es.addEventListener('error', function (event) {
-            var div = document.createElement('div');
-            div.innerHTML = 'closed';
-            document.body.appendChild(div);
-          }, false);
-        </script>
-    </head>
-    <body>
-    </body>
-    </html>
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>EventSource example</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <script src="../eventsource.js"></script>
+    <script>
+      var es = new EventSource('events.php');
+      es.addEventListener('open', function (event) {
+        var div = document.createElement('div');
+        div.innerHTML = 'opened: ' + es.url;
+        document.body.appendChild(div);
+      }, false);
+      es.addEventListener('message', function (event) {
+        document.body.appendChild(document.createTextNode(event.data));
+      }, false);
+      es.addEventListener('error', function (event) {
+        var div = document.createElement('div');
+        div.innerHTML = 'closed';
+        document.body.appendChild(div);
+      }, false);
+    </script>
+</head>
+<body>
+</body>
+</html>
+```
