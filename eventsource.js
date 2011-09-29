@@ -108,13 +108,18 @@
   function extendAsEventTarget(obj) {
     var listeners = [];
 
-    obj.dispatchEvent = function (eventObject) {
-      var clone = listeners.slice(0),
-          type = eventObject.type, i;
-      for (i = 0; i < clone.length; i++) {
-        if (clone[i].type === type) {
-          clone[i].callback.call(obj, eventObject);
+    function aaa(listener, type, eventObject) {
+      setTimeout(function () {
+        if (listener.type === type) { // not removed
+          listener.callback.call(obj, eventObject);
         }
+      }, 0);
+    }
+
+    obj.dispatchEvent = function (eventObject) {
+      var type = eventObject.type, i;
+      for (i = 0; i < listeners.length; i++) {
+        aaa(listeners[i], type, eventObject);
       }
     };
 
@@ -142,7 +147,7 @@
     return obj;
   }
 
-  function empty() {};
+  function empty() {}
 
   var XHR2CORSSupported = !!(global.XDomainRequest || (global.XMLHttpRequest && ('onprogress' in (new XMLHttpRequest())) && ('withCredentials' in (new XMLHttpRequest()))));
 
@@ -170,11 +175,15 @@
       that.readyState = that.CONNECTING;
 
       function dispatchEvent(event) {
-        event.target = that;
-        that.dispatchEvent(event);
-        if (/^(message|error|open)$/.test(event.type) && typeof that['on' + event.type] === 'function') {
-          that['on' + event.type](event);
-        }
+        setTimeout(function () {
+          event.target = that;
+          that.dispatchEvent(event);
+          setTimeout(function () {
+            if (/^(message|error|open)$/.test(event.type) && typeof that['on' + event.type] === 'function') {
+              that['on' + event.type](event);
+            }
+          }, 0);
+        }, 0);
       }
 
       function close() {
@@ -309,7 +318,7 @@
           }
         };
         xhr.send(postData);
-      }, 1);
+      }, 0);
 
       if ('\v' === 'v' && global.attachEvent) {
         global.attachEvent('onunload', close);

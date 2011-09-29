@@ -53,4 +53,25 @@ $(document).ready(function() {
     };
   });
 
+  
+  asyncTest('EventTarget exceptions throwed from listeners should not stop dispathing', 1, function () {
+    var es = new EventSource('events.php?test=1');
+
+    var s = '';
+    es.addEventListener('message', function () {
+      s += '1';
+      throw new Error('test');
+    }, false);
+    es.addEventListener('message', function () {
+      s += '2';
+    }, false);
+    es.onerror = function () {
+      es.close();
+      strictEqual(s, '12', '!');
+      start();
+    }
+
+  });
+  
+
 });
