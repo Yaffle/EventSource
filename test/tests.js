@@ -72,6 +72,37 @@ $(document).ready(function() {
     }
 
   });
-  
+
+  // http://dev.w3.org/2006/webapi/DOM-Level-3-Events/html/DOM3-Events.html#event-flow
+  // Once determined, the candidate event listeners cannot be changed; adding or removing listeners does not affect the current target's candidate event listeners.
+  asyncTest('EventTarget addEventListener/removeEventListener', 1, function () {
+    var es = new EventSource('events.php?test=1');
+    var s = '';
+    function a1() {
+      s += 1;
+      es.removeEventListener('message', a3, false);
+      es.addEventListener('message', a4, false);
+
+      setTimeout(function () {
+        es.close();
+        strictEqual(s, '13', '!');
+        start();
+      }, 0);
+    }
+    function a2() {
+      s += 2;
+    }
+    function a3() {
+      s += 3;
+    }
+    function a4() {
+      s += 4;
+    }    
+    es.addEventListener('message', a1, false);
+    es.addEventListener('message', a2, false);
+    es.addEventListener('message', a3, false);
+    es.removeEventListener('message', a2, false);
+
+  });
 
 });

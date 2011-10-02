@@ -108,38 +108,38 @@
   function extendAsEventTarget(obj) {
     var listeners = [];
 
-    function aaa(listener, type, eventObject) {
-      setTimeout(function () {
-        if (listener.type === type) { // not removed
-          listener.callback.call(obj, eventObject);
-        }
-      }, 0);
+    function aaa(listener, eventObject) {
+      return function () {
+        listener.callback.call(obj, eventObject);
+      };
+    }
+
+    function lastIndexOf(type, callback) {
+      var i = listeners.length - 1;
+      while (i >= 0 && !(listeners[i].type === type && listeners[i].callback === callback)) {
+        i--;
+      }
+      return i;
     }
 
     obj.dispatchEvent = function (eventObject) {
       var type = eventObject.type, i;
       for (i = 0; i < listeners.length; i++) {
-        aaa(listeners[i], type, eventObject);
+        if (listeners[i].type === type) {
+          setTimeout(aaa(listeners[i], eventObject), 0);
+        }
       }
     };
 
     obj.addEventListener = function (type, callback) {
-      var i = listeners.length - 1;
-      while (i >= 0 && !(listeners[i].type === type && listeners[i].callback === callback)) {
-        i--;
-      }
-      if (i === -1) {
+      if (lastIndexOf(type, callback) === -1) {
         listeners.push({type: type, callback: callback});
       }
     };
 
     obj.removeEventListener = function (type, callback) {
-      var i = listeners.length - 1;
-      while (i >= 0 && !(listeners[i].type === type && listeners[i].callback === callback)) {
-        i--;
-      }
-      if (i === -1) {
-        listeners[i].type = {};// mark as removed
+      var i = lastIndexOf(type, callback);
+      if (i !== -1) {
         listeners.splice(i, 1);
       }
     };
