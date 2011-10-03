@@ -39,5 +39,10 @@
           echo "data: xxx\n\n";
         }
       }
+      
+      if ($test == 2) {
+        echo "data: data0;\n\ndata: data1;\n\ndata: data2;\n\n";
+        exit();
+      }
 
 ?>

@@ -154,12 +154,15 @@
   // FF 6 doesn't support SSE + CORS
   if (!global.EventSource || XHR2CORSSupported) {
     global.EventSource = function (url) {
+      function F() {}
+      F.prototype = global.EventSource.prototype;
+
       url = absolutizeURI(loc(), String(url));
       if (!url) {
         throw new Error('');
       }
 
-      var that = {},
+      var that = new F(),
         retry = 1000,
         lastEventId = '',
         xhr = null,

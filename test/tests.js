@@ -4,6 +4,16 @@
 
 $(document).ready(function() {
 
+  asyncTest('EventSource constructor', 2, function () {
+    var es = new EventSource('events.php');
+    ok(es instanceof EventSource, 'failed');    
+    es.close();
+    var es = EventSource('events.php');
+    ok(es instanceof EventSource, 'failed');
+    start();
+    es.close();
+  });
+
   asyncTest('EventSource 1; 2; 3; 4; 5;', 1, function () {
     var es = new EventSource('events.php'),
         s = '', timer;
@@ -104,5 +114,18 @@ $(document).ready(function() {
     es.removeEventListener('message', a2, false);
 
   });
+
+  /*asyncTest('EventTarget#close()', 1, function () {
+    var es = new EventSource('events.php?test=2');
+    var s = '';
+    es.onmessage = function () {
+      s += '1';
+      es.close();
+    };
+    setTimeout(function () {
+      ok(s === '1', 'http://www.w3.org/Bugs/Public/show_bug.cgi?id=14331');
+      start();
+    }, 200);
+  });*/
 
 });
