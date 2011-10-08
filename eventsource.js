@@ -108,12 +108,6 @@
   function extendAsEventTarget(obj) {
     var listeners = [];
 
-    function aaa(listener, eventObject) {
-      return function () {
-        listener.callback.call(obj, eventObject);
-      };
-    }
-
     function lastIndexOf(type, callback) {
       var i = listeners.length - 1;
       while (i >= 0 && !(listeners[i].type === type && listeners[i].callback === callback)) {
@@ -123,10 +117,22 @@
     }
 
     obj.dispatchEvent = function (eventObject) {
-      var type = eventObject.type, i;
-      for (i = 0; i < listeners.length; i++) {
-        if (listeners[i].type === type) {
-          setTimeout(aaa(listeners[i], eventObject), 0);
+      function a(e) {
+        return function () {
+          throw e;
+        };
+      }
+
+      var type = eventObject.type,
+          candidates = listeners.slice(0), i;
+      for (i = 0; i < candidates.length; i++) {
+        if (candidates[i].type === type) {
+          try {
+            candidates[i].callback.call(obj, eventObject);
+          } catch (e) {
+            // This identifier is local to the catch clause. But it's not true for IE < 9 ? (so "a" used)
+            setTimeout(a(e), 0);
+          }
         }
       }
     };
@@ -179,13 +185,21 @@
 
       function dispatchEvent(event) {
         setTimeout(function () {
+          if (that.readyState === that.CLOSED) {
+            return;// http://www.w3.org/Bugs/Public/show_bug.cgi?id=14331
+          }
+
           event.target = that;
           that.dispatchEvent(event);
-          setTimeout(function () {
+          try {
             if (/^(message|error|open)$/.test(event.type) && typeof that['on' + event.type] === 'function') {
               that['on' + event.type](event);
             }
-          }, 0);
+          } catch (e) {
+            setTimeout(function () {
+              throw e;
+            }, 0);
+          }
         }, 0);
       }
 
@@ -210,8 +224,7 @@
 
       extendAsEventTarget(that);
 
-      // setTimeout (XDomainRequest calls onopen before returning the send() method call...) (!? when postData is null or empty string or method === 'GET' !?)
-      reconnectTimeout = setTimeout(function openConnection() {
+      function openConnection() {
         reconnectTimeout = null;
 
         var postData = (lastEventId !== '' ? 'Last-Event-ID=' + encodeURIComponent(lastEventId) : ''),
@@ -223,7 +236,7 @@
 
         xhr = global.XDomainRequest ? (new XDomainRequestWrapper()) : (global.XMLHttpRequest ? (new global.XMLHttpRequest()) : (new ActiveXObject('Microsoft.XMLHTTP')));
 
-        // with GET method in FF xhr.onreadystatechange with readyState === 3 doesn't work
+        // with GET method in FF xhr.onreadystatechange with readyState === 3 doesn't work + POST = no-cache
         xhr.open('POST', url, true);
         //xhr.setRequestHeader('Cache-Control', 'no-cache'); Chrome bug
         xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
@@ -321,7 +334,8 @@
           }
         };
         xhr.send(postData);
-      }, 0);
+      }
+      openConnection();
 
       if ('\v' === 'v' && global.attachEvent) {
         global.attachEvent('onunload', close);
@@ -331,6 +345,9 @@
     };
   }
 
+  global.EventSource.CONNECTING = 0;
+  global.EventSource.OPEN = 1;
+  global.EventSource.CLOSED = 2;
   global.EventSource.supportCORS = XHR2CORSSupported;
 
 }(this));

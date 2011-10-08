@@ -16,7 +16,7 @@
         $headers = getallheaders();
         $lastEventId = @$headers['Last-Event-ID'];    
       }
-      
+
       $test = intval(@$_REQUEST['test']);
 
       echo ':' . str_repeat(' ', 2048) . "\n"; // 2kb padding for IE
@@ -28,7 +28,7 @@
           sleep(1);
         }
       }
-      
+
       if ($test == 1) {
         if ($lastEventId == 0) {
           echo "id: 1\n";
@@ -39,9 +39,14 @@
           echo "data: xxx\n\n";
         }
       }
-      
+
       if ($test == 2) {
         echo "data: data0;\n\ndata: data1;\n\ndata: data2;\n\n";
+        exit();
+      }
+
+      if ($test == 3) {
+        echo "data: data0";
         exit();
       }
 

@@ -14,6 +14,11 @@ $(document).ready(function() {
     es.close();
   });
 
+  asyncTest('EventSource.CLOSED', 1, function () {
+    ok(EventSource.CLOSED === 2, 'failed');    
+    start();
+  });
+
   asyncTest('EventSource 1; 2; 3; 4; 5;', 1, function () {
     var es = new EventSource('events.php'),
         s = '', timer;
@@ -115,7 +120,21 @@ $(document).ready(function() {
 
   });
 
-  /*asyncTest('EventTarget#close()', 1, function () {
+  asyncTest('EventTarget', 1, function () {
+    var es = new EventSource('events.php?test=3');
+    var s = '';
+    es.onmessage = function (e) {
+      s = e.data;
+      es.close();
+    };
+    setTimeout(function () {
+      es.close();
+      strictEqual(s, '', 'Once the end of the file is reached, any pending data must be discarded. (If the file ends in the middle of an event, before the final empty line, the incomplete event is not dispatched.)');
+      start();
+    }, 200);
+  });
+
+  asyncTest('EventTarget#close()', 1, function () {
     var es = new EventSource('events.php?test=2');
     var s = '';
     es.onmessage = function () {
@@ -126,6 +145,6 @@ $(document).ready(function() {
       ok(s === '1', 'http://www.w3.org/Bugs/Public/show_bug.cgi?id=14331');
       start();
     }, 200);
-  });*/
+  });
 
 });
