@@ -173,6 +173,7 @@
         lastEventId = '',
         xhr = null,
         reconnectTimeout = null,
+        realReadyState,
         origin = parseURI(url);
 
       origin = origin.protocol + origin.authority;
@@ -182,11 +183,22 @@
       that.OPEN = 1;
       that.CLOSED = 2;
       that.readyState = that.CONNECTING;
+      realReadyState = that.CONNECTING;
 
-      function dispatchEvent(event) {
+      function dispatchEvent(event, readyState) {
+        if (readyState !== null) {
+          realReadyState = readyState;
+        }
+        // queue a task to set the readyState attribute to ...
+        // ...
+        // Queue a task which, if the readyState attribute is set to a value other than CLOSED,
+        // dispatches the newly created event at the EventSource object
         setTimeout(function () {
           if (that.readyState === that.CLOSED) {
             return;// http://www.w3.org/Bugs/Public/show_bug.cgi?id=14331
+          }
+          if (readyState !== null) {
+            that.readyState = readyState;
           }
 
           event.target = that;
@@ -215,6 +227,7 @@
           reconnectTimeout = null;
         }
         that.readyState = that.CLOSED;
+        realReadyState = that.CLOSED;
         if ('\v' === 'v' && global.detachEvent) {
           global.detachEvent('onunload', close);
         }
@@ -255,30 +268,28 @@
           var readyState = +xhr.readyState,
               responseText = '', contentType = '', i = 0, line, part, stream;
 
-          if (readyState === 3 || readyState === 4) {
+          if (readyState > 2) {
             try {
               responseText = xhr.responseText || '';
             } catch (ex) {}
           }
-
-          //use xhr.responseText instead of xhr.status (http://bugs.jquery.com/ticket/8135)
-          if (that.readyState === that.CONNECTING && readyState > 1) {
+          if (readyState > 1) {
             try {
               contentType = xhr.getResponseHeader('Content-Type') || '';// old FF bug ?
             } catch (ex2) {}
-            if (/^text\/event\-stream/i.test(contentType) && (readyState !== 4 || responseText)) {
-              that.readyState = that.OPEN;
-              dispatchEvent({'type': 'open'});
-            }
           }
 
-          if (that.readyState === that.OPEN && /\r|\n/.test(responseText.slice(charOffset))) {
+          //use xhr.responseText instead of xhr.status (http://bugs.jquery.com/ticket/8135)
+          if (realReadyState === that.CONNECTING && /^text\/event\-stream/i.test(contentType) && (readyState > 1) && (readyState !== 4 || responseText)) {
+            dispatchEvent({'type': 'open'}, that.OPEN);
+          }
+
+          if (realReadyState === that.OPEN && /\r|\n/.test(responseText.slice(charOffset))) {
             part = responseText.slice(offset);
             stream = (offset ? part : part.replace(/^\uFEFF/, '')).replace(/\r\n?/g, '\n').split('\n');
 
             offset += part.length - stream[stream.length - 1].length;
-
-            while (that.readyState !== that.CLOSED && i < stream.length - 1) {
+            while (i < stream.length - 1) {
               line = stream[i].match(/([^\:]*)(?:\:\u0020?([\s\S]+))?/);
 
               if (!line[0]) {
@@ -290,7 +301,7 @@
                     origin: origin,
                     lastEventId: lastEventId,
                     data: data.replace(/\u000A$/, '')
-                  });
+                  }, null);
                 }
                 // Set the data buffer and the event name buffer to the empty string.
                 data = '';
@@ -321,16 +332,20 @@
           }
           charOffset = responseText.length;
 
-          if (that.readyState !== that.CLOSED && readyState === 4) {
+          if (readyState === 4) {
             xhr.onreadystatechange = empty;// old IE bug?
             xhr = null;
-            if (that.readyState === that.OPEN) {
-              that.readyState = that.CONNECTING;// reestablishes the connection
+            if (realReadyState === that.OPEN) {
+              // reestablishes the connection
               reconnectTimeout = setTimeout(openConnection, retry);
+              dispatchEvent({'type': 'error'}, that.CONNECTING);
             } else {
-              close();//fail the connection
+              if ('\v' === 'v' && global.detachEvent) {
+                global.detachEvent('onunload', close);
+              }
+              //fail the connection
+              dispatchEvent({'type': 'error'}, that.CLOSED);
             }
-            dispatchEvent({'type': 'error'});
           }
         };
         xhr.send(postData);

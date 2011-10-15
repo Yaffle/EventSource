@@ -147,4 +147,14 @@ $(document).ready(function() {
     }, 200);
   });
 
+  asyncTest('EventTarget#close()', 1, function () {
+    var es = new EventSource('events.php?test=7');
+    var s = 0;
+    es.onopen = function () {
+      strictEqual(es.readyState, 1, 'f');
+      start();
+      es.close();
+    };
+  });
+
 });
