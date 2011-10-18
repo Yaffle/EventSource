@@ -226,11 +226,11 @@
           clearTimeout(reconnectTimeout);
           reconnectTimeout = null;
         }
-        that.readyState = that.CLOSED;
-        realReadyState = that.CLOSED;
         if ('\v' === 'v' && global.detachEvent) {
           global.detachEvent('onunload', close);
         }
+        that.readyState = that.CLOSED;
+        realReadyState = that.CLOSED;
       }
 
       that.close = close;
@@ -251,17 +251,25 @@
 
         // with GET method in FF xhr.onreadystatechange with readyState === 3 doesn't work + POST = no-cache
         xhr.open('POST', url, true);
-        //xhr.setRequestHeader('Cache-Control', 'no-cache'); Chrome bug
+
+        // Chrome bug:
+        // Request header field Cache-Control is not allowed by Access-Control-Allow-Headers.
+        //xhr.setRequestHeader('Cache-Control', 'no-cache');
+
+        // Chrome bug:
+        // http://code.google.com/p/chromium/issues/detail?id=71694
+        // If you force Chrome to have a whitelisted content-type, either explicitly with setRequestHeader(), or implicitly by sending a FormData, then no preflight is done.
         xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
 
         if (!XHR2CORSSupported) {
-          xhr.setRequestHeader('Polling', '1');//!
-          xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+          xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');// long-polling
         }
 
-        if (lastEventId !== '') {
-          xhr.setRequestHeader('Last-Event-ID', lastEventId);
-        }
+        //  Request header field Last-Event-ID is not allowed by Access-Control-Allow-Headers.
+        //if (lastEventId !== '') {
+        //  xhr.setRequestHeader('Last-Event-ID', lastEventId);
+        //}
+
         //xhr.withCredentials = true;
 
         xhr.onreadystatechange = function () {
@@ -343,6 +351,7 @@
               if ('\v' === 'v' && global.detachEvent) {
                 global.detachEvent('onunload', close);
               }
+
               //fail the connection
               dispatchEvent({'type': 'error'}, that.CLOSED);
             }

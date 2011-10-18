@@ -149,11 +149,28 @@ $(document).ready(function() {
 
   asyncTest('EventTarget#close()', 1, function () {
     var es = new EventSource('events.php?test=7');
-    var s = 0;
     es.onopen = function () {
       strictEqual(es.readyState, 1, 'f');
       start();
       es.close();
+    };
+  });
+
+  asyncTest('EventTarget CORS', 1, function () {
+    var es = new EventSource(location.href.replace('http', 'https') + 'events.php?test=8');
+
+    es.onmessage = function (event) {
+      if (event.data === 'ok') {
+        ok(true, 'ok');
+        start();
+        es.close();
+      }
+    };
+    es.onerror = function () {
+      if (es.readyState === es.CLOSED) {
+        ok(false, 'not ok');
+        start();
+      }
     };
   });
 

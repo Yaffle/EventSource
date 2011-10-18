@@ -38,15 +38,11 @@ http.createServer(function (req, res) {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
-     // 'Access-Control-Allow-Origin': reg.headers['origin'],
-     // 'Access-Control-Allow-Credentials': 'true',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'X-Requested-With, Polling, Cache-Control, Last-Event-ID',
-      'Access-Control-Max-Age': '8640'
+       //'Access-Control-Allow-Credentials': 'true',
+      'Access-Control-Allow-Origin': req.headers.origin
     });
     var lastEventId = +req.headers['last-event-id'] || +post['Last-Event-ID'] || 0;
-    var polling = req.headers.polling;
+    var polling = !!req.headers['x-requested-with'];
 
     // 2 kb comment message for XDomainRequest
     res.write(':' + Array(2049).join(' ') + '\n');

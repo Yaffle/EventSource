@@ -21,7 +21,7 @@ EventSource polyfill for browsers, that doesn't implement native EventSource
 
   Server-side requirements:
 
-  When "server push" not supported, "Polling" HTTP Header is sended on each request
+  When "server push" not supported, "X-Requested-With" HTTP Header is sended on each request
   to tell your server side script to close connection after 
   sending a data.
   XDomainRequest sends "Last-Event-ID" with POST body (XDomainRequest object does not have a setRequestHeader method)
@@ -61,7 +61,8 @@ http.createServer(function (req, res) {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
-      'Access-Control-Allow-Origin': '*'
+       //'Access-Control-Allow-Credentials': 'true',
+      'Access-Control-Allow-Origin': req.headers.origin
     });
 
     res.write(':' + Array(2049).join(' ') + '\n'); //2kb padding for IE
@@ -75,7 +76,7 @@ http.createServer(function (req, res) {
       clearInterval(t);
     });
 
-    if (req.headers.polling) {
+    if (req.headers['x-requested-with']) {
       res.end();
     }
 
@@ -94,8 +95,9 @@ or use PHP (see php/events.php)
 ```php
 <?
 
+  header('Access-Control-Allow-Origin: ' . @$_SERVER['HTTP_ORIGIN']);
+  //header('Access-Control-Allow-Credentials: true');
   header('Content-Type: text/event-stream');
-  header('Access-Control-Allow-Origin: *');
   header('Cache-Control: no-cache');
 
   // prevent bufferring
@@ -105,12 +107,12 @@ or use PHP (see php/events.php)
   for ($i = 0; $i < ob_get_level(); $i++) { ob_end_flush(); }
   ob_implicit_flush(1);
 
-  // getting last-event-id from POST (for IE) and from Headers
-  if (preg_match('#Last\\-Event\\-ID\\=([\\s\\S]+)#ui', @$HTTP_RAW_POST_DATA, $tmp)) {
+  // getting last-event-id from POST or from http headers
+  $postData = @file_get_contents('php://input');
+  if (preg_match('#Last\\-Event\\-ID\\=([\\s\\S]+)#ui', @$postData, $tmp)) {
     $lastEventId = urldecode(@$tmp[1]);
   } else {
-    $headers = getallheaders();
-    $lastEventId = @$headers['Last-Event-ID'];    
+    $lastEventId = @$_SERVER["HTTP_LAST_EVENT_ID"];
   }
 
   // 2kb padding for IE
