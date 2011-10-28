@@ -185,14 +185,12 @@
       that.readyState = that.CONNECTING;
       realReadyState = that.CONNECTING;
 
-      function dispatchEvent(event, readyState) {
+      // Queue a task which, if the readyState is set to a value other than CLOSED,
+      // sets the readyState to ... and fires event
+      function queue(event, readyState) {
         if (readyState !== null) {
           realReadyState = readyState;
         }
-        // queue a task to set the readyState attribute to ...
-        // ...
-        // Queue a task which, if the readyState attribute is set to a value other than CLOSED,
-        // dispatches the newly created event at the EventSource object
         setTimeout(function () {
           if (that.readyState === that.CLOSED) {
             return;// http://www.w3.org/Bugs/Public/show_bug.cgi?id=14331
@@ -289,7 +287,7 @@
 
           //use xhr.responseText instead of xhr.status (http://bugs.jquery.com/ticket/8135)
           if (realReadyState === that.CONNECTING && /^text\/event\-stream/i.test(contentType) && (readyState > 1) && (readyState !== 4 || responseText)) {
-            dispatchEvent({'type': 'open'}, that.OPEN);
+            queue({'type': 'open'}, that.OPEN);
           }
 
           if (realReadyState === that.OPEN && /\r|\n/.test(responseText.slice(charOffset))) {
@@ -304,7 +302,7 @@
                 // dispatch the event
                 if (data) {
                   lastEventId = newLastEventId;
-                  dispatchEvent({
+                  queue({
                     'type': name || 'message',
                     origin: origin,
                     lastEventId: lastEventId,
@@ -345,15 +343,16 @@
             xhr = null;
             if (realReadyState === that.OPEN) {
               // reestablishes the connection
+              queue({'type': 'error'}, that.CONNECTING);
+              // setTimeout will wait before previous setTimeout(0) have completed
               reconnectTimeout = setTimeout(openConnection, retry);
-              dispatchEvent({'type': 'error'}, that.CONNECTING);
             } else {
               if ('\v' === 'v' && global.detachEvent) {
                 global.detachEvent('onunload', close);
               }
 
               //fail the connection
-              dispatchEvent({'type': 'error'}, that.CLOSED);
+              queue({'type': 'error'}, that.CLOSED);
             }
           }
         };
