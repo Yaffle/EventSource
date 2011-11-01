@@ -159,7 +159,7 @@
 
   // FF 6 doesn't support SSE + CORS
   if (!global.EventSource || XHR2CORSSupported) {
-    global.EventSource = function (url) {
+    global.EventSource = function (url, options) {
       function F() {}
       F.prototype = global.EventSource.prototype;
 
@@ -179,6 +179,8 @@
       origin = origin.protocol + origin.authority;
 
       that.url = url;
+      that.withCredentials = !!(options && options.withCredentials);
+
       that.CONNECTING = 0;
       that.OPEN = 1;
       that.CLOSED = 2;
@@ -268,7 +270,7 @@
         //  xhr.setRequestHeader('Last-Event-ID', lastEventId);
         //}
 
-        //xhr.withCredentials = true;
+        xhr.withCredentials = that.withCredentials;
 
         xhr.onreadystatechange = function () {
           var readyState = +xhr.readyState,

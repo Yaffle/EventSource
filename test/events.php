@@ -1,7 +1,11 @@
 <?
 
+  $test = intval(@$_REQUEST['test']);
+
   header('Access-Control-Allow-Origin: ' . @$_SERVER['HTTP_ORIGIN']);
-  //header('Access-Control-Allow-Credentials: true');
+  if ($test == 9) {
+    header('Access-Control-Allow-Credentials: true');
+  }
   header('Content-Type: text/event-stream');
   header('Cache-Control: no-cache');
 
@@ -22,8 +26,6 @@
 
   // 2kb padding for IE
   echo ':' . str_repeat(' ', 2048) . "\n";
-
-  $test = intval(@$_REQUEST['test']);
 
   if ($test == 0) {
     for ($i = intval($lastEventId) + 1; $i < 6; $i++) {
@@ -62,6 +64,10 @@
       echo "data: data0;\n\n";
     }
     exit();
+  }
+  
+  if ($test == 9) {
+    echo "data: x" . (@$_COOKIE["testCookie"]) . "\n\n";
   }
 
 ?>
