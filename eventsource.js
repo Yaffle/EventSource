@@ -1,60 +1,7 @@
-/*jslint sloppy: true, white: true, plusplus: true, indent: 2, regexp: true */
-/*global XMLHttpRequest, setTimeout, clearTimeout, XDomainRequest, ActiveXObject*/
+/*jslint sloppy: true, white: true, plusplus: true, indent: 2 */
+/*global XMLHttpRequest, setTimeout, clearTimeout, XDomainRequest*/
 
 (function (global) {
-
-  function parseURI(url) {
-    var m = String(url).replace(/^\s+|\s+$/g, '').match(/^([^:\/?#]+:)?(\/\/(?:[^:@]*(?::[^:@]*)?@)?(([^:\/?#]*)(?::(\d*))?))?([^?#]*)(\?[^#]*)?(#[\s\S]*)?/);
-    // authority = '//' + user + ':' + pass '@' + hostname + ':' port
-    return (m ? {
-      href     : m[0] || '',
-      protocol : m[1] || '',
-      authority: m[2] || '',
-      host     : m[3] || '',
-      hostname : m[4] || '',
-      port     : m[5] || '',
-      pathname : m[6] || '',
-      search   : m[7] || '',
-      hash     : m[8] || ''
-    } : null);
-  }
-
-  function absolutizeURI(base, href) {// RFC 3986
-
-    function removeDotSegments(input) {
-      var output = [];
-      input.replace(/^(\.\.?(\/|$))+/, '')
-           .replace(/\/(\.(\/|$))+/g, '/')
-           .replace(/\/\.\.$/, '/../')
-           .replace(/\/?[^\/]*/g, function (p) {
-        if (p === '/..') {
-          output.pop();
-        } else {
-          output.push(p);
-        }
-      });
-      return output.join('').replace(/^\//, input.charAt(0) === '/' ? '/' : '');
-    }
-
-    href = parseURI(href || '');
-    base = parseURI(base || '');
-
-    return !href || !base ? null : (href.protocol || base.protocol) +
-           (href.protocol || href.authority ? href.authority : base.authority) +
-           removeDotSegments(href.protocol || href.authority || href.pathname.charAt(0) === '/' ? href.pathname : (href.pathname ? ((base.authority && !base.pathname ? '/' : '') + base.pathname.slice(0, base.pathname.lastIndexOf('/') + 1) + href.pathname) : base.pathname)) +
-           (href.protocol || href.authority || href.pathname ? href.search : (href.search || base.search)) +
-           href.hash;
-  }
-
-  function loc() {
-    try {
-      return global.location.href;
-    } catch (e) {
-      var a = document.createElement('a');
-      a.href = '';
-      return a.href;
-    }
-  }
 
   // http://blogs.msdn.com/b/ieinternals/archive/2010/04/06/comet-streaming-in-internet-explorer-with-xmlhttprequest-and-xdomainrequest.aspx?PageIndex=1#comments
   // XDomainRequest does not have a binary interface. To use with non-text, first base64 to string.
@@ -155,31 +102,53 @@
 
   function empty() {}
 
-  var XHR2CORSSupported = !!(global.XDomainRequest || (global.XMLHttpRequest && ('onprogress' in (new XMLHttpRequest())) && ('withCredentials' in (new XMLHttpRequest()))));
+  var Transport,
+    supportCORS = false; // anonymous mode at least
 
-  // FF 6 doesn't support SSE + CORS
-  if (!global.EventSource || XHR2CORSSupported) {
+  if (global.EventSource && global.EventSource.constructor && global.EventSource.constructor.length > 1) {
+    Transport = null;
+    supportCORS = true;
+  } else {
+    if (global.XMLHttpRequest && ('onprogress' in (new XMLHttpRequest())) && ('withCredentials' in (new XMLHttpRequest()))) {
+      Transport = global.XMLHttpRequest;
+      supportCORS = true;
+    } else {
+      if (global.XDomainRequest) {
+        Transport = XDomainRequestWrapper;
+        supportCORS = true;
+      } else {
+        if (global.EventSource) {
+          Transport = null;
+        } else {
+          if (global.XMLHttpRequest) {
+            Transport = global.XMLHttpRequest;
+            supportCORS = ('withCredentials' in (new XMLHttpRequest()));
+          } else {
+            global.XMLHttpRequest = function () { 
+              return (new global.ActiveXObject('Microsoft.XMLHTTP'));
+            };
+          }
+        }
+      }
+    }
+  }
+
+  if (Transport) {
     global.EventSource = function (url, options) {
       function F() {}
       F.prototype = global.EventSource.prototype;
 
-      url = absolutizeURI(loc(), String(url));
-      if (!url) {
-        throw new Error('');
-      }
+      url = String(url);
 
       var that = new F(),
         retry = 1000,
         lastEventId = '',
         xhr = null,
         reconnectTimeout = null,
-        realReadyState,
-        origin = parseURI(url);
-
-      origin = origin.protocol + origin.authority;
+        realReadyState;
 
       that.url = url;
-      that.withCredentials = !!(options && options.withCredentials);
+      that.withCredentials = !!(options && options.withCredentials && ('withCredentials' in (new Transport())));
 
       that.CONNECTING = 0;
       that.OPEN = 1;
@@ -205,6 +174,7 @@
           that.dispatchEvent(event);
           try {
             if (/^(message|error|open)$/.test(event.type) && typeof that['on' + event.type] === 'function') {
+              // as IE doesn't support getters/setters, we can't implement 'onmessage' via addEventListener/removeEventListener
               that['on' + event.type](event);
             }
           } catch (e) {
@@ -239,15 +209,19 @@
 
       function openConnection() {
         reconnectTimeout = null;
+        if ('\v' === 'v' && global.attachEvent) {
+          global.attachEvent('onunload', close);
+        }
 
-        var postData = (lastEventId !== '' ? 'Last-Event-ID=' + encodeURIComponent(lastEventId) : ''),
-            offset = 0,
-            charOffset = 0,
-            data = '',
-            newLastEventId = lastEventId,
-            name = '';
+        var offset = 0,
+          charOffset = 0,
+          buffer = {
+            data: '',
+            lastEventId: lastEventId,
+            name: ''
+          };
 
-        xhr = global.XDomainRequest ? (new XDomainRequestWrapper()) : (global.XMLHttpRequest ? (new global.XMLHttpRequest()) : (new ActiveXObject('Microsoft.XMLHTTP')));
+        xhr = new Transport();
 
         // with GET method in FF xhr.onreadystatechange with readyState === 3 doesn't work + POST = no-cache
         xhr.open('POST', url, true);
@@ -261,7 +235,7 @@
         // If you force Chrome to have a whitelisted content-type, either explicitly with setRequestHeader(), or implicitly by sending a FormData, then no preflight is done.
         xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
 
-        if (!XHR2CORSSupported) {
+        if (!('onprogress' in xhr)) {
           xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');// long-polling
         }
 
@@ -274,21 +248,21 @@
 
         xhr.onreadystatechange = function () {
           var readyState = +xhr.readyState,
-              responseText = '', contentType = '', i = 0, line, part, stream;
+            responseText = '',
+            contentType = '',
+            i,
+            j,
+            part,
+            stream,
+            field,
+            value;
 
-          if (readyState > 2) {
-            try {
-              responseText = xhr.responseText || '';
-            } catch (ex) {}
-          }
-          if (readyState > 1) {
-            try {
-              contentType = xhr.getResponseHeader('Content-Type') || '';// old FF bug ?
-            } catch (ex2) {}
-          }
+          try {
+            contentType = readyState > 1 ? (xhr.getResponseHeader ? xhr.getResponseHeader('Content-Type') || '' : xhr.contentType) : '';
+            responseText = readyState > 2 ? xhr.responseText || '' : '';
+          } catch (e) {}
 
-          //use xhr.responseText instead of xhr.status (http://bugs.jquery.com/ticket/8135)
-          if (realReadyState === that.CONNECTING && /^text\/event\-stream/i.test(contentType) && (readyState > 1) && (readyState !== 4 || responseText)) {
+          if (realReadyState === that.CONNECTING && /^text\/event\-stream/i.test(contentType)) {
             queue({'type': 'open'}, that.OPEN);
           }
 
@@ -297,45 +271,47 @@
             stream = (offset ? part : part.replace(/^\uFEFF/, '')).replace(/\r\n?/g, '\n').split('\n');
 
             offset += part.length - stream[stream.length - 1].length;
-            while (i < stream.length - 1) {
-              line = stream[i].match(/([^\:]*)(?:\:\u0020?([\s\S]+))?/);
+            for (i = 0; i < stream.length - 1; i++) {
+              field = stream[i];
+              value = '';
+              j = field.indexOf(':');
+              if (j !== -1) {
+                value = field.slice(j + (field.charAt(j + 1) === ' ' ? 2 : 1));
+                field = field.slice(0, j);
+              }
 
-              if (!line[0]) {
+              if (!stream[i]) {
                 // dispatch the event
-                if (data) {
-                  lastEventId = newLastEventId;
+                if (buffer.data) {
+                  lastEventId = buffer.lastEventId;
                   queue({
-                    'type': name || 'message',
-                    origin: origin,
+                    'type': buffer.name || 'message',
                     lastEventId: lastEventId,
-                    data: data.replace(/\u000A$/, '')
+                    data: buffer.data.replace(/\n$/, '')
                   }, null);
                 }
                 // Set the data buffer and the event name buffer to the empty string.
-                data = '';
-                name = '';
+                buffer.data = '';
+                buffer.name = '';
               }
 
-              if (line[1] === 'event') {
-                name = line[2];
+              if (field === 'event') {
+                buffer.name = value;
               }
 
-              if (line[1] === 'id') {
-                newLastEventId = line[2];
-                //lastEventId = line[2];//!!! see bug http://www.w3.org/Bugs/Public/show_bug.cgi?id=13761
+              if (field === 'id') {
+                buffer.lastEventId = value; // see http://www.w3.org/Bugs/Public/show_bug.cgi?id=13761
               }
 
-              if (line[1] === 'retry') {
-                if (/^\d+$/.test(line[2])) {
-                  retry = +line[2];
+              if (field === 'retry') {
+                if (/^\d+$/.test(value)) {
+                  retry = +value;
                 }
               }
 
-              if (line[1] === 'data') {
-                data += line[2] + '\n';
+              if (field === 'data') {
+                buffer.data += value + '\n';
               }
-
-              i++;
             }
           }
           charOffset = responseText.length;
@@ -343,36 +319,32 @@
           if (readyState === 4) {
             xhr.onreadystatechange = empty;// old IE bug?
             xhr = null;
+            if ('\v' === 'v' && global.detachEvent) {
+              global.detachEvent('onunload', close);
+            }
             if (realReadyState === that.OPEN) {
               // reestablishes the connection
               queue({'type': 'error'}, that.CONNECTING);
               // setTimeout will wait before previous setTimeout(0) have completed
               reconnectTimeout = setTimeout(openConnection, retry);
             } else {
-              if ('\v' === 'v' && global.detachEvent) {
-                global.detachEvent('onunload', close);
-              }
-
               //fail the connection
               queue({'type': 'error'}, that.CLOSED);
             }
           }
         };
-        xhr.send(postData);
+        xhr.send(lastEventId !== '' ? 'Last-Event-ID=' + encodeURIComponent(lastEventId) : '');
       }
       openConnection();
 
-      if ('\v' === 'v' && global.attachEvent) {
-        global.attachEvent('onunload', close);
-      }
-
       return that;
     };
+
+    global.EventSource.CONNECTING = 0;
+    global.EventSource.OPEN = 1;
+    global.EventSource.CLOSED = 2;
   }
 
-  global.EventSource.CONNECTING = 0;
-  global.EventSource.OPEN = 1;
-  global.EventSource.CLOSED = 2;
-  global.EventSource.supportCORS = XHR2CORSSupported;
+  global.EventSource.supportCORS = supportCORS;
 
 }(this));
