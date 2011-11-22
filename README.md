@@ -1,5 +1,5 @@
-EventSource polyfill for browsers, that doesn't implement native EventSource
-============================================================================
+EventSource polyfill - http://www.w3.org/TR/eventsource/
+========================================================
 
   Uses XMLHttpRequest:
 
@@ -8,25 +8,23 @@ EventSource polyfill for browsers, that doesn't implement native EventSource
 
   Browser Support:
 
-  IE6+, Firefox, Chrome, Opera, Safari
+  IE6+, Firefox 3.5+, Chrome, Opera 11+, Safari
 
   Advantages:
 
-  * Simple server-side code
-  * Based on last specification of EventSource
+  * Based on latest specification of EventSource
   * "server push" for IE 8+, Firefox 3.5+, Chrome 7+, Safari 5+, Opera 11+
-  * Polyfill is independent from document methods (addEventListener), so you can use it in a Web Worker's
-  * cross-domain requests supported for IE 8+, Firefox 3.5+, Chrome 7+, Safari 5+
-
+  * Polyfill is independent from document methods, so you can use it in a Web Worker's
+  * Cross-domain requests supported for IE 8+ (anonymous mode), Firefox 3.5+, Chrome 7+, Safari 5+
 
   Server-side requirements:
 
-  When "server push" not supported, "X-Requested-With" HTTP Header is sended on each request
-  to tell your server side script to close connection after 
-  sending a data.
-  XDomainRequest sends "Last-Event-ID" with POST body (XDomainRequest object does not have a setRequestHeader method)
-  Also XDomainRequest requires send two kilobyte padding at the top of the response stream.
-  ( http://blogs.msdn.com/b/ieinternals/archive/2010/04/06/comet-streaming-in-internet-explorer-with-xmlhttprequest-and-xdomainrequest.aspx?PageIndex=1 )
+  * "Last-Event-ID" sended in POST body (CORS + "Last-Event-ID" header is not supported by all browsers)
+  * When "server push" not supported, "X-Requested-With" HTTP Header is sended on each request 
+    to tell your server side script to close connection after sending a data.
+  * IE requires send two kilobyte padding at the top of the response stream - see http://blogs.msdn.com/b/ieinternals/archive/2010/04/06/comet-streaming-in-internet-explorer-with-xmlhttprequest-and-xdomainrequest.aspx?PageIndex=1
+
+  Specification:
 
   * http://www.w3.org/TR/eventsource/
 
@@ -35,7 +33,7 @@ EventSource polyfill for browsers, that doesn't implement native EventSource
   * https://github.com/remy/polyfills/blob/master/EventSource.js by Remy Sharp
   * https://github.com/rwldrn/jquery.eventsource by rick waldron
 
-  CORS in native SSE (not implemented yet):
+  Native CORS support with EventSource (not implemented yet):
 
   * https://bugzilla.mozilla.org/show_bug.cgi?id=664179
   * https://bugs.webkit.org/show_bug.cgi?id=61862
