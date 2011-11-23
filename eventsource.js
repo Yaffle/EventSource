@@ -124,7 +124,7 @@
             Transport = global.XMLHttpRequest;
             supportCORS = ('withCredentials' in (new XMLHttpRequest()));
           } else {
-            global.XMLHttpRequest = function () { 
+            Transport = function () { 
               return (new global.ActiveXObject('Microsoft.XMLHTTP'));
             };
           }
