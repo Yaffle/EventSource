@@ -1,7 +1,7 @@
 EventSource polyfill - http://www.w3.org/TR/eventsource/
 ========================================================
 
-  Uses XMLHttpRequest:
+  Pure JavaScript polyfill
 
   "server push" (using XMLHTTPRequest Interactive state for Firefox/Webkit, XDomainRequest for IE)
   "long polling" or "polling" logic for old browsers
