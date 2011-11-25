@@ -124,7 +124,7 @@
             Transport = global.XMLHttpRequest;
             supportCORS = ('withCredentials' in (new XMLHttpRequest()));
           } else {
-            global.XMLHttpRequest = function () { 
+            Transport = function () { 
               return (new global.ActiveXObject('Microsoft.XMLHTTP'));
             };
           }
@@ -144,8 +144,7 @@
         retry = 1000,
         lastEventId = '',
         xhr = null,
-        reconnectTimeout = null,
-        realReadyState;
+        reconnectTimeout = null;
 
       that.url = url;
       that.withCredentials = !!(options && options.withCredentials && ('withCredentials' in (new Transport())));
@@ -154,14 +153,10 @@
       that.OPEN = 1;
       that.CLOSED = 2;
       that.readyState = that.CONNECTING;
-      realReadyState = that.CONNECTING;
 
       // Queue a task which, if the readyState is set to a value other than CLOSED,
       // sets the readyState to ... and fires event
       function queue(event, readyState) {
-        if (readyState !== null) {
-          realReadyState = readyState;
-        }
         setTimeout(function () {
           if (that.readyState === that.CLOSED) {
             return;// http://www.w3.org/Bugs/Public/show_bug.cgi?id=14331
@@ -200,7 +195,6 @@
           global.detachEvent('onunload', close);
         }
         that.readyState = that.CLOSED;
-        realReadyState = that.CLOSED;
       }
 
       that.close = close;
@@ -215,6 +209,7 @@
 
         var offset = 0,
           charOffset = 0,
+          opened = false,
           buffer = {
             data: '',
             lastEventId: lastEventId,
@@ -262,11 +257,12 @@
             responseText = readyState > 2 ? xhr.responseText || '' : '';
           } catch (e) {}
 
-          if (realReadyState === that.CONNECTING && /^text\/event\-stream/i.test(contentType)) {
+          if (!opened && /^text\/event\-stream/i.test(contentType)) {
             queue({'type': 'open'}, that.OPEN);
+            opened = true;
           }
 
-          if (realReadyState === that.OPEN && /\r|\n/.test(responseText.slice(charOffset))) {
+          if (opened && /\r|\n/.test(responseText.slice(charOffset))) {
             part = responseText.slice(offset);
             stream = (offset ? part : part.replace(/^\uFEFF/, '')).replace(/\r\n?/g, '\n').split('\n');
 
@@ -322,7 +318,7 @@
             if ('\v' === 'v' && global.detachEvent) {
               global.detachEvent('onunload', close);
             }
-            if (realReadyState === that.OPEN) {
+            if (opened) {
               // reestablishes the connection
               queue({'type': 'error'}, that.CONNECTING);
               // setTimeout will wait before previous setTimeout(0) have completed
