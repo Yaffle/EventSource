@@ -6,9 +6,7 @@ EventSource polyfill - http://www.w3.org/TR/eventsource/
   "server push" (using XMLHTTPRequest Interactive state for Firefox/Webkit, XDomainRequest for IE)
   "long polling" or "polling" logic for old browsers
 
-  Browser Support:
-
-  IE6+, Firefox 3.5+, Chrome, Opera 11+, Safari
+  Cross browser implementation (IE6+)
 
   Advantages:
 
