@@ -55,9 +55,11 @@
   function empty() {}
 
   var Transport = null,
+    isOpera = Object.prototype.toString.call(global.opera) === '[object Opera]',
     supportCORS = true, // anonymous mode at least
     tmp = global.XMLHttpRequest && (new global.XMLHttpRequest()),
-    progress = tmp && ('onprogress' in tmp),
+    nativeProgress = (tmp && ('onprogress' in tmp)),
+    progress = isOpera || nativeProgress,
     withCredentials = tmp && ('withCredentials' in tmp);
   tmp = null;
 
@@ -71,7 +73,9 @@
       retry = 1000,
       lastEventId = '',
       xhr = null,
-      reconnectTimeout = null;
+      reconnectTimeout = null,
+      checkTimeout = null,
+      stop;
 
     that.url = url;
     that.withCredentials = !!(options && options.withCredentials && withCredentials);
@@ -103,10 +107,7 @@
     function close() {
       // http://dev.w3.org/html5/eventsource/ The close() method must close the connection, if any; must abort any instances of the fetch algorithm started for this EventSource object; and must set the readyState attribute to CLOSED.
       if (xhr !== null) {
-        if ('\v' === 'v' && global.detachEvent) {
-          global.detachEvent('onunload', close);
-        }
-        xhr.onload = xhr.onerror = xhr.onprogress = xhr.onreadystatechange = empty;
+        stop();
         xhr.abort();
         xhr = null;
       }
@@ -116,6 +117,17 @@
       }
       that.readyState = that.CLOSED;
     }
+
+    stop = function () {
+      if (checkTimeout !== null) {
+        clearTimeout(checkTimeout);
+        checkTimeout = null;
+      }
+      if ('\v' === 'v' && global.detachEvent) {
+        global.detachEvent('onunload', close);
+      }
+      xhr.onload = xhr.onerror = xhr.onprogress = xhr.onreadystatechange = empty;
+    };
 
     that.close = close;
 
@@ -142,6 +154,10 @@
       xhr.open('POST', url, true);
 
       function onReadyStateChange(readyState) {
+        if (!xhr) {//? strange Opera error
+          return;
+        }
+
         var responseText = '',
           contentType = '',
           i,
@@ -150,6 +166,17 @@
           stream,
           field,
           value;
+
+        // Opera doesn't fire several readystatechange events while chunked data is coming in
+        // see http://stackoverflow.com/questions/2657450/how-does-gmail-do-comet-on-opera
+        if (checkTimeout === null && !nativeProgress && readyState === 3) {
+          (function loop() {
+            checkTimeout = setTimeout(function () {
+              onReadyStateChange(+xhr.readyState);
+              loop();
+            }, 250);
+          }());
+        }
 
         try {
           contentType = readyState > 1 ? ((xhr.getResponseHeader ? xhr.getResponseHeader('Content-Type') : xhr.contentType) || '') : '';
@@ -212,10 +239,7 @@
         charOffset = responseText.length;
 
         if (readyState === 4) {
-          if ('\v' === 'v' && global.detachEvent) {
-            global.detachEvent('onunload', close);
-          }
-          xhr.onload = xhr.onerror = xhr.onprogress = xhr.onreadystatechange = empty;
+          stop();
           xhr = null;
           if (opened) {
             // reestablishes the connection
@@ -253,14 +277,14 @@
         };
 
         xhr.withCredentials = that.withCredentials;
-      } else {
-        xhr.onload = xhr.onerror = function () {
-          onReadyStateChange(4);
-        };
-        xhr.onprogress = function () {
-          onReadyStateChange(3);
-        };
       }
+      xhr.onload = xhr.onerror = function () {
+        onReadyStateChange(4);
+      };
+      // onprogress fires multiple times while readyState === 3
+      xhr.onprogress = function () {
+        onReadyStateChange(3);
+      };
 
       xhr.send(lastEventId !== '' ? 'Last-Event-ID=' + encodeURIComponent(lastEventId) : '');
     }
@@ -282,8 +306,9 @@
         // XDomainRequest does not have a binary interface. To use with non-text, first base64 to string.
         // http://cometdaily.com/2008/page/3/
         Transport = global.XDomainRequest;
+        nativeProgress = true;
       } else {
-        if (global.EventSource) {
+        if (!isOpera && global.EventSource) {
           supportCORS = false;
         } else {
           supportCORS = withCredentials;
