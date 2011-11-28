@@ -13,7 +13,7 @@ EventSource polyfill - http://www.w3.org/TR/eventsource/
   * Based on latest specification of EventSource
   * "server push" for IE 8+, Firefox 3.5+, Chrome 7+, Safari 5+, Opera 11+
   * Polyfill is independent from document methods, so you can use it in a Web Worker's
-  * Cross-domain requests supported for IE 8+ (anonymous mode), Firefox 3.5+, Chrome 7+, Safari 5+
+  * Cross-domain requests supported for IE 8+ (anonymous mode), Firefox 3.5+, Chrome 7+, Safari 5+, Opera 12+
 
   Server-side requirements:
 
@@ -35,6 +35,9 @@ EventSource polyfill - http://www.w3.org/TR/eventsource/
 
   * https://bugzilla.mozilla.org/show_bug.cgi?id=664179
   * https://bugs.webkit.org/show_bug.cgi?id=61862
+  
+  Opera 12beta (build 1174) supports EventSource + CORS (withCredentials mode only) 
+  - http://my.opera.com/desktopteam/blog/2011/11/28/glyphs-and-plugins
 
 
 EXAMPLE
