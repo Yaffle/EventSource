@@ -52,16 +52,9 @@
     return this;
   }
 
-  function empty() {}
-
-  var Transport = null,
-    isOpera = Object.prototype.toString.call(global.opera) === '[object Opera]',
-    supportCORS = true, // anonymous mode at least
-    tmp = global.XMLHttpRequest && (new global.XMLHttpRequest()),
-    nativeProgress = (tmp && ('onprogress' in tmp)),
-    progress = isOpera || nativeProgress,
-    withCredentials = tmp && ('withCredentials' in tmp);
-  tmp = null;
+  // http://blogs.msdn.com/b/ieinternals/archive/2010/04/06/comet-streaming-in-internet-explorer-with-xmlhttprequest-and-xdomainrequest.aspx?PageIndex=1#comments
+  // XDomainRequest does not have a binary interface. To use with non-text, first base64 to string.
+  // http://cometdaily.com/2008/page/3/
 
   function EventSource(url, options) {
     function F() {}
@@ -75,10 +68,10 @@
       xhr = null,
       reconnectTimeout = null,
       checkTimeout = null,
-      stop;
+      wantsWithCredentials = !!(options && options.withCredentials);
 
+    options = null;
     that.url = url;
-    that.withCredentials = !!(options && options.withCredentials && withCredentials);
 
     that.CONNECTING = 0;
     that.OPEN = 1;
@@ -104,6 +97,14 @@
       }, 0);
     }
 
+    function stop() {
+      if (checkTimeout !== null) {
+        clearTimeout(checkTimeout);
+        checkTimeout = null;
+      }
+      xhr.onload = xhr.onerror = xhr.onprogress = xhr.onreadystatechange = function () {};
+    }
+
     function close() {
       // http://dev.w3.org/html5/eventsource/ The close() method must close the connection, if any; must abort any instances of the fetch algorithm started for this EventSource object; and must set the readyState attribute to CLOSED.
       if (xhr !== null) {
@@ -118,46 +119,36 @@
       that.readyState = that.CLOSED;
     }
 
-    stop = function () {
-      if (checkTimeout !== null) {
-        clearTimeout(checkTimeout);
-        checkTimeout = null;
-      }
-      if ('\v' === 'v' && global.detachEvent) {
-        global.detachEvent('onunload', close);
-      }
-      xhr.onload = xhr.onerror = xhr.onprogress = xhr.onreadystatechange = empty;
-    };
-
     that.close = close;
 
     EventTarget.call(that);
 
     function openConnection() {
       reconnectTimeout = null;
-      if ('\v' === 'v' && global.attachEvent) {
-        global.attachEvent('onunload', close);
-      }
 
       var offset = 0,
         charOffset = 0,
         opened = false,
+        closed = false,
+        withCredentials,
         buffer = {
           data: '',
           lastEventId: lastEventId,
           name: ''
         };
 
-      xhr = new Transport();
+      xhr = new global.XMLHttpRequest();
+      withCredentials = ('withCredentials' in xhr);
+      if (!withCredentials && global.XDomainRequest) {
+        xhr = new global.XDomainRequest();
+      }
+
+      that.withCredentials = wantsWithCredentials && withCredentials;
 
       // with GET method in FF xhr.onreadystatechange with readyState === 3 doesn't work + POST = no-cache
       xhr.open('POST', url, true);
 
       function onReadyStateChange(readyState) {
-        if (!xhr) {//? strange Opera error
-          return;
-        }
-
         var responseText = '',
           contentType = '',
           i,
@@ -167,15 +158,9 @@
           field,
           value;
 
-        // Opera doesn't fire several readystatechange events while chunked data is coming in
-        // see http://stackoverflow.com/questions/2657450/how-does-gmail-do-comet-on-opera
-        if (checkTimeout === null && !nativeProgress && readyState === 3) {
-          (function loop() {
-            checkTimeout = setTimeout(function () {
-              onReadyStateChange(+xhr.readyState);
-              loop();
-            }, 250);
-          }());
+        // (onreadystatechange can't prevent onload/onerror)
+        if (closed) {
+          return;
         }
 
         try {
@@ -187,6 +172,7 @@
           queue({type: 'open'}, that.OPEN);
           opened = true;
         }
+        // abort connection if wrong contentType ?
 
         if (opened && (/\r|\n/).test(responseText.slice(charOffset))) {
           part = responseText.slice(offset);
@@ -238,9 +224,21 @@
         }
         charOffset = responseText.length;
 
+        // Opera doesn't fire several readystatechange events while chunked data is coming in
+        // see http://stackoverflow.com/questions/2657450/how-does-gmail-do-comet-on-opera
+        if (opened && checkTimeout === null && readyState === 3) {
+          checkTimeout = setTimeout(function () {
+            checkTimeout = null;
+            if (+xhr.readyState === 3) { // xhr.readyState may be changed to 4 in Opera 11.50
+              onReadyStateChange(3); // will setTimeout - setInterval
+            }
+          }, 250);
+        }
+
         if (readyState === 4) {
           stop();
           xhr = null;
+          closed = true;
           if (opened) {
             // reestablishes the connection
             queue({type: 'error'}, that.CONNECTING);
@@ -253,7 +251,7 @@
         }
       }
 
-      if (xhr.setRequestHeader) { // XDomainRequest doesn't have this method
+      if (xhr.setRequestHeader) { // XDomainRequest doesn’t support setRequestHeader
         // Chrome bug:
         // Request header field Cache-Control is not allowed by Access-Control-Allow-Headers.
         //xhr.setRequestHeader('Cache-Control', 'no-cache');
@@ -263,24 +261,23 @@
         // If you force Chrome to have a whitelisted content-type, either explicitly with setRequestHeader(), or implicitly by sending a FormData, then no preflight is done.
         xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
 
-        if (!progress) {
-          //! X-Requested-With header should be allowed for CORS requests
-          xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');// long-polling
-        }
-
-        //  Request header field Last-Event-ID is not allowed by Access-Control-Allow-Headers.
+        // Request header field Last-Event-ID is not allowed by Access-Control-Allow-Headers.
+        // +setRequestHeader should be used to avoid preflight requests
         //if (lastEventId !== '') {
         //  xhr.setRequestHeader('Last-Event-ID', lastEventId);
         //}
-        xhr.onreadystatechange = function () {
-          onReadyStateChange(+xhr.readyState);
-        };
-
-        xhr.withCredentials = that.withCredentials;
       }
+
+      xhr.onreadystatechange = function () {
+        onReadyStateChange(+this.readyState);
+      };
+
+      xhr.withCredentials = wantsWithCredentials && withCredentials;
+
       xhr.onload = xhr.onerror = function () {
         onReadyStateChange(4);
       };
+
       // onprogress fires multiple times while readyState === 3
       xhr.onprogress = function () {
         onReadyStateChange(3);
@@ -297,33 +294,9 @@
   EventSource.OPEN = 1;
   EventSource.CLOSED = 2;
 
-  if (!(global.EventSource && global.EventSource.constructor && global.EventSource.constructor.length > 1)) {
-    if (progress && withCredentials) {
-      Transport = global.XMLHttpRequest;
-    } else {
-      if (global.XDomainRequest) {
-        // http://blogs.msdn.com/b/ieinternals/archive/2010/04/06/comet-streaming-in-internet-explorer-with-xmlhttprequest-and-xdomainrequest.aspx?PageIndex=1#comments
-        // XDomainRequest does not have a binary interface. To use with non-text, first base64 to string.
-        // http://cometdaily.com/2008/page/3/
-        Transport = global.XDomainRequest;
-        nativeProgress = true;
-      } else {
-        if (!isOpera && global.EventSource) {
-          supportCORS = false;
-        } else {
-          supportCORS = withCredentials;
-          Transport = global.XMLHttpRequest || function () {
-            return (new global.ActiveXObject('Microsoft.XMLHTTP'));
-          };
-        }
-      }
-    }
-  }
-
-  if (Transport) {
+  // if onprogress supported
+  if (global.XDomainRequest || Object.prototype.toString.call(global.opera) === '[object Opera]' || (global.XMLHttpRequest && ('onprogress' in (new global.XMLHttpRequest())))) {
     global.EventSource = EventSource;
   }
-
-  global.EventSource.supportCORS = supportCORS;
 
 }(this));

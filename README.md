@@ -1,25 +1,20 @@
 EventSource polyfill - http://www.w3.org/TR/eventsource/
 ========================================================
 
-  Pure JavaScript polyfill
+  Browser support:
 
-  "server push" (using XMLHTTPRequest Interactive state for Firefox/Webkit, XDomainRequest for IE)
-  "long polling" or "polling" logic for old browsers
-
-  Cross browser implementation (IE6+)
+  IE 8+, Firefox 3.5+, Chrome 7+, Safari 5+, Opera 11+
 
   Advantages:
 
+  * Simple server-side code - you don't need any library.
   * Based on latest specification of EventSource
-  * "server push" for IE 8+, Firefox 3.5+, Chrome 7+, Safari 5+, Opera 11+
   * Polyfill is independent from document methods, so you can use it in a Web Worker's
   * Cross-domain requests supported for IE 8+ (anonymous mode), Firefox 3.5+, Chrome 7+, Safari 5+, Opera 12+
 
   Server-side requirements:
 
   * "Last-Event-ID" sended in POST body (CORS + "Last-Event-ID" header is not supported by all browsers)
-  * When "server push" not supported, "X-Requested-With" HTTP Header is sended on each request 
-    to tell your server side script to close connection after sending a data.
   * IE requires send two kilobyte padding at the top of the response stream - see http://blogs.msdn.com/b/ieinternals/archive/2010/04/06/comet-streaming-in-internet-explorer-with-xmlhttprequest-and-xdomainrequest.aspx?PageIndex=1
 
   Specification:
@@ -35,10 +30,7 @@ EventSource polyfill - http://www.w3.org/TR/eventsource/
 
   * https://bugzilla.mozilla.org/show_bug.cgi?id=664179
   * https://bugs.webkit.org/show_bug.cgi?id=61862
-  
-  Opera 12beta (build 1174) supports EventSource + CORS (withCredentials mode only) 
-  - http://my.opera.com/desktopteam/blog/2011/11/28/glyphs-and-plugins
-
+  * Opera 12beta supports EventSource + CORS (credentials mode)
 
 EXAMPLE
 -------
@@ -75,9 +67,6 @@ http.createServer(function (req, res) {
       clearInterval(t);
     });
 
-    if (req.headers['x-requested-with']) {
-      res.end();
-    }
 
   } else {
     if (req.url === '/index.html' || req.url === '/eventsource.js') {
@@ -108,8 +97,9 @@ or use PHP (see php/events.php)
 
   // getting last-event-id from POST or from http headers
   $postData = @file_get_contents('php://input');
-  if (preg_match('#Last\\-Event\\-ID\\=([\\s\\S]+)#ui', @$postData, $tmp)) {
-    $lastEventId = urldecode(@$tmp[1]);
+  parse_str($postData, $tmp);
+  if (isset($tmp['Last-Event-ID'])) {
+    $lastEventId = $tmp['Last-Event-ID'];
   } else {
     $lastEventId = @$_SERVER["HTTP_LAST_EVENT_ID"];
   }

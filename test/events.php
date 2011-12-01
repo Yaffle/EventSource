@@ -18,8 +18,9 @@
 
   // getting last-event-id from POST or from http headers
   $postData = @file_get_contents('php://input');
-  if (preg_match('#Last\\-Event\\-ID\\=([\\s\\S]+)#ui', @$postData, $tmp)) {
-    $lastEventId = urldecode(@$tmp[1]);
+  parse_str($postData, $tmp);
+  if (isset($tmp['Last-Event-ID'])) {
+    $lastEventId = $tmp['Last-Event-ID'];
   } else {
     $lastEventId = @$_SERVER["HTTP_LAST_EVENT_ID"];
   }
@@ -65,9 +66,19 @@
     }
     exit();
   }
-  
+
   if ($test == 9) {
     echo "data: x" . (@$_COOKIE["testCookie"]) . "\n\n";
+  }
+
+  if ($test == 10) {
+    for ($i = intval($lastEventId) + 1; $i < 6; $i++) {
+      echo "id: $i\n";
+      echo "data: $i;\n\n";
+	  if ($i == 3) {
+	    exit();
+	  }
+    }
   }
 
 ?>

@@ -45,6 +45,23 @@ $(document).ready(function() {
     };
   });
 
+  asyncTest('EventSource 1; 2; 3; 4; 5;', 1, function () {
+    var es = new EventSource('events.php?test=10'),
+        s = '', timer;
+
+    function onTimeout() {
+      strictEqual(s, ' 1; 2; 3; 4; 5;', 'test 10');
+      es.close();
+      start();
+    }
+
+    timer = setTimeout(onTimeout, 2000);
+
+    es.onmessage = function (event) {
+      s += ' ' + event.data;
+    };
+  });
+
   asyncTest('EventSource test next', 1, function () {
     var es = new EventSource('events.php?test=1'), 
         closeCount = 0;

@@ -42,20 +42,14 @@ http.createServer(function (req, res) {
       'Access-Control-Allow-Origin': req.headers.origin
     });
     var lastEventId = +req.headers['last-event-id'] || +post['Last-Event-ID'] || 0;
-    var polling = !!req.headers['x-requested-with'];
 
     // 2 kb comment message for XDomainRequest
     res.write(':' + Array(2049).join(' ') + '\n');
 
     function sendMessages() {
-      var somethignSended = lastEventId < history.length;
       while (lastEventId < history.length) {
         res.write('id: ' + (lastEventId + 1) + '\n' + 'data: ' + encodeURIComponent(history[lastEventId]) + '\n\n');
         lastEventId++;
-      }
-      if (somethignSended && polling) {
-        emitter.removeListener('message', sendMessages);
-        res.end();
       }
     }
 
@@ -88,7 +82,7 @@ http.createServer(function (req, res) {
     }
 
   } else {
-    if (req.url !== '/example.html' && req.url !== '/eventsource.js' && req.url !== '/sharedworker.js') {
+    if (req.url !== '/example.html' && req.url !== '../eventsource.js' && req.url !== '/sharedworker.js') {
       req.url = '/example.html';
     }
     res.writeHead(200, {'Content-Type': (req.url.indexOf('.js') !== -1 ? 'text/javascript' : 'text/html')});
