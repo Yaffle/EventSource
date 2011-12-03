@@ -73,9 +73,6 @@
     options = null;
     that.url = url;
 
-    that.CONNECTING = 0;
-    that.OPEN = 1;
-    that.CLOSED = 2;
     that.readyState = that.CONNECTING;
 
     // Queue a task which, if the readyState is set to a value other than CLOSED,
@@ -143,7 +140,9 @@
         xhr = new global.XDomainRequest();
       }
 
-      that.withCredentials = wantsWithCredentials && withCredentials;
+      if (withCredentials) { // only set when supported
+        that.withCredentials = wantsWithCredentials;
+      }
 
       // with GET method in FF xhr.onreadystatechange with readyState === 3 doesn't work + POST = no-cache
       xhr.open('POST', url, true);
@@ -293,6 +292,12 @@
   EventSource.CONNECTING = 0;
   EventSource.OPEN = 1;
   EventSource.CLOSED = 2;
+
+  EventSource.prototype = {
+    CONNECTING: EventSource.CONNECTING,
+    OPEN: EventSource.OPEN,
+    CLOSED: EventSource.CLOSED
+  };
 
   // if onprogress supported
   if (global.XDomainRequest || Object.prototype.toString.call(global.opera) === '[object Opera]' || (global.XMLHttpRequest && ('onprogress' in (new global.XMLHttpRequest())))) {
