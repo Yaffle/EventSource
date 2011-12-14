@@ -261,7 +261,7 @@
         xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
 
         // Request header field Last-Event-ID is not allowed by Access-Control-Allow-Headers.
-        // +setRequestHeader should be used to avoid preflight requests
+        // +setRequestHeader shouldn't be used to avoid preflight requests
         //if (lastEventId !== '') {
         //  xhr.setRequestHeader('Last-Event-ID', lastEventId);
         //}

@@ -73,6 +73,7 @@
 
   if ($test == 10) {
     for ($i = intval($lastEventId) + 1; $i < 6; $i++) {
+      echo "retry: 1000\n";
       echo "id: $i\n";
       echo "data: $i;\n\n";
 	  if ($i == 3) {

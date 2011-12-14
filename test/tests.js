@@ -4,22 +4,22 @@
 
 $(document).ready(function() {
 
-  asyncTest('EventSource constructor', 2, function () {
+  asyncTest('EventSource constructor', function () {
     var es = new EventSource('events.php');
     ok(es instanceof EventSource, 'failed');    
     es.close();
     var es = EventSource('events.php');
     ok(es instanceof EventSource, 'failed');
-    start();
     es.close();
+    start();
   });
 
-  asyncTest('EventSource.CLOSED', 1, function () {
+  asyncTest('EventSource.CLOSED', function () {
     ok(EventSource.CLOSED === 2, 'failed');    
     start();
   });
 
-  asyncTest('EventSource 1; 2; 3; 4; 5;', 1, function () {
+  asyncTest('EventSource 1; 2; 3; 4; 5;', function () {
     var es = new EventSource('events.php'),
         s = '', timer;
 
@@ -45,7 +45,7 @@ $(document).ready(function() {
     };
   });
 
-  asyncTest('EventSource 1; 2; 3; 4; 5;', 1, function () {
+  asyncTest('EventSource 1; 2; 3; 4; 5;', function () {
     var es = new EventSource('events.php?test=10'),
         s = '', timer;
 
@@ -62,31 +62,31 @@ $(document).ready(function() {
     };
   });
 
-  asyncTest('EventSource test next', 1, function () {
+  asyncTest('EventSource test next', function () {
     var es = new EventSource('events.php?test=1'), 
         closeCount = 0;
 
-    // failed in Opera since Opera native EventSource used
     es.onmessage = function (event) {
       if (+event.lastEventId === 2) {
+        closeCount = 1000;
+        es.close();
         ok(false, 'lastEventId shouldn\' be set when connection dropped without data dispatch (see http://www.w3.org/Bugs/Public/show_bug.cgi?id=13761 )');
         start();
-        closeCount = 1000;
       }
     };
 
     es.onerror = function () {
       closeCount++;
       if (closeCount === 3) {
+        es.close();
         ok(true, 'ok');
         start();
-        es.close();
       }
     };
   });
 
   
-  asyncTest('EventTarget exceptions throwed from listeners should not stop dispathing', 1, function () {
+  asyncTest('EventTarget exceptions throwed from listeners should not stop dispathing', function () {
     var es = new EventSource('events.php?test=1');
 
     var s = '';
@@ -107,7 +107,7 @@ $(document).ready(function() {
 
   // http://dev.w3.org/2006/webapi/DOM-Level-3-Events/html/DOM3-Events.html#event-flow
   // Once determined, the candidate event listeners cannot be changed; adding or removing listeners does not affect the current target's candidate event listeners.
-  asyncTest('EventTarget addEventListener/removeEventListener', 1, function () {
+  asyncTest('EventTarget addEventListener/removeEventListener', function () {
     var es = new EventSource('events.php?test=1');
     var s = '';
     function a1() {
@@ -117,7 +117,8 @@ $(document).ready(function() {
 
       setTimeout(function () {
         es.close();
-        strictEqual(s, '13', '!');
+        var t = "Once determined, the candidate event listeners cannot be changed; adding or removing listeners does not affect the current target's candidate event listeners";
+        strictEqual(s, '13', t + ' - http://www.w3.org/TR/DOM-Level-3-Events/');
         start();
       }, 0);
     }
@@ -137,7 +138,7 @@ $(document).ready(function() {
 
   });
 
-  asyncTest('EventTarget', 1, function () {
+  asyncTest('EventTarget', function () {
     var es = new EventSource('events.php?test=3');
     var s = '';
     es.onmessage = function (e) {
@@ -151,7 +152,7 @@ $(document).ready(function() {
     }, 200);
   });
 
-  asyncTest('EventTarget#close()', 1, function () {
+  asyncTest('EventTarget#close()', function () {
     var es = new EventSource('events.php?test=2');
     var s = '';
     es.onmessage = function () {
@@ -159,21 +160,22 @@ $(document).ready(function() {
       es.close();
     };
     setTimeout(function () {
+      es.close();
       ok(s === '1', 'http://www.w3.org/Bugs/Public/show_bug.cgi?id=14331');
       start();
     }, 200);
   });
 
-  asyncTest('EventTarget#close()', 1, function () {
+  asyncTest('EventTarget#close()', function () {
     var es = new EventSource('events.php?test=7');
     es.onopen = function () {
-      strictEqual(es.readyState, 1, 'f');
+      strictEqual(es.readyState, 1);
       start();
       es.close();
     };
   });
 
-  asyncTest('EventTarget CORS', 1, function () {
+  asyncTest('EventTarget CORS', function () {
     var es = new EventSource(location.href.replace('http', 'https') + 'events.php?test=8');
 
     es.onmessage = function (event) {
@@ -191,7 +193,7 @@ $(document).ready(function() {
     };
   });
 
-  asyncTest('EventTarget CORS + withCredentials', 1, function () {
+  asyncTest('EventTarget CORS + withCredentials', function () {
     document.cookie = 'testCookie=12345; path=/';
 
     var es = new EventSource(location.href.replace('http', 'https') + 'events.php?test=9', {withCredentials: true});
