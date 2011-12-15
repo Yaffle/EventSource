@@ -82,4 +82,9 @@
     }
   }
 
+  if ($test == 800) {
+    echo "retry: 800\n\n";
+    exit();
+  }
+
 ?>

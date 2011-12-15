@@ -8,9 +8,6 @@ $(document).ready(function() {
     var es = new EventSource('events.php');
     ok(es instanceof EventSource, 'failed');    
     es.close();
-    var es = EventSource('events.php');
-    ok(es instanceof EventSource, 'failed');
-    es.close();
     start();
   });
 
@@ -210,6 +207,53 @@ $(document).ready(function() {
     es.onerror = function () {
       if (es.readyState === es.CLOSED) {
         ok(false, 'not ok');
+        start();
+      }
+    };
+  });
+
+  asyncTest('EventSource from Worker', function () {
+    var s = 0;
+
+    setTimeout(function () {
+      ok(s === 1, '!');
+      start();
+    }, 1000);
+
+    var worker = new Worker('esworker.js?' + Math.random());
+    worker.addEventListener('message', function (event) {
+      s = 1;
+    }, false);
+    worker.postMessage('events.php');
+  });
+
+  /*
+  asyncTest('EventSource from SharedWorker', function () {
+    var s = 0;
+
+    setTimeout(function () {
+      ok(s === 1, '!');
+      start();
+    }, 1000);
+
+    var worker = new SharedWorker('esworker.js?' + Math.random());
+    worker.port.addEventListener('message', function (event) {
+      s = 1;
+    }, false);
+    worker.port.start();
+    worker.port.postMessage('events.php');
+  });*/
+
+  asyncTest('EventSource retry delay - see http://code.google.com/p/chromium/issues/detail?id=86230', function () {
+    var es = new EventSource('events.php?test=800');
+    var s = 0;
+    es.onopen = function () {
+      if (!s) {
+        s = +new Date();
+      } else {
+        es.close();
+        s = +new Date() - s;
+        ok(s >= 800, '!' + s);
         start();
       }
     };
