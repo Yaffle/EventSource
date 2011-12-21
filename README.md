@@ -3,14 +3,14 @@ EventSource polyfill - http://www.w3.org/TR/eventsource/
 
   Browser support:
 
-  IE 8+, Firefox 3.5+, Chrome 7+, Safari 5+, Opera 11+ (CORS supported since Opera 12)
+  IE 8+, Firefox 3.5+, Chrome 7+, Safari 5+, Opera 12+
 
   Advantages:
 
   * Simple server-side code - you don't need any library.
   * Based on latest specification of EventSource
   * Polyfill is independent from document methods, so you can use it in a Web Worker's
-  * Cross-domain requests support
+  * Cross-domain requests support (anonymous mode)
 
   Server-side requirements:
 
@@ -52,8 +52,7 @@ http.createServer(function (req, res) {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
-       //'Access-Control-Allow-Credentials': 'true',
-      'Access-Control-Allow-Origin': req.headers.origin
+      'Access-Control-Allow-Origin': '*'
     });
 
     res.write(':' + Array(2049).join(' ') + '\n'); //2kb padding for IE
@@ -83,8 +82,7 @@ or use PHP (see php/events.php)
 ```php
 <?
 
-  header('Access-Control-Allow-Origin: ' . @$_SERVER['HTTP_ORIGIN']);
-  //header('Access-Control-Allow-Credentials: true');
+  header('Access-Control-Allow-Origin: *');
   header('Content-Type: text/event-stream');
   header('Cache-Control: no-cache');
 

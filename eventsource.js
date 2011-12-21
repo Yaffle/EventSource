@@ -56,11 +56,8 @@
   // XDomainRequest does not have a binary interface. To use with non-text, first base64 to string.
   // http://cometdaily.com/2008/page/3/
 
-  function EventSource(url, options) {
+  function EventSource(url) {
     url = String(url);
-    options = {
-      withCredentials: !!(options && options.withCredentials)
-    };
 
     var that = this,
       retry = 1000,
@@ -125,22 +122,13 @@
         charOffset = 0,
         opened = false,
         closed = false,
-        withCredentials,
         buffer = {
           data: '',
           lastEventId: lastEventId,
           name: ''
         };
 
-      xhr = new global.XMLHttpRequest();
-      withCredentials = ('withCredentials' in xhr);
-      if (!withCredentials && global.XDomainRequest) {
-        xhr = new global.XDomainRequest();
-      }
-
-      if (withCredentials) { // only set when supported
-        that.withCredentials = options.withCredentials;
-      }
+      xhr = global.XDomainRequest ? new global.XDomainRequest() : new global.XMLHttpRequest();
 
       // with GET method in FF xhr.onreadystatechange with readyState === 3 doesn't work + POST = no-cache
       xhr.open('POST', url, true);
@@ -269,7 +257,7 @@
         onReadyStateChange(+this.readyState);
       };
 
-      xhr.withCredentials = options.withCredentials && withCredentials;
+      xhr.withCredentials = false;
 
       xhr.onload = xhr.onerror = function () {
         onReadyStateChange(4);
@@ -297,9 +285,6 @@
     CLOSED: EventSource.CLOSED
   };
 
-  // if onprogress supported
-  if (global.XDomainRequest || Object.prototype.toString.call(global.opera) === '[object Opera]' || (global.XMLHttpRequest && ('onprogress' in (new global.XMLHttpRequest())))) {
-    global.EventSource = EventSource;
-  }
+  global.EventSource = EventSource;
 
 }(this));

@@ -186,32 +186,12 @@ $(document).ready(function() {
       if (es.readyState === es.CLOSED) {
         ok(false, 'not ok');
         start();
-      }
-    };
-  });
-
-  asyncTest('EventTarget CORS + withCredentials', function () {
-    document.cookie = 'testCookie=12345; path=/';
-
-    var es = new EventSource(location.href.replace('http', 'https') + 'events.php?test=9', {withCredentials: true});
-    es.onmessage = function (event) {
-      if (event.data === 'x12345') {
-        ok(true, 'ok');
-        start();
         es.close();
-      } else {
-        ok(false, 'not ok');
-        start();
-      }
-    };
-    es.onerror = function () {
-      if (es.readyState === es.CLOSED) {
-        ok(false, 'not ok');
-        start();
       }
     };
   });
 
+/*
   asyncTest('EventSource from Worker', function () {
     var s = 0;
 
@@ -227,7 +207,7 @@ $(document).ready(function() {
 
     worker.postMessage('events.php');
   });
-
+*/
   /*
   asyncTest('EventSource from SharedWorker', function () {
     var s = 0;
