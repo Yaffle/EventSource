@@ -57,20 +57,18 @@
   // http://cometdaily.com/2008/page/3/
 
   function EventSource(url, options) {
-    function F() {}
-    F.prototype = EventSource.prototype;
-
     url = String(url);
+    options = {
+      withCredentials: !!(options && options.withCredentials)
+    };
 
-    var that = new F(),
+    var that = this,
       retry = 1000,
       lastEventId = '',
       xhr = null,
       reconnectTimeout = null,
-      checkTimeout = null,
-      wantsWithCredentials = !!(options && options.withCredentials);
+      checkTimeout = null;
 
-    options = null;
     that.url = url;
 
     that.readyState = that.CONNECTING;
@@ -87,7 +85,7 @@
           event.target = that;
           that.dispatchEvent(event);
           if (/^(message|error|open)$/.test(event.type) && typeof that['on' + event.type] === 'function') {
-            // as IE doesn't support getters/setters, we can't implement 'onmessage' via addEventListener/removeEventListener
+            // as IE 8 doesn't support getters/setters, we can't implement 'onmessage' via addEventListener/removeEventListener
             that['on' + event.type](event);
           }
         }
@@ -141,7 +139,7 @@
       }
 
       if (withCredentials) { // only set when supported
-        that.withCredentials = wantsWithCredentials;
+        that.withCredentials = options.withCredentials;
       }
 
       // with GET method in FF xhr.onreadystatechange with readyState === 3 doesn't work + POST = no-cache
@@ -271,7 +269,7 @@
         onReadyStateChange(+this.readyState);
       };
 
-      xhr.withCredentials = wantsWithCredentials && withCredentials;
+      xhr.withCredentials = options.withCredentials && withCredentials;
 
       xhr.onload = xhr.onerror = function () {
         onReadyStateChange(4);

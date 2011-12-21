@@ -215,15 +215,16 @@ $(document).ready(function() {
   asyncTest('EventSource from Worker', function () {
     var s = 0;
 
+    var worker = new Worker('esworker.js?' + Math.random());
+    worker.addEventListener('message', function (event) {
+      s = 1;
+    }, false);
+
     setTimeout(function () {
       ok(s === 1, '!');
       start();
     }, 1000);
 
-    var worker = new Worker('esworker.js?' + Math.random());
-    worker.addEventListener('message', function (event) {
-      s = 1;
-    }, false);
     worker.postMessage('events.php');
   });
 
@@ -253,7 +254,7 @@ $(document).ready(function() {
       } else {
         es.close();
         s = +new Date() - s;
-        ok(s >= 800, '!' + s);
+        ok(s >= 750, '!' + s);
         start();
       }
     };

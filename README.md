@@ -3,14 +3,14 @@ EventSource polyfill - http://www.w3.org/TR/eventsource/
 
   Browser support:
 
-  IE 8+, Firefox 3.5+, Chrome 7+, Safari 5+, Opera 11+
+  IE 8+, Firefox 3.5+, Chrome 7+, Safari 5+, Opera 11+ (CORS supported since Opera 12)
 
   Advantages:
 
   * Simple server-side code - you don't need any library.
   * Based on latest specification of EventSource
   * Polyfill is independent from document methods, so you can use it in a Web Worker's
-  * Cross-domain requests supported for IE 8+ (anonymous mode), Firefox 3.5+, Chrome 7+, Safari 5+, Opera 12+
+  * Cross-domain requests support
 
   Server-side requirements:
 
@@ -26,10 +26,10 @@ EventSource polyfill - http://www.w3.org/TR/eventsource/
   * https://github.com/remy/polyfills/blob/master/EventSource.js by Remy Sharp
   * https://github.com/rwldrn/jquery.eventsource by rick waldron
 
-  Native CORS support with EventSource (not implemented yet):
+  Native EventSource+CORS support:
 
-  * https://bugzilla.mozilla.org/show_bug.cgi?id=664179
-  * https://bugs.webkit.org/show_bug.cgi?id=61862
+  * https://bugzilla.mozilla.org/show_bug.cgi?id=664179 (Firefox 10)
+  * https://bugs.webkit.org/show_bug.cgi?id=61862 (not implemented)
   * Opera 12beta supports EventSource + CORS (credentials mode)
 
 EXAMPLE
@@ -89,7 +89,9 @@ or use PHP (see php/events.php)
   header('Cache-Control: no-cache');
 
   // prevent bufferring
-  @apache_setenv('no-gzip', 1);
+  if (function_exists('apache_setenv')) {
+    @apache_setenv('no-gzip', 1);
+  }
   @ini_set('zlib.output_compression', 0);
   @ini_set('implicit_flush', 1);
   for ($i = 0; $i < ob_get_level(); $i++) { ob_end_flush(); }
