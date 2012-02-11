@@ -56,7 +56,9 @@
   // XDomainRequest does not have a binary interface. To use with non-text, first base64 to string.
   // http://cometdaily.com/2008/page/3/
 
-  function EventSource(url) {
+  var xhr2 = global.XMLHttpRequest && ('withCredentials' in (new global.XMLHttpRequest())) && !!global.ProgressEvent;
+
+  function EventSource(url, options) {
     url = String(url);
 
     var that = this,
@@ -64,11 +66,14 @@
       lastEventId = '',
       xhr = null,
       reconnectTimeout = null,
-      checkTimeout = null;
+      checkTimeout = null,
+      withCredentials = Boolean(xhr2 && options && options.withCredentials);
 
+    options = null;
     that.url = url;
 
     that.readyState = that.CONNECTING;
+    that.withCredentials = withCredentials;
 
     // Queue a task which, if the readyState is set to a value other than CLOSED,
     // sets the readyState to ... and fires event
@@ -128,7 +133,7 @@
           name: ''
         };
 
-      xhr = global.XDomainRequest ? new global.XDomainRequest() : new global.XMLHttpRequest();
+      xhr = !xhr2 && global.XDomainRequest ? new global.XDomainRequest() : new global.XMLHttpRequest();
 
       // with GET method in FF xhr.onreadystatechange with readyState === 3 doesn't work + POST = no-cache
       xhr.open('POST', url, true);
@@ -157,7 +162,6 @@
           queue({type: 'open'}, that.OPEN);
           opened = true;
         }
-        // abort connection if wrong contentType ?
 
         if (opened && (/\r|\n/).test(responseText.slice(charOffset))) {
           part = responseText.slice(offset);
@@ -209,15 +213,17 @@
         }
         charOffset = responseText.length;
 
-        // Opera doesn't fire several readystatechange events while chunked data is coming in
-        // see http://stackoverflow.com/questions/2657450/how-does-gmail-do-comet-on-opera
-        if (opened && checkTimeout === null && readyState === 3) {
-          checkTimeout = setTimeout(function () {
-            checkTimeout = null;
-            if (+xhr.readyState === 3) { // xhr.readyState may be changed to 4 in Opera 11.50
-              onReadyStateChange(3); // will setTimeout - setInterval
-            }
-          }, 250);
+        if (!global.XDomainRequest && !xhr2) { // Opera < 12
+          // Opera doesn't fire several readystatechange events while chunked data is coming in
+          // see http://stackoverflow.com/questions/2657450/how-does-gmail-do-comet-on-opera
+          if (opened && checkTimeout === null && readyState === 3) {
+            checkTimeout = setTimeout(function () {
+              checkTimeout = null;
+              if (+xhr.readyState === 3) { // xhr.readyState may be changed to 4 in Opera 11.50
+                onReadyStateChange(3); // will setTimeout - setInterval
+              }
+            }, 250);
+          }
         }
 
         if (readyState === 4) {
@@ -257,7 +263,7 @@
         onReadyStateChange(+this.readyState);
       };
 
-      xhr.withCredentials = false;
+      xhr.withCredentials = withCredentials;
 
       xhr.onload = xhr.onerror = function () {
         onReadyStateChange(4);
@@ -285,6 +291,8 @@
     CLOSED: EventSource.CLOSED
   };
 
+  //if (!('withCredentials' in global.EventSource.prototype)) { // to detect CORS in FF 11
   global.EventSource = EventSource;
+  //}
 
 }(this));

@@ -28,9 +28,9 @@ EventSource polyfill - http://www.w3.org/TR/eventsource/
 
   Native EventSource+CORS support:
 
-  * https://bugzilla.mozilla.org/show_bug.cgi?id=664179 (Firefox 10)
+  * https://bugzilla.mozilla.org/show_bug.cgi?id=664179 (Firefox 11)
   * https://bugs.webkit.org/show_bug.cgi?id=61862 (not implemented)
-  * Opera 12beta supports EventSource + CORS (credentials mode)
+  * Opera 12 alpha supports EventSource + CORS
 
 EXAMPLE
 -------
