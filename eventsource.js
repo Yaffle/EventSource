@@ -242,7 +242,7 @@
         }
       }
 
-      if (xhr.setRequestHeader) { // XDomainRequest doesn’t support setRequestHeader
+      if (xhr.setRequestHeader) { // XDomainRequest doesnï¿½t support setRequestHeader
         // Chrome bug:
         // Request header field Cache-Control is not allowed by Access-Control-Allow-Headers.
         //xhr.setRequestHeader('Cache-Control', 'no-cache');
@@ -251,6 +251,7 @@
         // http://code.google.com/p/chromium/issues/detail?id=71694
         // If you force Chrome to have a whitelisted content-type, either explicitly with setRequestHeader(), or implicitly by sending a FormData, then no preflight is done.
         xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+        xhr.setRequestHeader('Accept', 'text/event-stream');
 
         // Request header field Last-Event-ID is not allowed by Access-Control-Allow-Headers.
         // +setRequestHeader shouldn't be used to avoid preflight requests
