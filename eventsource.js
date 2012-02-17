@@ -242,8 +242,9 @@
         }
       }
 
-      if (xhr.setRequestHeader) { // XDomainRequest doesn�t support setRequestHeader
-        // Chrome bug:
+      if (xhr.setRequestHeader) { // !XDomainRequest
+        // http://dvcs.w3.org/hg/cors/raw-file/tip/Overview.html
+        // Cache-Control is not a simple header
         // Request header field Cache-Control is not allowed by Access-Control-Allow-Headers.
         //xhr.setRequestHeader('Cache-Control', 'no-cache');
 
