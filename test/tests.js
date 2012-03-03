@@ -102,6 +102,25 @@ $(document).ready(function() {
 
   });
 
+  asyncTest('EventTarget addEventListener', function () {
+    var es = new EventSource('events.php?test=1');
+    var s = '';
+    function test() {
+      s += '1';
+      es.close();
+      strictEqual(s, '1', '!');
+      start();
+    }
+    es.addEventListener('message', test, false);
+    es.addEventListener('message', test, true);
+    es.removeEventListener('message', test, false);
+    es.onerror = function () {
+      es.close();
+      strictEqual(s, '1', '!');
+      start();
+    }
+  });
+
   // http://dev.w3.org/2006/webapi/DOM-Level-3-Events/html/DOM3-Events.html#event-flow
   // Once determined, the candidate event listeners cannot be changed; adding or removing listeners does not affect the current target's candidate event listeners.
   asyncTest('EventTarget addEventListener/removeEventListener', function () {

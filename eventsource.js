@@ -4,53 +4,53 @@
 (function (global) {
 
   function EventTarget() {
-    var listeners = [];
+    this.listeners = [];
+    return this;
+  }
 
-    function lastIndexOf(type, callback) {
-      var i = listeners.length - 1;
-      while (i >= 0 && !(listeners[i].type === type && listeners[i].callback === callback)) {
-        i -= 1;
-      }
-      return i;
-    }
-
-    this.dispatchEvent = function (event) {
-      function a(e) {
-        return function () {
-          throw e;
-        };
-      }
-
-      var type = event.type,
-        candidates = listeners.slice(0),
-        i;
-      for (i = 0; i < candidates.length; i += 1) {
-        if (candidates[i].type === type) {
+  EventTarget.prototype = {
+    dispatchEvent: function (event) {
+      function a(x, type, event) {
+        if (x.type === type) {
           try {
-            candidates[i].callback.call(this, event);
+            x.callback.call(this, event);
           } catch (e) {
-            // This identifier is local to the catch clause. But it's not true for IE < 9 ? (so "a" used)
-            setTimeout(a(e), 0);
+            setTimeout(function () {
+              throw e;
+            }, 0);
           }
         }
       }
-    };
-
-    this.addEventListener = function (type, callback) {
-      if (lastIndexOf(type, callback) === -1) {
-        listeners.push({type: type, callback: callback});
+      var type = event.type,
+        candidates = this.listeners.slice(0),
+        i;
+      for (i = 0; i < candidates.length; i += 1) {
+        a.call(this, candidates[i], type, event);
       }
-    };
-
-    this.removeEventListener = function (type, callback) {
-      var i = lastIndexOf(type, callback);
+    },
+    addEventListener: function (type, callback, capture) {
+      capture = Boolean(capture);
+      var listeners = this.listeners,
+        i = listeners.length - 1;
+      while (i >= 0 && !(listeners[i].type === type && listeners[i].callback === callback && listeners[i].capture === capture)) {
+        i -= 1;
+      }
+      if (i === -1) {
+        listeners.push({type: type, callback: callback, capture: capture});
+      }
+    },
+    removeEventListener: function (type, callback, capture) {
+      capture = Boolean(capture);
+      var listeners = this.listeners,
+        i = listeners.length - 1;
+      while (i >= 0 && !(listeners[i].type === type && listeners[i].callback === callback && listeners[i].capture === capture)) {
+        i -= 1;
+      }
       if (i !== -1) {
         listeners.splice(i, 1);
       }
-    };
-
-    return this;
-  }
+    }
+  };
 
   // http://blogs.msdn.com/b/ieinternals/archive/2010/04/06/comet-streaming-in-internet-explorer-with-xmlhttprequest-and-xdomainrequest.aspx?PageIndex=1#comments
   // XDomainRequest does not have a binary interface. To use with non-text, first base64 to string.
@@ -287,11 +287,10 @@
   EventSource.OPEN = 1;
   EventSource.CLOSED = 2;
 
-  EventSource.prototype = {
-    CONNECTING: EventSource.CONNECTING,
-    OPEN: EventSource.OPEN,
-    CLOSED: EventSource.CLOSED
-  };
+  EventSource.prototype = new EventTarget();
+  EventSource.prototype.CONNECTING = EventSource.CONNECTING;
+  EventSource.prototype.OPEN = EventSource.OPEN;
+  EventSource.prototype.CLOSED = EventSource.CLOSED;
 
   //if (!('withCredentials' in global.EventSource.prototype)) { // to detect CORS in FF 11
   global.EventSource = EventSource;
