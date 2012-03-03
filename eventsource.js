@@ -12,6 +12,8 @@
     dispatchEvent: function (event) {
       function a(x, type, event) {
         if (x.type === type) {
+          event.currentTarget = this;
+          event.eventPhase = 2;
           try {
             x.callback.call(this, event);
           } catch (e) {
@@ -19,6 +21,8 @@
               throw e;
             }, 0);
           }
+          event.currentTarget = null;
+          event.eventPhase = 2;
         }
       }
       var type = event.type,
