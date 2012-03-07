@@ -25,7 +25,7 @@
           event.eventPhase = 2;
         }
       }
-      var type = event.type,
+      var type = String(event.type),
         candidates = this.listeners.slice(0),
         i;
       for (i = 0; i < candidates.length; i += 1) {
@@ -33,25 +33,33 @@
       }
     },
     addEventListener: function (type, callback, capture) {
+      type = String(type);
       capture = Boolean(capture);
       var listeners = this.listeners,
-        i = listeners.length - 1;
-      while (i >= 0 && !(listeners[i].type === type && listeners[i].callback === callback && listeners[i].capture === capture)) {
+        i = listeners.length - 1,
+        x;
+      while (i >= 0) {
+        x = listeners[i];
+        if (x.type === type && x.callback === callback && x.capture === capture) {
+          return;
+        }
         i -= 1;
       }
-      if (i === -1) {
-        listeners.push({type: type, callback: callback, capture: capture});
-      }
+      listeners.push({type: type, callback: callback, capture: capture});
     },
     removeEventListener: function (type, callback, capture) {
+      type = String(type);
       capture = Boolean(capture);
       var listeners = this.listeners,
-        i = listeners.length - 1;
-      while (i >= 0 && !(listeners[i].type === type && listeners[i].callback === callback && listeners[i].capture === capture)) {
+        i = listeners.length - 1,
+        x;
+      while (i >= 0) {
+        x = listeners[i];
+        if (x.type === type && x.callback === callback && x.capture === capture) {
+          listeners.splice(i, 1);
+          return;
+        }
         i -= 1;
-      }
-      if (i !== -1) {
-        listeners.splice(i, 1);
       }
     }
   };
@@ -88,11 +96,13 @@
             that.readyState = readyState;
           }
 
+          var type = String(event.type);
           event.target = that;
           that.dispatchEvent(event);
-          if (/^(message|error|open)$/.test(event.type) && typeof that['on' + event.type] === 'function') {
+
+          if (/^(message|error|open)$/.test(type) && typeof that['on' + type] === 'function') {
             // as IE 8 doesn't support getters/setters, we can't implement 'onmessage' via addEventListener/removeEventListener
-            that['on' + event.type](event);
+            that['on' + type](event);
           }
         }
       }, 0);
