@@ -1,92 +1,95 @@
+var PORT = 8002;
+
 var sys = require('sys');
+var http = require('http');
+var fs = require('fs');
+var EventEmitter = require('events').EventEmitter;
+var querystring = require('querystring');
+
 process.on('uncaughtException', function (e) {
   try {
     sys.puts('Caught exception: ' + e + ' ' + (typeof(e) === 'object' ? e.stack : ''));
-  } catch(e0) {}
+  } catch (e0) {}
 });
 
-
-var http = require('http');
-var fs = require('fs');
-
-var EventEmitter = require('events').EventEmitter;
 var emitter = new EventEmitter();
-var querystring = require('querystring');
 var history = [];
 
+function eventStream(request, response) {
+  var post = '',
+      lastEventId;
 
+  function sendMessages() {
+    while (lastEventId < history.length) {
+      response.write('id: ' + (lastEventId + 1) + '\n' + 'data: ' + JSON.stringify(history[lastEventId]) + '\n\n');
+      lastEventId += 1;
+    }
+  }
+
+  function onRequestEnd() {
+    post = querystring.parse(post);// failure ???
+    response.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+       //'Access-Control-Allow-Credentials': 'true',
+      'Access-Control-Allow-Origin': request.headers.host
+    });
+    lastEventId = +request.headers['last-event-id'] || +post['Last-Event-ID'] || 0;
+
+    // 2 kb comment message for XDomainRequest (IE8, IE9)
+    response.write(':' + Array(2049).join(' ') + '\n');
+
+    emitter.addListener('message', sendMessages);
+    emitter.setMaxListeners(0);
+
+    sendMessages();
+  }
+
+  response.socket.on('close', function () {
+    emitter.removeListener('message', sendMessages);
+    request.removeListener('end', onRequestEnd);
+    response.end();
+  });
+
+  request.addListener('data', function (data) {
+    if (post.length < 16384) {
+      post += data;
+    }
+  });
+
+  request.addListener('end', onRequestEnd);
+  response.socket.setTimeout(0); // see http://contourline.wordpress.com/2011/03/30/preventing-server-timeout-in-node-js/
+}
 
 emitter.on('message', function (data) {
   history.push(data);
 });
 
-function constructSSE(res, id, data) {
-  res.write((id !== null ? 'id: ' + id + '\n' : '') + 'data: ' + data + '\n\n');
-}
+http.createServer(function (request, response) {
+  var url = request.url,
+      query = require('url').parse(url, true).query,
+      time;
 
-http.createServer(function (req, res) {
-  var q = require('url').parse(req.url, true);
-  if (q.query.message) {
-    var time = new Date();
-    emitter.emit('message', (time.getDate() + '.' + ('0' + (1 + time.getMonth())).slice(-2) + '.' + time.getFullYear()) + ' ' + time.toLocaleTimeString() + ' IP: ' + req.connection.remoteAddress + ' :: ' + q.query.message);
-    res.writeHead(200, {'Content-Type': 'text/html'});
-    res.end('1');    
+  if (query.message) {
+    time = new Date();
+    emitter.emit('message', (time.getDate() + '.' + ('0' + (1 + time.getMonth())).slice(-2) + '.' + time.getFullYear()) + ' ' + time.toLocaleTimeString() + ' IP: ' + request.connection.remoteAddress + ' :: ' + query.message);
+    response.writeHead(200, {
+      'Content-Type': 'text/html'
+    });
+    response.end('1');    
   }
 
-  function eventStream(post) {
-     res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-       //'Access-Control-Allow-Credentials': 'true',
-      'Access-Control-Allow-Origin': req.headers.origin
-    });
-    var lastEventId = +req.headers['last-event-id'] || +post['Last-Event-ID'] || 0;
-
-    // 2 kb comment message for XDomainRequest
-    res.write(':' + Array(2049).join(' ') + '\n');
-
-    function sendMessages() {
-      while (lastEventId < history.length) {
-        res.write('id: ' + (lastEventId + 1) + '\n' + 'data: ' + encodeURIComponent(history[lastEventId]) + '\n\n');
-        lastEventId++;
-      }
-    }
-
-    emitter.addListener('message', sendMessages);
-    emitter.setMaxListeners(0);
-
-    // client closes connection
-    res.socket.on('close', function () {
-      emitter.removeListener('message', sendMessages);
-      res.end();
-    });
-
-    sendMessages();
-
-  }
-  
-  if (req.url === '/events') {
-
-    var post = '';
-    if (req.method === 'POST') {
-      req.addListener('data', function (data) {
-        post += data;
-      });
-      req.addListener('end', function () {
-        post = querystring.parse(post);
-        eventStream(post);
-      });
-    } else {
-      eventStream({});
-    }
-
+  if (url === '/events') {
+    eventStream(request, response);
   } else {
-    if (req.url !== '/example.html' && req.url !== '../eventsource.js' && req.url !== '/sharedworker.js') {
-      req.url = '/example.html';
+    if (url !== '/example.html' && url !== '/eventsource.js' && url !== '/sharedworker.js') {
+      url = '/example.html';
     }
-    res.writeHead(200, {'Content-Type': (req.url.indexOf('.js') !== -1 ? 'text/javascript' : 'text/html')});
-    res.write(fs.readFileSync(__dirname + req.url));
-    res.end();
+    response.writeHead(200, {
+      'Content-Type': (url.indexOf('.js') !== -1 ? 'text/javascript' : 'text/html')
+    });
+    response.write(fs.readFileSync(__dirname + url));
+    response.end();
   }
-}).listen(8002);
+}).listen(PORT);

@@ -8,6 +8,24 @@
     <script type="text/javascript" src="qunit.js"></script>
     <script type="text/javascript" src="tests.js"></script>
     <script type="text/javascript" src="../eventsource.js"></script>
+    <script type="text/javascript">
+      setTimeout(function () {
+        // Is "Last-Event-ID" a simple header ?
+          var xhr = new XMLHttpRequest();
+          xhr.open('GET', location.href.replace('http', 'https') + 'events.php?test=800', true);
+          xhr.setRequestHeader('Last-Event-ID', '12345');
+          xhr.onreadystatechange = function () {
+            if (xhr.readyState === 4) {
+              document.querySelector('#test').innerHTML = xhr.responseText + '?' + xhr.status;
+            }
+          };
+          try {
+            xhr.send(null);
+          } catch (e) {
+            document.querySelector('#test').innerHTML = String(e);
+          }
+      }, 1000);
+    </script>
 </head>
 <body>
     <h1 id="qunit-header">QUnit tests for EventSource</h1>
@@ -16,5 +34,6 @@
     <h2 id="qunit-userAgent"></h2>
     <ol id="qunit-tests"></ol>
     <div id="qunit-fixture"></div>
+    <div id="test"></div>
 </body>
 </html>

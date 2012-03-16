@@ -7,48 +7,31 @@
   <script type="text/javascript" src="eventsource.js"></script>
   <script type="text/javascript">
 
-    var origin = ''; // http://www.example.xxx:8001/
-    if (!EventSource.supportCORS) { origin = ''; }//!
-
-    function onSSEMessage(e) {
-      var div = document.createElement('div');
-      var text = document.createTextNode(decodeURIComponent(e.data));
-      div.appendChild(text);
-
-      var p = document.getElementById('msgs');
-      p.insertBefore(div, p.firstChild);
-    }
-
     function onDomReady() {
       setTimeout(function () { // prevent Chrome loading indication
-
-        if (window.SharedWorker) {
-          var x = new window.SharedWorker('sharedworker.js', origin); // x.name === origin
-          x.port.addEventListener('message', onSSEMessage, false);
-          x.port.start();
-        } else {
-          var es = (new EventSource(origin + 'events'));
-          es.addEventListener('message', onSSEMessage, false);
-        }
-
+        var msgs = document.getElementById('msgs'),
+            es = new EventSource('events');
+        es.addEventListener('message', function (event) {
+          var div = document.createElement('div'),
+              text = document.createTextNode(JSON.parse(event.data));
+          div.appendChild(text);
+          msgs.insertBefore(div, msgs.firstChild);        
+        }, false);
       }, 10);
     }
 
-    if (document.addEventListener) {
-      document.addEventListener('DOMContentLoaded', onDomReady, false);
-    } else {
-      onDomReady();
-    }
+    setTimeout(onDomReady, 0);
 
     function post() {
       var message = document.getElementById('message').value;
-
-      if (!message) return false;
+      if (!message) {
+        return false;
+      }
       document.getElementById('message').value = '';
 
-      var script = document.createElement('script');        
-      script.setAttribute('src', origin + '?message=' + encodeURIComponent(message) + '&nc=' + Math.random());
-      script.setAttribute('type', 'text/javascript');                
+      var script = document.createElement('script');
+      script.type = 'text/javascript';
+      script.src = '?message=' + encodeURIComponent(message) + '&nc=' + Math.random();            
       document.body.appendChild(script);
 
       return false;
