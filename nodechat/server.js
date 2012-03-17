@@ -33,7 +33,7 @@ function eventStream(request, response) {
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
        //'Access-Control-Allow-Credentials': 'true',
-      'Access-Control-Allow-Origin': request.headers.host
+      'Access-Control-Allow-Origin': 'http://' + request.headers.host
     });
     lastEventId = +request.headers['last-event-id'] || +post['Last-Event-ID'] || 0;
 
@@ -77,7 +77,8 @@ http.createServer(function (request, response) {
     response.writeHead(200, {
       'Content-Type': 'text/html'
     });
-    response.end('1');    
+    response.end('1');
+    return;
   }
 
   if (url === '/events') {
