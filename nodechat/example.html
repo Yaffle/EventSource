@@ -7,15 +7,25 @@
   <script type="text/javascript" src="eventsource.js"></script>
   <script type="text/javascript">
 
+    var lastSendedMessageId = {},
+        lastSendedTime = null;
+
     function onDomReady() {
       setTimeout(function () { // prevent Chrome loading indication
         var msgs = document.getElementById('msgs'),
             es = new EventSource('events');
         es.addEventListener('message', function (event) {
           var div = document.createElement('div'),
-              text = document.createTextNode(JSON.parse(event.data));
+              text = document.createTextNode(JSON.parse(event.data)),
+              span;
           div.appendChild(text);
-          msgs.insertBefore(div, msgs.firstChild);        
+          if (event.lastEventId === lastSendedMessageId) {
+            lastSendedMessageId = {};
+            span = document.createElement('span');
+            span.innerHTML = ' (ping: ' + (+new Date() - lastSendedTime) + 'ms) ';
+            div.appendChild(span);
+          }
+          msgs.insertBefore(div, msgs.firstChild);
         }, false);
       }, 10);
     }
@@ -29,10 +39,15 @@
       }
       document.getElementById('message').value = '';
 
-      var script = document.createElement('script');
-      script.type = 'text/javascript';
-      script.src = '?message=' + encodeURIComponent(message) + '&nc=' + Math.random();            
-      document.body.appendChild(script);
+      lastSendedTime = +new Date();
+      var xhr = new XMLHttpRequest();xhr = new XMLHttpRequest();
+      xhr.open('POST', '?message=' + encodeURIComponent(message), true);
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState === 4) {
+          lastSendedMessageId = xhr.responseText;
+        }
+      };
+      xhr.send(null);
 
       return false;
     }
@@ -43,10 +58,13 @@
       border-top: 1px solid silver;
       overflow: hidden;
     }
+    #msgs span {
+      color: blue;
+    }
   </style>
 </head>
 <body>
-    <form action="?"><input type="text" name="message" id="message" required /><input type="submit" id="s" onclick="return post();" value="Send message" /></form>
+    <form action="?" onsubmit="return post();"><input type="text" name="message" id="message" required /><input type="submit" value="Send message" /></form>
     <div id="msgs"></div>
 </body>
 </html>

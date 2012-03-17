@@ -62,22 +62,20 @@ function eventStream(request, response) {
   response.socket.setTimeout(0); // see http://contourline.wordpress.com/2011/03/30/preventing-server-timeout-in-node-js/
 }
 
-emitter.on('message', function (data) {
-  history.push(data);
-});
-
 http.createServer(function (request, response) {
   var url = request.url,
       query = require('url').parse(url, true).query,
-      time;
+      time,
+      data;
 
   if (query.message) {
     time = new Date();
-    emitter.emit('message', (time.getDate() + '.' + ('0' + (1 + time.getMonth())).slice(-2) + '.' + time.getFullYear()) + ' ' + time.toLocaleTimeString() + ' IP: ' + request.connection.remoteAddress + ' :: ' + query.message);
+    data = '[' + time.toISOString() + '][IP: ' + request.connection.remoteAddress + '] ' + query.message;
     response.writeHead(200, {
       'Content-Type': 'text/html'
     });
-    response.end('1');
+    response.end(String(history.push(data)));
+    emitter.emit('message');
     return;
   }
 
