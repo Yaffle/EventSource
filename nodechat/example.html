@@ -7,8 +7,21 @@
   <script type="text/javascript" src="eventsource.js"></script>
   <script type="text/javascript">
 
-    var lastSendedMessageId = {},
-        lastSendedTime = null;
+    var lastSendedMessageId = Infinity,
+        lastEventId = null,
+        lastSendedTime = null,
+        lastEventIdTime = null;
+
+    function checkId() {
+      if (lastEventId >= lastSendedMessageId) {
+        lastSendedMessageId = Infinity;
+        var msgs = document.getElementById('msgs');
+        var div = document.createElement('div');
+        div.className = 'ping';
+        div.innerHTML = ' (ping: ' + (+new Date() - lastSendedTime) + 'ms) ';
+        msgs.insertBefore(div, msgs.firstChild);
+      }
+    }
 
     function onDomReady() {
       setTimeout(function () { // prevent Chrome loading indication
@@ -19,18 +32,15 @@
               text = document.createTextNode(JSON.parse(event.data)),
               span;
           div.appendChild(text);
-          if (event.lastEventId === lastSendedMessageId) {
-            lastSendedMessageId = {};
-            span = document.createElement('span');
-            span.innerHTML = ' (ping: ' + (+new Date() - lastSendedTime) + 'ms) ';
-            div.appendChild(span);
-          }
+          lastEventId = +event.lastEventId;
+          lastEventIdTime = +new Date();
           msgs.insertBefore(div, msgs.firstChild);
+          checkId();
         }, false);
       }, 10);
     }
 
-    setTimeout(onDomReady, 0);
+    window.onload = onDomReady; // DOMContentLoaded can't prevent NSL under Firefox 10, 11
 
     function post() {
       var message = document.getElementById('message').value;
@@ -40,11 +50,13 @@
       document.getElementById('message').value = '';
 
       lastSendedTime = +new Date();
-      var xhr = new XMLHttpRequest();xhr = new XMLHttpRequest();
+      var xhr = new XMLHttpRequest();
       xhr.open('POST', '?message=' + encodeURIComponent(message), true);
+      xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
       xhr.onreadystatechange = function () {
         if (xhr.readyState === 4) {
-          lastSendedMessageId = xhr.responseText;
+          lastSendedMessageId = +xhr.responseText || Infinity;
+          checkId();
         }
       };
       xhr.send(null);
@@ -58,7 +70,7 @@
       border-top: 1px solid silver;
       overflow: hidden;
     }
-    #msgs span {
+    #msgs .ping {
       color: blue;
     }
   </style>
