@@ -28,12 +28,12 @@
         var msgs = document.getElementById('msgs'),
             es = new EventSource('events');
         es.addEventListener('message', function (event) {
+          lastEventIdTime = +new Date();
+          lastEventId = +event.lastEventId;
           var div = document.createElement('div'),
               text = document.createTextNode(JSON.parse(event.data)),
               span;
           div.appendChild(text);
-          lastEventId = +event.lastEventId;
-          lastEventIdTime = +new Date();
           msgs.insertBefore(div, msgs.firstChild);
           checkId();
         }, false);
@@ -50,6 +50,8 @@
       document.getElementById('message').value = '';
 
       lastSendedTime = +new Date();
+      lastSendedMessageId = Infinity;
+
       var xhr = new XMLHttpRequest();
       xhr.open('POST', '?message=' + encodeURIComponent(message), true);
       xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');

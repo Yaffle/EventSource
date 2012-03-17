@@ -72,7 +72,7 @@ http.createServer(function (request, response) {
     time = new Date();
     data = '[' + time.toISOString() + '][IP: ' + request.connection.remoteAddress + '] ' + query.message;
     response.writeHead(200, {
-      'Content-Type': 'text/html'
+      'Content-Type': 'text/plain'
     });
     response.end(String(history.push(data)));
     emitter.emit('message');
