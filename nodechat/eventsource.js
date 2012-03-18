@@ -68,7 +68,8 @@
   // XDomainRequest does not have a binary interface. To use with non-text, first base64 to string.
   // http://cometdaily.com/2008/page/3/
 
-  var xhr2 = global.XMLHttpRequest && ('withCredentials' in (new global.XMLHttpRequest())) && !!global.ProgressEvent;
+  var xhr2 = global.XMLHttpRequest && ('withCredentials' in (new global.XMLHttpRequest())) && !!global.ProgressEvent,
+    Transport = xhr2 ? global.XMLHttpRequest : global.XDomainRequest;
 
   function EventSource(url, options) {
     url = String(url);
@@ -78,7 +79,6 @@
       lastEventId = '',
       xhr = null,
       reconnectTimeout = null,
-      checkTimeout = null,
       withCredentials = Boolean(xhr2 && options && options.withCredentials);
 
     options = null;
@@ -108,18 +108,10 @@
       }, 0);
     }
 
-    function stop() {
-      if (checkTimeout !== null) {
-        clearTimeout(checkTimeout);
-        checkTimeout = null;
-      }
-      xhr.onload = xhr.onerror = xhr.onprogress = xhr.onreadystatechange = function () {};
-    }
-
     function close() {
       // http://dev.w3.org/html5/eventsource/ The close() method must close the connection, if any; must abort any instances of the fetch algorithm started for this EventSource object; and must set the readyState attribute to CLOSED.
       if (xhr !== null) {
-        stop();
+        xhr.onload = xhr.onerror = xhr.onprogress = function () {};
         xhr.abort();
         xhr = null;
       }
@@ -140,19 +132,18 @@
       var offset = 0,
         charOffset = 0,
         opened = false,
-        closed = false,
         buffer = {
           data: '',
           lastEventId: lastEventId,
           name: ''
         };
 
-      xhr = !xhr2 && global.XDomainRequest ? new global.XDomainRequest() : new global.XMLHttpRequest();
+      xhr = new Transport();
 
       // with GET method in FF xhr.onreadystatechange with readyState === 3 doesn't work + POST = no-cache
       xhr.open('POST', url, true);
 
-      function onReadyStateChange(readyState) {
+      function onProgress() {
         var responseText = '',
           contentType = '',
           i,
@@ -162,14 +153,11 @@
           field,
           value;
 
-        // (onreadystatechange can't prevent onload/onerror)
-        if (closed) {
-          return;
-        }
-
         try {
-          contentType = readyState > 1 ? ((xhr.getResponseHeader ? xhr.getResponseHeader('Content-Type') : xhr.contentType) || '') : '';
-          responseText = readyState > 2 ? xhr.responseText || '' : '';
+          if (!opened) {
+            contentType = (xhr.getResponseHeader ? xhr.getResponseHeader('Content-Type') : xhr.contentType) || '';
+          }
+          responseText = xhr.responseText || '';
         } catch (e) {}
 
         if (!opened && (/^text\/event\-stream/i).test(contentType)) {
@@ -179,7 +167,7 @@
 
         if (opened && (/\r|\n/).test(responseText.slice(charOffset))) {
           part = responseText.slice(offset);
-          stream = (offset ? part : part.replace(/^\uFEFF/, '')).replace(/\r\n?/g, '\n').split('\n');
+          stream = part.replace(/\r\n?/g, '\n').split('\n');
 
           offset += part.length - stream[stream.length - 1].length;
           for (i = 0; i < stream.length - 1; i += 1) {
@@ -226,34 +214,6 @@
           }
         }
         charOffset = responseText.length;
-
-        if (!global.XDomainRequest && !xhr2) { // Opera < 12
-          // Opera doesn't fire several readystatechange events while chunked data is coming in
-          // see http://stackoverflow.com/questions/2657450/how-does-gmail-do-comet-on-opera
-          if (opened && checkTimeout === null && readyState === 3) {
-            checkTimeout = setTimeout(function () {
-              checkTimeout = null;
-              if (+xhr.readyState === 3) { // xhr.readyState may be changed to 4 in Opera 11.50
-                onReadyStateChange(3); // will setTimeout - setInterval
-              }
-            }, 250);
-          }
-        }
-
-        if (readyState === 4) {
-          stop();
-          xhr = null;
-          closed = true;
-          if (opened) {
-            // reestablishes the connection
-            queue({type: 'error'}, that.CONNECTING);
-            // setTimeout will wait before previous setTimeout(0) have completed
-            reconnectTimeout = setTimeout(openConnection, retry);
-          } else {
-            // fail the connection
-            queue({type: 'error'}, that.CLOSED);
-          }
-        }
       }
 
       if (xhr.setRequestHeader) { // !XDomainRequest
@@ -275,20 +235,25 @@
         //}
       }
 
-      xhr.onreadystatechange = function () {
-        onReadyStateChange(+this.readyState);
-      };
-
       xhr.withCredentials = withCredentials;
 
       xhr.onload = xhr.onerror = function () {
-        onReadyStateChange(4);
+        onProgress();
+        xhr.onload = xhr.onerror = xhr.onprogress = function () {};
+        xhr = null;
+        if (opened) {
+          // reestablishes the connection
+          queue({type: 'error'}, that.CONNECTING);
+          // setTimeout will wait before previous setTimeout(0) have completed
+          reconnectTimeout = setTimeout(openConnection, retry);
+        } else {
+          // fail the connection
+          queue({type: 'error'}, that.CLOSED);
+        }
       };
 
       // onprogress fires multiple times while readyState === 3
-      xhr.onprogress = function () {
-        onReadyStateChange(3);
-      };
+      xhr.onprogress = onProgress;
 
       xhr.send(lastEventId !== '' ? 'Last-Event-ID=' + encodeURIComponent(lastEventId) : '');
     }
@@ -307,7 +272,9 @@
   EventSource.prototype.CLOSED = EventSource.CLOSED;
 
   //if (!('withCredentials' in global.EventSource.prototype)) { // to detect CORS in FF 11
-  global.EventSource = EventSource;
+  if (Transport) {
+    global.EventSource = EventSource;
+  }
   //}
 
 }(this));
