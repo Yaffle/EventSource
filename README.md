@@ -3,7 +3,7 @@ EventSource polyfill - http://www.w3.org/TR/eventsource/
 
   Browser support:
 
-  IE 8+, Firefox 3.5+, Chrome 7+, Safari 5+, Opera 12+
+  IE 8+, Firefox 3.5+, Chrome 6+, Safari 5+, Opera 12+
 
   Advantages:
 
