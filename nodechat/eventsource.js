@@ -111,7 +111,7 @@
     function close() {
       // http://dev.w3.org/html5/eventsource/ The close() method must close the connection, if any; must abort any instances of the fetch algorithm started for this EventSource object; and must set the readyState attribute to CLOSED.
       if (xhr !== null) {
-        xhr.onload = xhr.onerror = xhr.onprogress = function () {};
+        xhr.onload = xhr.onerror = xhr.onprogress = xhr.onreadystatechange = function () {};
         xhr.abort();
         xhr = null;
       }
@@ -139,9 +139,6 @@
         };
 
       xhr = new Transport();
-
-      // with GET method in FF xhr.onreadystatechange with readyState === 3 doesn't work + POST = no-cache
-      xhr.open('POST', url, true);
 
       function onProgress() {
         var responseText = '',
@@ -216,6 +213,37 @@
         charOffset = responseText.length;
       }
 
+      xhr.withCredentials = withCredentials;
+
+      xhr.onload = xhr.onerror = function () {
+        onProgress();
+        xhr.onload = xhr.onerror = xhr.onprogress = xhr.onreadystatechange = function () {};
+        xhr = null;
+        if (opened) {
+          // reestablishes the connection
+          queue({type: 'error'}, that.CONNECTING);
+          // setTimeout will wait before previous setTimeout(0) have completed
+          reconnectTimeout = setTimeout(openConnection, retry);
+        } else {
+          // fail the connection
+          queue({type: 'error'}, that.CLOSED);
+        }
+      };
+
+      // onprogress fires multiple times while readyState === 3
+      xhr.onprogress = onProgress;
+
+      // Firefox 3.6
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState === 3) {
+          onProgress();
+        }
+      };
+
+      // onprogress should be setted before calling "open" for Firefox 3.6
+
+      // with GET method in FF xhr.onreadystatechange with readyState === 3 doesn't work + POST = no-cache
+      xhr.open('POST', url, true);
       if (xhr.setRequestHeader) { // !XDomainRequest
         // http://dvcs.w3.org/hg/cors/raw-file/tip/Overview.html
         // Cache-Control is not a simple header
@@ -234,34 +262,6 @@
         //  xhr.setRequestHeader('Last-Event-ID', lastEventId);
         //}
       }
-
-      xhr.withCredentials = withCredentials;
-
-      xhr.onload = xhr.onerror = function () {
-        onProgress();
-        xhr.onload = xhr.onerror = xhr.onprogress = function () {};
-        xhr = null;
-        if (opened) {
-          // reestablishes the connection
-          queue({type: 'error'}, that.CONNECTING);
-          // setTimeout will wait before previous setTimeout(0) have completed
-          reconnectTimeout = setTimeout(openConnection, retry);
-        } else {
-          // fail the connection
-          queue({type: 'error'}, that.CLOSED);
-        }
-      };
-
-      // onprogress fires multiple times while readyState === 3
-      xhr.onprogress = onProgress;
-
-      // Firefox 3.6 not fires "progress" 
-      xhr.onreadystatechange = function () {
-        if (xhr.readyState === 3) {
-          onProgress();
-        }
-      };
-
       xhr.send(lastEventId !== '' ? 'Last-Event-ID=' + encodeURIComponent(lastEventId) : '');
     }
     openConnection();
