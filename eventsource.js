@@ -255,6 +255,13 @@
       // onprogress fires multiple times while readyState === 3
       xhr.onprogress = onProgress;
 
+      // Firefox 3.6 not fires "progress" 
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState === 3) {
+          onProgress();
+        }
+      };
+
       xhr.send(lastEventId !== '' ? 'Last-Event-ID=' + encodeURIComponent(lastEventId) : '');
     }
     openConnection();
