@@ -77,9 +77,17 @@
     var that = this,
       retry = 1000,
       lastEventId = '',
-      xhr = null,
+      xhr = new Transport(),
       reconnectTimeout = null,
-      withCredentials = Boolean(xhr2 && options && options.withCredentials);
+      withCredentials = Boolean(xhr2 && options && options.withCredentials),
+      offset,
+      charOffset,
+      opened,
+      buffer = {
+        data: '',
+        lastEventId: '',
+        name: ''
+      };
 
     options = null;
     that.url = url;
@@ -126,124 +134,95 @@
 
     EventTarget.call(that);
 
+    function onProgress() {
+      var responseText = '',
+        contentType = '',
+        i,
+        j,
+        part,
+        stream,
+        field,
+        value;
+
+      try {
+        if (!opened) {
+          contentType = (xhr.getResponseHeader ? xhr.getResponseHeader('Content-Type') : xhr.contentType) || '';
+        }
+        responseText = xhr.responseText || '';
+      } catch (e) {}
+
+      if (!opened && (/^text\/event\-stream/i).test(contentType)) {
+        queue({type: 'open'}, that.OPEN);
+        opened = true;
+      }
+
+      if (opened && (/\r|\n/).test(responseText.slice(charOffset))) {
+        part = responseText.slice(offset);
+        stream = part.replace(/\r\n?/g, '\n').split('\n');
+
+        offset += part.length - stream[stream.length - 1].length;
+        for (i = 0; i < stream.length - 1; i += 1) {
+          field = stream[i];
+          value = '';
+          j = field.indexOf(':');
+          if (j !== -1) {
+            value = field.slice(j + (field.charAt(j + 1) === ' ' ? 2 : 1));
+            field = field.slice(0, j);
+          }
+
+          if (!stream[i]) {
+            // dispatch the event
+            if (buffer.data) {
+              lastEventId = buffer.lastEventId;
+              queue({
+                type: buffer.name || 'message',
+                lastEventId: lastEventId,
+                data: buffer.data.replace(/\n$/, '')
+              }, null);
+            }
+            // Set the data buffer and the event name buffer to the empty string.
+            buffer.data = '';
+            buffer.name = '';
+          }
+
+          if (field === 'event') {
+            buffer.name = value;
+          }
+
+          if (field === 'id') {
+            buffer.lastEventId = value; // see http://www.w3.org/Bugs/Public/show_bug.cgi?id=13761
+          }
+
+          if (field === 'retry') {
+            if (/^\d+$/.test(value)) {
+              retry = +value;
+            }
+          }
+
+          if (field === 'data') {
+            buffer.data += value + '\n';
+          }
+        }
+      }
+      charOffset = responseText.length;
+    }
+
     function openConnection() {
       reconnectTimeout = null;
 
-      var offset = 0,
-        charOffset = 0,
-        opened = false,
-        buffer = {
-          data: '',
-          lastEventId: lastEventId,
-          name: ''
-        };
-
-      xhr = new Transport();
-
-      function onProgress() {
-        var responseText = '',
-          contentType = '',
-          i,
-          j,
-          part,
-          stream,
-          field,
-          value;
-
-        try {
-          if (!opened) {
-            contentType = (xhr.getResponseHeader ? xhr.getResponseHeader('Content-Type') : xhr.contentType) || '';
-          }
-          responseText = xhr.responseText || '';
-        } catch (e) {}
-
-        if (!opened && (/^text\/event\-stream/i).test(contentType)) {
-          queue({type: 'open'}, that.OPEN);
-          opened = true;
-        }
-
-        if (opened && (/\r|\n/).test(responseText.slice(charOffset))) {
-          part = responseText.slice(offset);
-          stream = part.replace(/\r\n?/g, '\n').split('\n');
-
-          offset += part.length - stream[stream.length - 1].length;
-          for (i = 0; i < stream.length - 1; i += 1) {
-            field = stream[i];
-            value = '';
-            j = field.indexOf(':');
-            if (j !== -1) {
-              value = field.slice(j + (field.charAt(j + 1) === ' ' ? 2 : 1));
-              field = field.slice(0, j);
-            }
-
-            if (!stream[i]) {
-              // dispatch the event
-              if (buffer.data) {
-                lastEventId = buffer.lastEventId;
-                queue({
-                  type: buffer.name || 'message',
-                  lastEventId: lastEventId,
-                  data: buffer.data.replace(/\n$/, '')
-                }, null);
-              }
-              // Set the data buffer and the event name buffer to the empty string.
-              buffer.data = '';
-              buffer.name = '';
-            }
-
-            if (field === 'event') {
-              buffer.name = value;
-            }
-
-            if (field === 'id') {
-              buffer.lastEventId = value; // see http://www.w3.org/Bugs/Public/show_bug.cgi?id=13761
-            }
-
-            if (field === 'retry') {
-              if (/^\d+$/.test(value)) {
-                retry = +value;
-              }
-            }
-
-            if (field === 'data') {
-              buffer.data += value + '\n';
-            }
-          }
-        }
-        charOffset = responseText.length;
-      }
-
-      xhr.withCredentials = withCredentials;
-
-      xhr.onload = xhr.onerror = function () {
-        onProgress();
-        xhr.onload = xhr.onerror = xhr.onprogress = xhr.onreadystatechange = function () {};
-        xhr = null;
-        if (opened) {
-          // reestablishes the connection
-          queue({type: 'error'}, that.CONNECTING);
-          // setTimeout will wait before previous setTimeout(0) have completed
-          reconnectTimeout = setTimeout(openConnection, retry);
-        } else {
-          // fail the connection
-          queue({type: 'error'}, that.CLOSED);
-        }
-      };
-
-      // onprogress fires multiple times while readyState === 3
-      xhr.onprogress = onProgress;
-
-      // Firefox 3.6
-      xhr.onreadystatechange = function () {
-        if (xhr.readyState === 3) {
-          onProgress();
-        }
-      };
-
-      // onprogress should be setted before calling "open" for Firefox 3.6
+      offset = 0;
+      charOffset = 0;
+      opened = false;
+      buffer.data = '';
+      buffer.name = '';
+      buffer.lastEventId = lastEventId;//resets to last successful
 
       // with GET method in FF xhr.onreadystatechange with readyState === 3 doesn't work + POST = no-cache
       xhr.open('POST', url, true);
+
+      // withCredentials should be setted after "open" for Safari and Chrome (< 19 ?)
+      xhr.withCredentials = withCredentials;
+
       if (xhr.setRequestHeader) { // !XDomainRequest
         // http://dvcs.w3.org/hg/cors/raw-file/tip/Overview.html
         // Cache-Control is not a simple header
@@ -264,6 +243,31 @@
       }
       xhr.send(lastEventId !== '' ? 'Last-Event-ID=' + encodeURIComponent(lastEventId) : '');
     }
+
+    xhr.onload = xhr.onerror = function () {
+      onProgress();
+      if (opened) {
+        // reestablishes the connection
+        queue({type: 'error'}, that.CONNECTING);
+        // setTimeout will wait before previous setTimeout(0) have completed
+        reconnectTimeout = setTimeout(openConnection, retry);
+      } else {
+        // fail the connection
+        queue({type: 'error'}, that.CLOSED);
+      }
+    };
+
+    // onprogress fires multiple times while readyState === 3
+    // onprogress should be setted before calling "open" for Firefox 3.6
+    xhr.onprogress = onProgress;
+
+    // Firefox 3.6
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState === 3) {
+        onProgress();
+      }
+    };
+
     openConnection();
 
     return that;
