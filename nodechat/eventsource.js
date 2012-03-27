@@ -26,9 +26,10 @@
         }
       }
       var type = String(event.type),
-        candidates = this.listeners.slice(0),
+        candidates = this.listeners,
+        length = candidates.length,
         i;
-      for (i = 0; i < candidates.length; i += 1) {
+      for (i = 0; i < length; i += 1) {
         a.call(this, candidates[i], type, event);
       }
     },
@@ -51,16 +52,17 @@
       type = String(type);
       capture = Boolean(capture);
       var listeners = this.listeners,
-        i = listeners.length - 1,
+        length = listeners.length,
+        m = [],
+        i,
         x;
-      while (i >= 0) {
+      for (i = 0; i < length; i += 1) {
         x = listeners[i];
-        if (x.type === type && x.callback === callback && x.capture === capture) {
-          listeners.splice(i, 1);
-          return;
+        if (!(x.type === type && x.callback === callback && x.capture === capture)) {
+          m.push(x);
         }
-        i -= 1;
       }
+      this.listeners = m;
     }
   };
 
@@ -69,7 +71,11 @@
   // http://cometdaily.com/2008/page/3/
 
   var xhr2 = global.XMLHttpRequest && ('withCredentials' in (new global.XMLHttpRequest())) && !!global.ProgressEvent,
-    Transport = xhr2 ? global.XMLHttpRequest : global.XDomainRequest;
+    Transport = xhr2 ? global.XMLHttpRequest : global.XDomainRequest,
+    CONNECTING = 0,
+    OPEN = 1,
+    CLOSED = 2,
+    proto;
 
   function EventSource(url, options) {
     url = String(url);
@@ -92,14 +98,14 @@
     options = null;
     that.url = url;
 
-    that.readyState = that.CONNECTING;
+    that.readyState = CONNECTING;
     that.withCredentials = withCredentials;
 
     // Queue a task which, if the readyState is set to a value other than CLOSED,
     // sets the readyState to ... and fires event
     function queue(event, readyState) {
       setTimeout(function () {
-        if (that.readyState !== that.CLOSED) { // http://www.w3.org/Bugs/Public/show_bug.cgi?id=14331
+        if (that.readyState !== CLOSED) { // http://www.w3.org/Bugs/Public/show_bug.cgi?id=14331
           if (readyState !== null) {
             that.readyState = readyState;
           }
@@ -127,7 +133,7 @@
         clearTimeout(reconnectTimeout);
         reconnectTimeout = null;
       }
-      that.readyState = that.CLOSED;
+      that.readyState = CLOSED;
     }
 
     that.close = close;
@@ -135,8 +141,8 @@
     EventTarget.call(that);
 
     function onProgress() {
-      var responseText = '',
-        contentType = '',
+      var responseText = xhr.responseText || '',
+        contentType,
         i,
         j,
         part,
@@ -144,16 +150,12 @@
         field,
         value;
 
-      try {
-        if (!opened) {
-          contentType = (xhr.getResponseHeader ? xhr.getResponseHeader('Content-Type') : xhr.contentType) || '';
+      if (!opened) {
+        contentType = xhr.getResponseHeader ? xhr.getResponseHeader('Content-Type') : xhr.contentType;
+        if (contentType && (/^text\/event\-stream/i).test(contentType)) {
+          queue({type: 'open'}, OPEN);
+          opened = true;
         }
-        responseText = xhr.responseText || '';
-      } catch (e) {}
-
-      if (!opened && (/^text\/event\-stream/i).test(contentType)) {
-        queue({type: 'open'}, that.OPEN);
-        opened = true;
       }
 
       if (opened && (/\r|\n/).test(responseText.slice(charOffset))) {
@@ -248,12 +250,12 @@
       onProgress();
       if (opened) {
         // reestablishes the connection
-        queue({type: 'error'}, that.CONNECTING);
+        queue({type: 'error'}, CONNECTING);
         // setTimeout will wait before previous setTimeout(0) have completed
         reconnectTimeout = setTimeout(openConnection, retry);
       } else {
         // fail the connection
-        queue({type: 'error'}, that.CLOSED);
+        queue({type: 'error'}, CLOSED);
       }
     };
 
@@ -273,14 +275,16 @@
     return that;
   }
 
-  EventSource.CONNECTING = 0;
-  EventSource.OPEN = 1;
-  EventSource.CLOSED = 2;
+  proto = new EventTarget();
+  proto.CONNECTING = CONNECTING;
+  proto.OPEN = OPEN;
+  proto.CLOSED = CLOSED;
 
-  EventSource.prototype = new EventTarget();
-  EventSource.prototype.CONNECTING = EventSource.CONNECTING;
-  EventSource.prototype.OPEN = EventSource.OPEN;
-  EventSource.prototype.CLOSED = EventSource.CLOSED;
+  EventSource.prototype = proto;
+  EventSource.CONNECTING = CONNECTING;
+  EventSource.OPEN = OPEN;
+  EventSource.CLOSED = CLOSED;
+  proto = null;
 
   //if (!('withCredentials' in global.EventSource.prototype)) { // to detect CORS in FF 11
   if (Transport) {

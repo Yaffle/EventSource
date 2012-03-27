@@ -84,6 +84,16 @@
     }
   }
 
+  if ($test == 11) {
+    echo "data: a\n\n";
+    echo "event: open\ndata: b\n\n";
+    echo "event: message\ndata: c\n\n";
+    echo "event: error\ndata: d\n\n";
+    echo "event:\ndata: e\n\n";//пойдет как event: message
+    echo "event: end\ndata: f\n\n";
+    exit();
+  }
+
   if ($test == 800) {
     echo "retry: 800\n\n";
     exit();

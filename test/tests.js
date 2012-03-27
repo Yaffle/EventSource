@@ -210,6 +210,26 @@ $(document).ready(function() {
     };
   });
 
+  // Opera 11, 12 fails this tests (Chrome 17, Firefox 11, Safari 5.1 - ok)
+  asyncTest('event-stream with "message", "error", "open" events', function () {
+    var es = new EventSource('events.php?test=11'),
+        s = '';
+    function handler(event) {
+      s += event.data || '';
+    }
+    es.addEventListener('open', handler);
+    es.addEventListener('message', handler);
+    es.addEventListener('error', handler);
+    es.addEventListener('end', handler);
+    es.onerror = function (event) {
+      if (!event.data) {// !(event instanceof MessageEvent)
+        strictEqual(s, 'abcdef');
+        start();
+        es.close();
+      }
+    };
+  });
+
 /*
   asyncTest('EventSource from Worker', function () {
     var s = 0;
