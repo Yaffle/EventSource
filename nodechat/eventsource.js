@@ -4,65 +4,78 @@
 (function (global) {
 
   function EventTarget() {
-    this.listeners = [];
     return this;
   }
 
   EventTarget.prototype = {
-    dispatchEvent: function (event) {
-      function a(x, type, event) {
-        if (x.type === type) {
+    nextListener: null,
+    throwError: function (e) {
+      setTimeout(function () {
+        throw e;
+      }, 0);
+    },
+    invokeEvent: function (event) {
+      var type = String(event.type),
+        i = this.nextListener,
+        phase = event.eventPhase;
+      while (i) {
+        if (i.type === type && !(!i.capture && phase === 1) && !(i.capture && phase === 3)) {
           event.currentTarget = this;
-          event.eventPhase = 2;
           try {
-            x.callback.call(this, event);
+            i.callback.call(this, event);
           } catch (e) {
-            setTimeout(function () {
-              throw e;
-            }, 0);
+            this.throwError(e);
           }
           event.currentTarget = null;
-          event.eventPhase = 2;
         }
+        i = i.nextListener;
       }
-      var type = String(event.type),
-        candidates = this.listeners,
-        length = candidates.length,
-        i;
-      for (i = 0; i < length; i += 1) {
-        a.call(this, candidates[i], type, event);
-      }
+    },
+    dispatchEvent: function (event) {
+      event.eventPhase = 2;
+      this.invokeEvent(event);
     },
     addEventListener: function (type, callback, capture) {
       type = String(type);
       capture = Boolean(capture);
-      var listeners = this.listeners,
-        i = listeners.length - 1,
-        x;
-      while (i >= 0) {
-        x = listeners[i];
-        if (x.type === type && x.callback === callback && x.capture === capture) {
+      var listener = this,
+        i = listener.nextListener;
+      while (i) {
+        if (i.type === type && i.callback === callback && i.capture === capture) {
           return;
         }
-        i -= 1;
+        listener = i;
+        i = i.nextListener;
       }
-      listeners.push({type: type, callback: callback, capture: capture});
+      listener.nextListener = {
+        nextListener: null,
+        type: type,
+        callback: callback,
+        capture: capture
+      };
     },
     removeEventListener: function (type, callback, capture) {
       type = String(type);
       capture = Boolean(capture);
-      var listeners = this.listeners,
-        length = listeners.length,
-        m = [],
-        i,
-        x;
-      for (i = 0; i < length; i += 1) {
-        x = listeners[i];
-        if (!(x.type === type && x.callback === callback && x.capture === capture)) {
-          m.push(x);
+      var listener = this,
+        i = listener.nextListener,
+        tmp;
+      while (i) {
+        if (i.type === type && i.callback === callback && i.capture === capture) {
+          listener.nextListener = i.nextListener;
+          break;
+        } else {
+          tmp = {
+            nextListener: null,
+            type: i.type,
+            callback: i.callback,
+            capture: i.capture
+          };
+          listener.nextListener = tmp;
+          listener = tmp;
         }
+        i = i.nextListener;
       }
-      this.listeners = m;
     }
   };
 
@@ -70,12 +83,15 @@
   // XDomainRequest does not have a binary interface. To use with non-text, first base64 to string.
   // http://cometdaily.com/2008/page/3/
 
-  var xhr2 = global.XMLHttpRequest && ('withCredentials' in (new global.XMLHttpRequest())) && !!global.ProgressEvent,
-    Transport = xhr2 ? global.XMLHttpRequest : global.XDomainRequest,
+  var XHR = global.XMLHttpRequest,
+    xhr2 = XHR && global.ProgressEvent && ('withCredentials' in (new XHR())),
+    Transport = xhr2 ? XHR : global.XDomainRequest,
     CONNECTING = 0,
     OPEN = 1,
     CLOSED = 2,
     proto;
+
+  function empty() {}
 
   function EventSource(url, options) {
     url = String(url);
@@ -125,7 +141,7 @@
     function close() {
       // http://dev.w3.org/html5/eventsource/ The close() method must close the connection, if any; must abort any instances of the fetch algorithm started for this EventSource object; and must set the readyState attribute to CLOSED.
       if (xhr !== null) {
-        xhr.onload = xhr.onerror = xhr.onprogress = xhr.onreadystatechange = function () {};
+        xhr.onload = xhr.onerror = xhr.onprogress = xhr.onreadystatechange = empty;
         xhr.abort();
         xhr = null;
       }
