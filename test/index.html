@@ -12,7 +12,7 @@
       setTimeout(function () {
         // Is "Last-Event-ID" a simple header ?
           var xhr = new XMLHttpRequest();
-          xhr.open('GET', location.href.replace('http', 'https') + 'events.php?test=800', true);
+          xhr.open('GET', 'http://' + location.hostname + ':8004/events?test=800', true);
           xhr.setRequestHeader('Last-Event-ID', '12345');
           xhr.onreadystatechange = function () {
             if (xhr.readyState === 4) {

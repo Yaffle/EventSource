@@ -4,8 +4,11 @@
 
 $(document).ready(function() {
 
+  var url = '/events';
+  var url4CORS = 'http://' + location.hostname + ':8004/events';
+
   asyncTest('EventSource constructor', function () {
-    var es = new EventSource('events.php');
+    var es = new EventSource(url);
     ok(es instanceof EventSource, 'failed');    
     es.close();
     start();
@@ -17,7 +20,7 @@ $(document).ready(function() {
   });
 
   asyncTest('EventSource 1; 2; 3; 4; 5;', function () {
-    var es = new EventSource('events.php'),
+    var es = new EventSource(url),
         s = '', timer;
 
     function onTimeout() {
@@ -43,7 +46,7 @@ $(document).ready(function() {
   });
 
   asyncTest('EventSource 1; 2; 3; 4; 5;', function () {
-    var es = new EventSource('events.php?test=10'),
+    var es = new EventSource(url + '?test=10'),
         s = '', timer;
 
     function onTimeout() {
@@ -60,7 +63,7 @@ $(document).ready(function() {
   });
 
   asyncTest('EventSource test next', function () {
-    var es = new EventSource('events.php?test=1'), 
+    var es = new EventSource(url + '?test=1'), 
         closeCount = 0;
 
     es.onmessage = function (event) {
@@ -84,7 +87,7 @@ $(document).ready(function() {
 
   
   asyncTest('EventTarget exceptions throwed from listeners should not stop dispathing', function () {
-    var es = new EventSource('events.php?test=1');
+    var es = new EventSource(url + '?test=1');
 
     var s = '';
     es.addEventListener('message', function () {
@@ -103,7 +106,7 @@ $(document).ready(function() {
   });
 
   asyncTest('EventTarget addEventListener', function () {
-    var es = new EventSource('events.php?test=1');
+    var es = new EventSource(url + '?test=1');
     var s = '';
     function test() {
       s += '1';
@@ -124,7 +127,7 @@ $(document).ready(function() {
   // http://dev.w3.org/2006/webapi/DOM-Level-3-Events/html/DOM3-Events.html#event-flow
   // Once determined, the candidate event listeners cannot be changed; adding or removing listeners does not affect the current target's candidate event listeners.
   asyncTest('EventTarget addEventListener/removeEventListener', function () {
-    var es = new EventSource('events.php?test=1');
+    var es = new EventSource(url + '?test=1');
     var s = '';
     function a1() {
       s += 1;
@@ -155,7 +158,7 @@ $(document).ready(function() {
   });
 
   asyncTest('EventTarget', function () {
-    var es = new EventSource('events.php?test=3');
+    var es = new EventSource(url + '?test=3');
     var s = '';
     es.onmessage = function (e) {
       s = e.data;
@@ -169,7 +172,7 @@ $(document).ready(function() {
   });
 
   asyncTest('EventTarget#close()', function () {
-    var es = new EventSource('events.php?test=2');
+    var es = new EventSource(url + '?test=2');
     var s = '';
     es.onmessage = function () {
       s += '1';
@@ -183,7 +186,7 @@ $(document).ready(function() {
   });
 
   asyncTest('EventTarget#close()', function () {
-    var es = new EventSource('events.php?test=7');
+    var es = new EventSource(url + '?test=7');
     es.onopen = function () {
       strictEqual(es.readyState, 1);
       start();
@@ -192,7 +195,7 @@ $(document).ready(function() {
   });
 
   asyncTest('EventTarget CORS', function () {
-    var es = new EventSource(location.href.replace('http', 'https') + 'events.php?test=8');
+    var es = new EventSource(url4CORS + '?test=8');
 
     es.onmessage = function (event) {
       if (event.data === 'ok') {
@@ -212,7 +215,7 @@ $(document).ready(function() {
 
   // Opera 11, 12 fails this tests (Chrome 17, Firefox 11, Safari 5.1 - ok)
   asyncTest('event-stream with "message", "error", "open" events', function () {
-    var es = new EventSource('events.php?test=11'),
+    var es = new EventSource(url + '?test=11'),
         s = '';
     function handler(event) {
       s += event.data || '';
@@ -244,7 +247,7 @@ $(document).ready(function() {
       start();
     }, 1000);
 
-    worker.postMessage('events.php');
+    worker.postMessage(url);
   });
 */
   /*
@@ -261,11 +264,11 @@ $(document).ready(function() {
       s = 1;
     }, false);
     worker.port.start();
-    worker.port.postMessage('events.php');
+    worker.port.postMessage(url);
   });*/
 
   asyncTest('EventSource retry delay - see http://code.google.com/p/chromium/issues/detail?id=86230', function () {
-    var es = new EventSource('events.php?test=800');
+    var es = new EventSource(url + '?test=800');
     var s = 0;
     es.onopen = function () {
       if (!s) {
