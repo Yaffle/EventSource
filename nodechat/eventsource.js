@@ -109,7 +109,14 @@
         data: '',
         lastEventId: '',
         name: ''
-      };
+      },
+      tail = {
+        next: null,
+        event: null,
+        readyState: null
+      },
+      head = tail,
+      channel = null;
 
     options = null;
     that.url = url;
@@ -119,23 +126,52 @@
 
     // Queue a task which, if the readyState is set to a value other than CLOSED,
     // sets the readyState to ... and fires event
-    function queue(event, readyState) {
-      setTimeout(function () {
-        if (that.readyState !== CLOSED) { // http://www.w3.org/Bugs/Public/show_bug.cgi?id=14331
-          if (readyState !== null) {
-            that.readyState = readyState;
-          }
 
-          var type = String(event.type);
-          event.target = that;
-          that.dispatchEvent(event);
+    function onTimeout() {
+      var event = head.event,
+          readyState = head.readyState;
+      head = head.next;
 
-          if (/^(message|error|open)$/.test(type) && typeof that['on' + type] === 'function') {
-            // as IE 8 doesn't support getters/setters, we can't implement 'onmessage' via addEventListener/removeEventListener
-            that['on' + type](event);
-          }
+      if (that.readyState !== CLOSED) { // http://www.w3.org/Bugs/Public/show_bug.cgi?id=14331
+        if (readyState !== null) {
+          that.readyState = readyState;
         }
-      }, 0);
+
+        if (readyState === CONNECTING) {
+          // setTimeout will wait before previous setTimeout(0) have completed
+          reconnectTimeout = setTimeout(openConnection, retry);
+        }
+
+        var type = String(event.type);
+        event.target = that;
+        that.dispatchEvent(event);
+
+        if (/^(message|error|open)$/.test(type) && typeof that['on' + type] === 'function') {
+          // as IE 8 doesn't support getters/setters, we can't implement 'onmessage' via addEventListener/removeEventListener
+          that['on' + type](event);
+        }
+      }
+    }
+
+    // MessageChannel support: IE 10, Opera 11.6x?, Chrome ?, Safari ?
+    if (global.MessageChannel) {
+      channel = new global.MessageChannel();
+      channel.port1.onmessage = onTimeout;
+    }
+
+    function queue(event, readyState) {
+      tail.event = event;
+      tail.readyState = readyState;
+      tail = tail.next = {
+        next: null,
+        event: null,
+        readyState: null
+      };
+      if (channel) {
+        channel.port2.postMessage('');
+      } else {
+        setTimeout(onTimeout, 0);
+      }
     }
 
     function close() {
@@ -267,8 +303,6 @@
       if (opened) {
         // reestablishes the connection
         queue({type: 'error'}, CONNECTING);
-        // setTimeout will wait before previous setTimeout(0) have completed
-        reconnectTimeout = setTimeout(openConnection, retry);
       } else {
         // fail the connection
         queue({type: 'error'}, CLOSED);
