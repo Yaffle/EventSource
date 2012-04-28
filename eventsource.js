@@ -300,6 +300,7 @@
         onError();
         xhr = null;
       } else {
+        wasActivity = false;
         xhrTimeout = setTimeout(onXHRTimeout, 45000);
       }
     }
