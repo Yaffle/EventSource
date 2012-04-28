@@ -291,17 +291,13 @@
     function onXHRTimeout() {
       xhrTimeout = null;
       if (!wasActivity) {
-        xhr.onload = xhr.onerror = xhr.onprogress = xhr.onreadystatechange = empty;
+        xhr.onload = xhr.onerror = empty;
         xhr.abort();
-        xhr = {
-          responseText: null,
-          contentType: null
-        };
+        xhr.onload = xhr.onerror = onError;
         onError();
-        xhr = null;
       } else {
         wasActivity = false;
-        xhrTimeout = setTimeout(onXHRTimeout, 45000);
+        xhrTimeout = setTimeout(onXHRTimeout, 30000);
       }
     }
  
