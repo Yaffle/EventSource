@@ -157,6 +157,9 @@ $(document).ready(function() {
 
   });
 
+  // https://developer.mozilla.org/en/DOM/element.removeEventListener#Browser_compatibility
+  // optional useCapture
+
   asyncTest('EventTarget', function () {
     var es = new EventSource(url + '?test=3');
     var s = '';

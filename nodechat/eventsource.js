@@ -98,6 +98,9 @@
 
     var that = this,
       retry = 1000,
+      retry2 = retry,
+      xhrTimeout = null,
+      wasActivity = false,
       lastEventId = '',
       xhr = new Transport(),
       reconnectTimeout = null,
@@ -139,7 +142,9 @@
 
         if (readyState === CONNECTING) {
           // setTimeout will wait before previous setTimeout(0) have completed
-          reconnectTimeout = setTimeout(openConnection, retry);
+          retry2 = Math.min(retry2, 86400000);
+          reconnectTimeout = setTimeout(openConnection, retry2);
+          retry2 = retry2 * 2 + 1;
         }
 
         var type = String(event.type);
@@ -185,6 +190,10 @@
         clearTimeout(reconnectTimeout);
         reconnectTimeout = null;
       }
+      if (xhrTimeout !== null) {
+        clearTimeout(xhrTimeout);
+        xhrTimeout= null;
+      }
       that.readyState = CLOSED;
     }
 
@@ -201,6 +210,8 @@
         stream,
         field,
         value;
+        
+      wasActivity = true;
 
       if (!opened) {
         contentType = xhr.getResponseHeader ? xhr.getResponseHeader('Content-Type') : xhr.contentType;
@@ -250,6 +261,7 @@
           if (field === 'retry') {
             if (/^\d+$/.test(value)) {
               retry = +value;
+              retry2 = retry;
             }
           }
 
@@ -261,8 +273,46 @@
       charOffset = responseText.length;
     }
 
+    function onError() {
+      onProgress();
+      //if (opened) {
+        // reestablishes the connection
+      queue({type: 'error'}, CONNECTING);
+      //} else {
+        // fail the connection
+      //  queue({type: 'error'}, CLOSED);
+      //}
+      if (xhrTimeout !== null) {
+        clearTimeout(xhrTimeout);
+        xhrTimeout= null;
+      }
+    }
+
+    function onXHRTimeout() {
+      xhrTimeout = null;
+      if (!wasActivity) {
+        xhr.onload = xhr.onerror = xhr.onprogress = xhr.onreadystatechange = empty;
+        xhr.abort();
+        xhr = {
+          responseText: null,
+          contentType: null
+        };
+        onError();
+        xhr = null;
+      } else {
+        xhrTimeout = setTimeout(onXHRTimeout, 45000);
+      }
+    }
+ 
     function openConnection() {
       reconnectTimeout = null;
+      wasActivity = true;
+      if (xhrTimeout !== null) {
+        clearTimeout(xhrTimeout);
+        xhrTimeout= null;
+      }
+      onXHRTimeout();
+      wasActivity = false;
 
       offset = 0;
       charOffset = 0;
@@ -298,16 +348,7 @@
       xhr.send(lastEventId !== '' ? 'Last-Event-ID=' + encodeURIComponent(lastEventId) : '');
     }
 
-    xhr.onload = xhr.onerror = function () {
-      onProgress();
-      if (opened) {
-        // reestablishes the connection
-        queue({type: 'error'}, CONNECTING);
-      } else {
-        // fail the connection
-        queue({type: 'error'}, CLOSED);
-      }
-    };
+    xhr.onload = xhr.onerror = onError;
 
     // onprogress fires multiple times while readyState === 3
     // onprogress should be setted before calling "open" for Firefox 3.6

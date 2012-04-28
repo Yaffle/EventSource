@@ -15,6 +15,10 @@ process.on('uncaughtException', function (e) {
 var emitter = new EventEmitter();
 var history = [];
 
+setInterval(function () {
+  emitter.emit('message');
+}, 15000);
+
 function eventStream(request, response) {
   var post = '',
       lastEventId;
@@ -24,6 +28,7 @@ function eventStream(request, response) {
       response.write('id: ' + (lastEventId + 1) + '\n' + 'data: ' + JSON.stringify(history[lastEventId]) + '\n\n');
       lastEventId += 1;
     }
+    response.write(':\n');
   }
 
   function onRequestEnd() {
