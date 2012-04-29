@@ -14,18 +14,21 @@ process.on('uncaughtException', function (e) {
 
 var emitter = new EventEmitter();
 var history = [];
+var heartbeatTimeout = 9000;
+var firstId = Number(new Date());
 
 setInterval(function () {
   emitter.emit('message');
-}, 15000);
+}, heartbeatTimeout / 2);
 
 function eventStream(request, response) {
   var post = '',
       lastEventId;
 
   function sendMessages() {
-    while (lastEventId < history.length) {
-      response.write('id: ' + (lastEventId + 1) + '\n' + 'data: ' + JSON.stringify(history[lastEventId]) + '\n\n');
+    lastEventId = Math.max(lastEventId, firstId);
+    while (lastEventId - firstId < history.length) {
+      response.write('id: ' + (lastEventId + 1) + '\n' + 'data: ' + JSON.stringify(history[lastEventId - firstId]) + '\n\n');
       lastEventId += 1;
     }
     response.write(':\n');
@@ -43,6 +46,8 @@ function eventStream(request, response) {
 
     // 2 kb comment message for XDomainRequest (IE8, IE9)
     response.write(':' + Array(2049).join(' ') + '\n');
+    response.write('retry: 1000\n');
+    response.write('heartbeatTimeout: ' + heartbeatTimeout + '\n');//!
 
     emitter.addListener('message', sendMessages);
     emitter.setMaxListeners(0);

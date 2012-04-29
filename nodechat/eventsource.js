@@ -99,6 +99,7 @@
     var that = this,
       retry = 1000,
       retry2 = retry,
+      heartbeatTimeout = 45000,
       xhrTimeout = null,
       wasActivity = false,
       lastEventId = '',
@@ -132,7 +133,8 @@
 
     function onTimeout() {
       var event = head.event,
-          readyState = head.readyState;
+        readyState = head.readyState,
+        type = String(event.type);
       head = head.next;
 
       if (that.readyState !== CLOSED) { // http://www.w3.org/Bugs/Public/show_bug.cgi?id=14331
@@ -147,7 +149,6 @@
           retry2 = retry2 * 2 + 1;
         }
 
-        var type = String(event.type);
         event.target = that;
         that.dispatchEvent(event);
 
@@ -192,7 +193,7 @@
       }
       if (xhrTimeout !== null) {
         clearTimeout(xhrTimeout);
-        xhrTimeout= null;
+        xhrTimeout = null;
       }
       that.readyState = CLOSED;
     }
@@ -210,7 +211,7 @@
         stream,
         field,
         value;
-        
+
       wasActivity = true;
 
       if (!opened) {
@@ -260,8 +261,16 @@
 
           if (field === 'retry') {
             if (/^\d+$/.test(value)) {
-              retry = +value;
+              retry = Number(value);
               retry2 = retry;
+            }
+          }
+
+          if (field === 'heartbeatTimeout') {//!
+            heartbeatTimeout = Math.min(Math.max(1, Number(value) || 0), 86400000);
+            if (xhrTimeout !== null) {
+              clearTimeout(xhrTimeout);
+              xhrTimeout = setTimeout(onXHRTimeout, heartbeatTimeout);
             }
           }
 
@@ -284,32 +293,28 @@
       //}
       if (xhrTimeout !== null) {
         clearTimeout(xhrTimeout);
-        xhrTimeout= null;
+        xhrTimeout = null;
       }
     }
 
     function onXHRTimeout() {
       xhrTimeout = null;
-      if (!wasActivity) {
-        xhr.onload = xhr.onerror = empty;
+      if (wasActivity) {
+        wasActivity = false;
+        xhrTimeout = setTimeout(onXHRTimeout, heartbeatTimeout);
+      } else {
+        xhr.onload = xhr.onerror = xhr.onprogress = empty;
         xhr.abort();
         xhr.onload = xhr.onerror = onError;
+        xhr.onprogress = onProgress;
         onError();
-      } else {
-        wasActivity = false;
-        xhrTimeout = setTimeout(onXHRTimeout, 30000);
       }
     }
- 
+
     function openConnection() {
       reconnectTimeout = null;
-      wasActivity = true;
-      if (xhrTimeout !== null) {
-        clearTimeout(xhrTimeout);
-        xhrTimeout= null;
-      }
-      onXHRTimeout();
       wasActivity = false;
+      xhrTimeout = setTimeout(onXHRTimeout, heartbeatTimeout);
 
       offset = 0;
       charOffset = 0;
