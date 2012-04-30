@@ -238,6 +238,7 @@
         if (contentType && (/^text\/event\-stream/i).test(contentType)) {
           queue({type: 'open'}, OPEN);
           opened = true;
+          retry2 = retry;
         }
       }
 
