@@ -84,7 +84,7 @@
   // http://cometdaily.com/2008/page/3/
 
   var XHR = global.XMLHttpRequest,
-    xhr2 = XHR && global.ProgressEvent && ('withCredentials' in (new XHR())),
+    xhr2 = XHR && global.ProgressEvent && ((new XHR()).withCredentials !== undefined),
     Transport = xhr2 ? XHR : global.XDomainRequest,
     CONNECTING = 0,
     OPEN = 1,
@@ -202,6 +202,25 @@
 
     EventTarget.call(that);
 
+    function onXHRTimeout() {
+      xhrTimeout = null;
+      if (wasActivity) {
+        wasActivity = false;
+        xhrTimeout = setTimeout(onXHRTimeout, heartbeatTimeout);
+      } else {
+        // XDomainRequest#abort removes onprogress, onerror, onload
+        var a = xhr.onload,
+          b = xhr.onerror,
+          c = xhr.onprogress;
+        xhr.onload = xhr.onerror = xhr.onprogress = empty;
+        xhr.abort();
+        xhr.onload = a;
+        xhr.onerror = b;
+        xhr.onprogress = c;
+        xhr.onerror();
+      }
+    }
+
     function onProgress() {
       var responseText = xhr.responseText || '',
         contentType,
@@ -294,20 +313,6 @@
       if (xhrTimeout !== null) {
         clearTimeout(xhrTimeout);
         xhrTimeout = null;
-      }
-    }
-
-    function onXHRTimeout() {
-      xhrTimeout = null;
-      if (wasActivity) {
-        wasActivity = false;
-        xhrTimeout = setTimeout(onXHRTimeout, heartbeatTimeout);
-      } else {
-        xhr.onload = xhr.onerror = xhr.onprogress = empty;
-        xhr.abort();
-        xhr.onload = xhr.onerror = onError;
-        xhr.onprogress = onProgress;
-        onError();
       }
     }
 
