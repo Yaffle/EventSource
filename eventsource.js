@@ -208,16 +208,9 @@
         wasActivity = false;
         xhrTimeout = setTimeout(onXHRTimeout, heartbeatTimeout);
       } else {
-        // XDomainRequest#abort removes onprogress, onerror, onload
-        var a = xhr.onload,
-          b = xhr.onerror,
-          c = xhr.onprogress;
         xhr.onload = xhr.onerror = xhr.onprogress = empty;
         xhr.abort();
-        xhr.onload = a;
-        xhr.onerror = b;
-        xhr.onprogress = c;
-        xhr.onerror();
+        onError.call(xhr);
       }
     }
 
@@ -317,7 +310,24 @@
       }
     }
 
+    function onReadyStateChange() {
+      if (xhr.readyState === 3) {
+        onProgress();
+      }
+    }
+
     function openConnection() {
+      // XDomainRequest#abort removes onprogress, onerror, onload
+
+      xhr.onload = xhr.onerror = onError;
+
+      // onprogress fires multiple times while readyState === 3
+      // onprogress should be setted before calling "open" for Firefox 3.6
+      xhr.onprogress = onProgress;
+
+      // Firefox 3.6
+      xhr.onreadystatechange = onReadyStateChange;
+
       reconnectTimeout = null;
       wasActivity = false;
       xhrTimeout = setTimeout(onXHRTimeout, heartbeatTimeout);
@@ -355,19 +365,6 @@
       }
       xhr.send(lastEventId !== '' ? 'Last-Event-ID=' + encodeURIComponent(lastEventId) : '');
     }
-
-    xhr.onload = xhr.onerror = onError;
-
-    // onprogress fires multiple times while readyState === 3
-    // onprogress should be setted before calling "open" for Firefox 3.6
-    xhr.onprogress = onProgress;
-
-    // Firefox 3.6
-    xhr.onreadystatechange = function () {
-      if (xhr.readyState === 3) {
-        onProgress();
-      }
-    };
 
     openConnection();
 

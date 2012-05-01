@@ -7,10 +7,20 @@
   <script type="text/javascript" src="eventsource.js"></script>
   <script type="text/javascript">
 
+    function now() {
+      var performance = window.performance;
+      if (performance && performance.now) {
+        return performance.now();
+      }
+      //if (performance && performance.webkitNow) {
+      //  return performance.webkitNow();
+      //}
+      return new Date().getTime();
+    }
+
     var lastSendedMessageId = Infinity,
         lastEventId = null,
-        lastSendedTime = null,
-        lastEventIdTime = null;
+        lastSendedTime = null;
 
     function checkId() {
       if (lastEventId >= lastSendedMessageId) {
@@ -18,7 +28,7 @@
         var msgs = document.getElementById('msgs');
         var div = document.createElement('div');
         div.className = 'ping';
-        div.innerHTML = ' (ping: ' + (+new Date() - lastSendedTime) + 'ms) ';
+        div.innerHTML = ' (ping: ' + (now() - lastSendedTime).toFixed(0) + 'ms) ';
         msgs.insertBefore(div, msgs.firstChild);
       }
     }
@@ -28,7 +38,6 @@
         var msgs = document.getElementById('msgs'),
             es = new EventSource('events');
         es.addEventListener('message', function (event) {
-          lastEventIdTime = +new Date();
           lastEventId = +event.lastEventId;
           var div = document.createElement('div'),
               text = document.createTextNode(JSON.parse(event.data)),
@@ -49,7 +58,7 @@
       }
       document.getElementById('message').value = '';
 
-      lastSendedTime = +new Date();
+      lastSendedTime = now();
       lastSendedMessageId = Infinity;
 
       var xhr = new XMLHttpRequest();
