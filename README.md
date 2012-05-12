@@ -2,10 +2,12 @@ EventSource polyfill - http://www.w3.org/TR/eventsource/
 ========================================================
 
   Browser support:
+  ----------------
 
   IE 8+, Firefox 3.5+, Chrome 6+, Safari 5+, Opera 12+
 
   Advantages:
+  -----------
 
   * Simple server-side code - you don't need any library.
   * Based on latest specification of EventSource
@@ -13,30 +15,29 @@ EventSource polyfill - http://www.w3.org/TR/eventsource/
   * Cross-domain requests support (anonymous mode)
 
   Server-side requirements:
+  -------------------------
 
   * "Last-Event-ID" sended in POST body (CORS + "Last-Event-ID" header is not supported by all browsers)
   * IE requires send two kilobyte padding at the top of the response stream - see http://blogs.msdn.com/b/ieinternals/archive/2010/04/06/comet-streaming-in-internet-explorer-with-xmlhttprequest-and-xdomainrequest.aspx?PageIndex=1
   * you need to send "comment" message each 15-30 seconds
 
   Specification:
+  --------------
 
   * http://www.w3.org/TR/eventsource/
 
   Other EventSource polyfills:
+  ----------------------------
 
   * https://github.com/remy/polyfills/blob/master/EventSource.js by Remy Sharp
   * https://github.com/rwldrn/jquery.eventsource by rick waldron
 
-  Native EventSource+CORS support:
-
+  Native EventSource bugs (this shim replaces native browsers EventSource object):
+  --------------------------------------------------------------------------------
+  CORS
   * https://bugzilla.mozilla.org/show_bug.cgi?id=664179 (Firefox 11)
   * https://bugs.webkit.org/show_bug.cgi?id=61862 (not implemented)
   * Opera 12 alpha supports EventSource + CORS
-
-  EventSource Browser bugs:
-
-  CORS
-  * https://bugs.webkit.org/show_bug.cgi?id=61862 - Chrome/Safari
 
   lastEventId shouldn' be set when connection dropped without data dispatch - http://www.w3.org/Bugs/Public/show_bug.cgi?id=13761
   * https://bugzilla.mozilla.org/show_bug.cgi?id=710546
