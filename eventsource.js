@@ -227,7 +227,14 @@
       wasActivity = true;
 
       if (!opened) {
-        contentType = xhr.getResponseHeader ? xhr.getResponseHeader('Content-Type') : xhr.contentType;
+        try {
+          contentType = xhr.getResponseHeader ? xhr.getResponseHeader('Content-Type') : xhr.contentType;
+        } catch (error) {
+          // invalid state error when xhr.getResponseHeader called after xhr.abort in Chrome 18
+          setTimeout(function () {
+            throw error;
+          }, 0);
+        }
         if (contentType && (/^text\/event\-stream/i).test(contentType)) {
           queue({type: 'open'}, OPEN);
           opened = true;
