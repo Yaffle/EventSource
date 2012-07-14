@@ -1,12 +1,14 @@
 var PORT1 = 8003;
 var PORT2 = 8004;
 
-var sys = require('sys');
+var util = require('util');
 var http = require('http');
 var fs = require('fs');
 var querystring = require('querystring');
 var path = require('path');
 var URL = require('url');
+
+util.puts('Starting server at http://localhost:' + PORT1);
 
 function eventStream(request, response) {
   var post = '',
@@ -143,7 +145,7 @@ function eventStream(request, response) {
 
 function onRequest(request, response) {
   var url = request.url;
-  sys.puts(url);
+  util.puts(url);
   if (url.split('?')[0] === '/events') {
     eventStream(request, response);
   } else {

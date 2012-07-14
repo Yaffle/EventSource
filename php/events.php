@@ -1,9 +1,9 @@
 <?
 
-  header('Access-Control-Allow-Origin: ' . @$_SERVER['HTTP_ORIGIN']);
-  //header('Access-Control-Allow-Credentials: true');
   header('Content-Type: text/event-stream');
   header('Cache-Control: no-cache');
+  header('Access-Control-Allow-Origin: ' . @$_SERVER['HTTP_ORIGIN']);
+  //header('Access-Control-Allow-Credentials: true');
 
   // prevent bufferring
   if (function_exists('apache_setenv')) {

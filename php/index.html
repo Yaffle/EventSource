@@ -11,15 +11,15 @@
         var div = document.createElement('div');
         div.innerHTML = 'opened: ' + es.url;
         document.body.appendChild(div);
-      }, false);
+      });
       es.addEventListener('message', function (event) {
         document.body.appendChild(document.createTextNode(event.data));
-      }, false);
+      });
       es.addEventListener('error', function (event) {
         var div = document.createElement('div');
         div.innerHTML = 'closed';
         document.body.appendChild(div);
-      }, false);
+      });
     </script>
 </head>
 <body>

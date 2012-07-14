@@ -12,7 +12,7 @@ EventSource polyfill - http://www.w3.org/TR/eventsource/
   * Simple server-side code - you don't need any library.
   * Based on latest specification of EventSource
   * Polyfill is independent from document methods, so you can use it in a Web Worker's
-  * Cross-domain requests support (anonymous mode)
+  * Cross-domain requests support ("withCredentials" is not supported in IE8-IE9)
 
   Server-side requirements:
   -------------------------
@@ -37,12 +37,15 @@ EventSource polyfill - http://www.w3.org/TR/eventsource/
   CORS
   * https://bugzilla.mozilla.org/show_bug.cgi?id=664179 (Firefox 11)
   * https://bugs.webkit.org/show_bug.cgi?id=61862 (not implemented)
-  * Opera 12 alpha supports EventSource + CORS
+  * Opera 12 supports EventSource + CORS
 
-  lastEventId shouldn' be set when connection dropped without data dispatch - http://www.w3.org/Bugs/Public/show_bug.cgi?id=13761
+  lastEventId shouldn't be set when connection dropped without data dispatch - http://www.w3.org/Bugs/Public/show_bug.cgi?id=13761
   * https://bugzilla.mozilla.org/show_bug.cgi?id=710546
   * Opera DSK-353296, Opera DSK-346814
 
+  http://www.w3.org/Bugs/Public/show_bug.cgi?id=14331
+  * DSK-362330 - Opera
+  * https://code.google.com/p/chromium/issues/detail?id=125190 - Chrome/Safari (resolved)
   * DSK-362337 - Opera bug with event-stream with "message", "error", "open" events (minor)
   * http://code.google.com/p/chromium/issues/detail?id=86230 - Crhome bug with small "retry" (minor)
 
@@ -67,7 +70,6 @@ http.createServer(function (req, res) {
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
       'Access-Control-Allow-Origin': '*'
     });
 
@@ -98,9 +100,9 @@ or use PHP (see php/events.php)
 ```php
 <?
 
-  header('Access-Control-Allow-Origin: *');
   header('Content-Type: text/event-stream');
   header('Cache-Control: no-cache');
+  header('Access-Control-Allow-Origin: *');
 
   // prevent bufferring
   if (function_exists('apache_setenv')) {
@@ -149,15 +151,15 @@ index.html (php/index.html):
         var div = document.createElement('div');
         div.innerHTML = 'opened: ' + es.url;
         document.body.appendChild(div);
-      }, false);
+      });
       es.addEventListener('message', function (event) {
         document.body.appendChild(document.createTextNode(event.data));
-      }, false);
+      });
       es.addEventListener('error', function (event) {
         var div = document.createElement('div');
         div.innerHTML = 'closed';
         document.body.appendChild(div);
-      }, false);
+      });
     </script>
 </head>
 <body>

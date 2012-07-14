@@ -2,6 +2,7 @@
 /*global setTimeout, clearTimeout */
 
 (function (global) {
+  "use strict";
 
   function EventTarget() {
     return this;
@@ -17,18 +18,30 @@
     invokeEvent: function (event) {
       var type = String(event.type),
         i = this.nextListener,
-        phase = event.eventPhase;
+        phase = event.eventPhase,
+        candidates = {
+          next: null
+        },
+        j = candidates;
       while (i) {
-        if (i.type === type && !(!i.capture && phase === 1) && !(i.capture && phase === 3)) {
-          event.currentTarget = this;
-          try {
-            i.callback.call(this, event);
-          } catch (e) {
-            this.throwError(e);
-          }
-          event.currentTarget = null;
+        if (i.type === type && !(phase === 1 && !i.capture) && !(phase === 3 && i.capture)) {
+          j = j.next = {
+            callback: i.callback,
+            next: null
+          };
         }
         i = i.nextListener;
+      }
+      j = candidates.next;
+      while (j) {
+        event.currentTarget = this;
+        try {
+          j.callback.call(this, event);
+        } catch (e) {
+          this.throwError(e);
+        }
+        event.currentTarget = null;
+        j = j.next;
       }
     },
     dispatchEvent: function (event) {
@@ -58,22 +71,13 @@
       type = String(type);
       capture = Boolean(capture);
       var listener = this,
-        i = listener.nextListener,
-        tmp;
+        i = listener.nextListener;
       while (i) {
         if (i.type === type && i.callback === callback && i.capture === capture) {
           listener.nextListener = i.nextListener;
-          break;
-        } else {
-          tmp = {
-            nextListener: null,
-            type: i.type,
-            callback: i.callback,
-            capture: i.capture
-          };
-          listener.nextListener = tmp;
-          listener = tmp;
+          return;
         }
+        listener = i;
         i = i.nextListener;
       }
     }
@@ -227,7 +231,14 @@
       wasActivity = true;
 
       if (!opened) {
-        contentType = xhr.getResponseHeader ? xhr.getResponseHeader('Content-Type') : xhr.contentType;
+        try {
+          contentType = xhr.getResponseHeader ? xhr.getResponseHeader('Content-Type') : xhr.contentType;
+        } catch (error) {
+          // invalid state error when xhr.getResponseHeader called after xhr.abort in Chrome 18
+          setTimeout(function () {
+            throw error;
+          }, 0);
+        }
         if (contentType && (/^text\/event\-stream/i).test(contentType)) {
           queue({type: 'open'}, OPEN);
           opened = true;
@@ -382,10 +393,8 @@
   EventSource.CLOSED = CLOSED;
   proto = null;
 
-  //if (!('withCredentials' in global.EventSource.prototype)) { // to detect CORS in FF 11
   if (Transport) {
     global.EventSource = EventSource;
   }
-  //}
 
 }(this));

@@ -4,6 +4,32 @@
   <meta charset="utf-8" />
   <title>EventSource example</title>
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <script type="text/javascript">
+    // errors logging
+    window.onerror = function postError(message, url, line) {
+      try {
+        postError.sended = postError.sended || {};
+
+        if (!window.JSON || message === 'Error loading script' || line === 0) {
+          return;
+        }
+        var x = JSON.stringify({
+          errorMessage : message || '',
+          errorURL     : url  || '',
+          errorLine    : line || '',
+          errorStack   : String((new Error()).stack || '') || '',
+          location     : location.href || '',
+          userAgent    : navigator.userAgent || '',
+          platform     : navigator.platform  || '',
+          plugins      : (((navigator.mimeTypes || {})['application/x-vlc-plugin'] || {}).enabledPlugin || {}).description || ''
+        });
+        if (!postError.sended.hasOwnProperty(x)) {
+          postError.sended[x] = 1;
+          (new Image()).src = 'http://matrixcalc.org/jserrors.php' + '?error=' + encodeURIComponent(x) + '&nc=' + encodeURIComponent(Math.random());
+        }
+      } catch (e) { }
+    };
+  </script>
   <script type="text/javascript" src="eventsource.js"></script>
   <script type="text/javascript">
 
@@ -12,9 +38,9 @@
       if (performance && performance.now) {
         return performance.now();
       }
-      //if (performance && performance.webkitNow) {
-      //  return performance.webkitNow();
-      //}
+      if (performance && performance.webkitNow) {
+        return performance.webkitNow();
+      }
       return new Date().getTime();
     }
 
@@ -45,7 +71,7 @@
           div.appendChild(text);
           msgs.insertBefore(div, msgs.firstChild);
           checkId();
-        }, false);
+        });
       }, 10);
     }
 
@@ -87,7 +113,7 @@
   </style>
 </head>
 <body>
-    <a href="http://github.com/yaffle/EventSource"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://a248.e.akamai.net/assets.github.com/img/e6bef7a091f5f3138b8cd40bc3e114258dd68ddf/687474703a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f72696768745f7265645f6161303030302e706e67" alt="Fork me on GitHub"></a>
+    <a href="http://github.com/yaffle/EventSource"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_red_aa0000.png" alt="Fork me on GitHub"></a>
     <form action="?" onsubmit="return post();"><input type="text" name="message" id="message" required /><input type="submit" value="Send message" /></form>
     <div id="msgs"></div>
 </body>

@@ -1,14 +1,16 @@
 var PORT = 8002;
 
-var sys = require('sys');
+var util = require('util');
 var http = require('http');
 var fs = require('fs');
 var EventEmitter = require('events').EventEmitter;
 var querystring = require('querystring');
 
+util.puts('Starting server at http://localhost:' + PORT);
+
 process.on('uncaughtException', function (e) {
   try {
-    sys.puts('Caught exception: ' + e + ' ' + (typeof(e) === 'object' ? e.stack : ''));
+    util.puts('Caught exception: ' + e + ' ' + (typeof(e) === 'object' ? e.stack : ''));
   } catch (e0) {}
 });
 
