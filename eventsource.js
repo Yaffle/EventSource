@@ -93,6 +93,7 @@
     CONNECTING = 0,
     OPEN = 1,
     CLOSED = 2,
+    endOfLine = /\r[\s\S]|\n/, // after "\r" should be some character
     proto;
 
   function empty() {}
@@ -114,7 +115,7 @@
       charOffset,
       opened,
       buffer = {
-        data: '',
+        data: null,
         lastEventId: '',
         name: ''
       },
@@ -156,7 +157,7 @@
         event.target = that;
         that.dispatchEvent(event);
 
-        if (/^(message|error|open)$/.test(type) && typeof that['on' + type] === 'function') {
+        if ((type === 'message' || type === 'error' || type === 'open') && typeof that['on' + type] === 'function') {
           // as IE 8 doesn't support getters/setters, we can't implement 'onmessage' via addEventListener/removeEventListener
           that['on' + type](event);
         }
@@ -206,108 +207,7 @@
 
     EventTarget.call(that);
 
-    function onXHRTimeout() {
-      xhrTimeout = null;
-      if (wasActivity) {
-        wasActivity = false;
-        xhrTimeout = setTimeout(onXHRTimeout, heartbeatTimeout);
-      } else {
-        xhr.onload = xhr.onerror = xhr.onprogress = empty;
-        xhr.abort();
-        onError.call(xhr);
-      }
-    }
-
-    function onProgress() {
-      var responseText = xhr.responseText || '',
-        contentType,
-        i,
-        j,
-        part,
-        stream,
-        field,
-        value;
-
-      wasActivity = true;
-
-      if (!opened) {
-        try {
-          contentType = xhr.getResponseHeader ? xhr.getResponseHeader('Content-Type') : xhr.contentType;
-        } catch (error) {
-          // invalid state error when xhr.getResponseHeader called after xhr.abort in Chrome 18
-          setTimeout(function () {
-            throw error;
-          }, 0);
-        }
-        if (contentType && (/^text\/event\-stream/i).test(contentType)) {
-          queue({type: 'open'}, OPEN);
-          opened = true;
-          retry2 = retry;
-        }
-      }
-
-      if (opened && (/\r|\n/).test(responseText.slice(charOffset))) {
-        part = responseText.slice(offset);
-        stream = part.replace(/\r\n?/g, '\n').split('\n');
-
-        offset += part.length - stream[stream.length - 1].length;
-        for (i = 0; i < stream.length - 1; i += 1) {
-          field = stream[i];
-          value = '';
-          j = field.indexOf(':');
-          if (j !== -1) {
-            value = field.slice(j + (field.charAt(j + 1) === ' ' ? 2 : 1));
-            field = field.slice(0, j);
-          }
-
-          if (!stream[i]) {
-            // dispatch the event
-            if (buffer.data) {
-              lastEventId = buffer.lastEventId;
-              queue({
-                type: buffer.name || 'message',
-                lastEventId: lastEventId,
-                data: buffer.data.replace(/\n$/, '')
-              }, null);
-            }
-            // Set the data buffer and the event name buffer to the empty string.
-            buffer.data = '';
-            buffer.name = '';
-          }
-
-          if (field === 'event') {
-            buffer.name = value;
-          }
-
-          if (field === 'id') {
-            buffer.lastEventId = value; // see http://www.w3.org/Bugs/Public/show_bug.cgi?id=13761
-          }
-
-          if (field === 'retry') {
-            if (/^\d+$/.test(value)) {
-              retry = Number(value);
-              retry2 = retry;
-            }
-          }
-
-          if (field === 'heartbeatTimeout') {//!
-            heartbeatTimeout = Math.min(Math.max(1, Number(value) || 0), 86400000);
-            if (xhrTimeout !== null) {
-              clearTimeout(xhrTimeout);
-              xhrTimeout = setTimeout(onXHRTimeout, heartbeatTimeout);
-            }
-          }
-
-          if (field === 'data') {
-            buffer.data += value + '\n';
-          }
-        }
-      }
-      charOffset = responseText.length;
-    }
-
     function onError() {
-      onProgress();
       //if (opened) {
         // reestablishes the connection
       queue({type: 'error'}, CONNECTING);
@@ -321,6 +221,118 @@
       }
     }
 
+    function onXHRTimeout() {
+      xhrTimeout = null;
+      onProgress();
+      if (wasActivity) {
+        wasActivity = false;
+        xhrTimeout = setTimeout(onXHRTimeout, heartbeatTimeout);
+      } else {
+        xhr.onload = xhr.onerror = xhr.onprogress = empty;
+        xhr.abort();
+        onError();
+      }
+    }
+
+    function onProgress() {
+      var responseText = xhr.responseText || '',
+        contentType,
+        i,
+        j,
+        part,
+        field,
+        value;
+
+      if (!opened) {
+        try {
+          contentType = xhr.getResponseHeader ? xhr.getResponseHeader('Content-Type') : xhr.contentType;
+        } catch (error) {
+          // invalid state error when xhr.getResponseHeader called after xhr.abort in Chrome 18
+          setTimeout(function () {
+            throw error;
+          }, 0);
+        }
+        if (contentType && (/^text\/event\-stream/i).test(contentType)) {
+          queue({type: 'open'}, OPEN);
+          opened = true;
+          wasActivity = true;
+          retry2 = retry;
+        }
+      }
+
+      if (opened) {
+        part = responseText.slice(charOffset);
+        if (part.length > 0) {
+          wasActivity = true;
+        }
+        charOffset += part.length;
+        while ((i = part.search(endOfLine)) !== -1) {
+          field = responseText.slice(offset, offset + i);
+          i += part.slice(i, i + 2) === '\r\n' ? 2 : 1;
+          offset += i;
+          part = part.slice(i);
+
+          if (field) {
+            value = '';
+            j = field.indexOf(':');
+            if (j !== -1) {
+              value = field.slice(j + (field.charAt(j + 1) === ' ' ? 2 : 1));
+              field = field.slice(0, j);
+            }
+
+            if (field === 'event') {
+              buffer.name = value;
+            }
+
+            if (field === 'id') {
+              buffer.lastEventId = value; // see http://www.w3.org/Bugs/Public/show_bug.cgi?id=13761
+            }
+
+            if (field === 'retry') {
+              if (/^\d+$/.test(value)) {
+                retry = Number(value);
+                retry2 = retry;
+              }
+            }
+
+            if (field === 'heartbeatTimeout') {//!
+              heartbeatTimeout = Math.min(Math.max(1, Number(value) || 0), 86400000);
+              if (xhrTimeout !== null) {
+                clearTimeout(xhrTimeout);
+                xhrTimeout = setTimeout(onXHRTimeout, heartbeatTimeout);
+              }
+            }
+
+            if (field === 'data') {
+              if (buffer.data === null) {
+                buffer.data = value;
+              } else {
+                buffer.data += '\n' + value;
+              }
+            }
+          } else {
+            // dispatch the event
+            if (buffer.data !== null) {
+              lastEventId = buffer.lastEventId;
+              queue({
+                type: buffer.name || 'message',
+                lastEventId: lastEventId,
+                data: buffer.data
+              }, null);
+            }
+            // Set the data buffer and the event name buffer to the empty string.
+            buffer.data = null;
+            buffer.name = '';
+          }
+        }
+      }
+    }
+
+    function onLoad() {
+      onProgress();
+      onError();
+    }
+
     function onReadyStateChange() {
       if (xhr.readyState === 3) {
         onProgress();
@@ -330,13 +342,14 @@
     function openConnection() {
       // XDomainRequest#abort removes onprogress, onerror, onload
 
-      xhr.onload = xhr.onerror = onError;
+      xhr.onload = xhr.onerror = onLoad;
 
       // onprogress fires multiple times while readyState === 3
       // onprogress should be setted before calling "open" for Firefox 3.6
       xhr.onprogress = onProgress;
 
       // Firefox 3.6
+      // onreadystatechange fires more often, than "progress" in Chrome and Firefox
       xhr.onreadystatechange = onReadyStateChange;
 
       reconnectTimeout = null;
@@ -346,7 +359,7 @@
       offset = 0;
       charOffset = 0;
       opened = false;
-      buffer.data = '';
+      buffer.data = null;
       buffer.name = '';
       buffer.lastEventId = lastEventId;//resets to last successful
 
