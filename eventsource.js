@@ -269,7 +269,7 @@
         while ((i = part.search(endOfLine)) !== -1) {
           field = responseText.slice(offset, offset + i);
           i += part.slice(i, i + 2) === '\r\n' ? 2 : 1;
-          offset += i;
+          offset = charOffset + i;
           part = part.slice(i);
 
           if (field) {
