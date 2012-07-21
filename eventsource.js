@@ -266,9 +266,10 @@
           wasActivity = true;
         }
         while ((i = part.search(endOfLine)) !== -1) {
-          field = responseText.slice(offset, offset + i);
+          field = responseText.slice(offset, charOffset + i);
           i += part.slice(i, i + 2) === '\r\n' ? 2 : 1;
           offset = charOffset + i;
+          charOffset = offset;
           part = part.slice(i);
 
           if (field) {
@@ -324,7 +325,7 @@
             buffer.name = '';
           }
         }
-        charOffset += part.length;
+        charOffset = responseText.length;
       }
     }
 
