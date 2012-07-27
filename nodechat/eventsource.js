@@ -1,47 +1,43 @@
-/*jslint indent: 2 */
+/*jslint indent: 2, vars: true */
 /*global setTimeout, clearTimeout */
 
 (function (global) {
   "use strict";
 
   function EventTarget() {
+    this.listeners = {};
     return this;
   }
 
   EventTarget.prototype = {
-    nextListener: null,
+    listeners: null,
     throwError: function (e) {
       setTimeout(function () {
         throw e;
       }, 0);
     },
     invokeEvent: function (event) {
-      var type = String(event.type),
-        i = this.nextListener,
-        phase = event.eventPhase,
-        candidates = {
-          next: null
-        },
-        j = candidates;
-      while (i) {
-        if (i.type === type && !(phase === 1 && !i.capture) && !(phase === 3 && i.capture)) {
-          j = j.next = {
-            callback: i.callback,
-            next: null
-          };
-        }
-        i = i.nextListener;
+      var type = String(event.type);
+      var phase = event.eventPhase;
+      var listeners = this.listeners;
+      var typeListeners = listeners[type];
+      if (!typeListeners) {
+        return;
       }
-      j = candidates.next;
-      while (j) {
+      var candidates = typeListeners[phase === 1 ? 0 : (phase === 3 ? 2 : 1)];
+      var length = candidates.length;
+      var i = 0;
+      while (i < length) {
         event.currentTarget = this;
         try {
-          j.callback.call(this, event);
+          if (candidates[i]) {
+            candidates[i].call(this, event);
+          }
         } catch (e) {
           this.throwError(e);
         }
         event.currentTarget = null;
-        j = j.next;
+        i += 1;
       }
     },
     dispatchEvent: function (event) {
@@ -50,35 +46,48 @@
     },
     addEventListener: function (type, callback, capture) {
       type = String(type);
-      capture = Boolean(capture);
-      var listener = this,
-        i = listener.nextListener;
-      while (i) {
-        if (i.type === type && i.callback === callback && i.capture === capture) {
+      capture = capture ? 0 : 2;
+      var listeners = this.listeners;
+      var typeListeners = listeners[type];
+      if (!typeListeners) {
+        listeners[type] = typeListeners = [[], [], []];
+      }
+      var x = typeListeners[capture];
+      var i = x.length;
+      while (i > 0) {
+        i -= 1;
+        if (x[i] === callback) {
           return;
         }
-        listener = i;
-        i = i.nextListener;
       }
-      listener.nextListener = {
-        nextListener: null,
-        type: type,
-        callback: callback,
-        capture: capture
-      };
+      x.push(callback);
+      typeListeners[2 - capture].push(null);
+      typeListeners[1].push(callback);
     },
     removeEventListener: function (type, callback, capture) {
       type = String(type);
-      capture = Boolean(capture);
-      var listener = this,
-        i = listener.nextListener;
-      while (i) {
-        if (i.type === type && i.callback === callback && i.capture === capture) {
-          listener.nextListener = i.nextListener;
-          return;
+      capture = capture ? 0 : 2;
+      var listeners = this.listeners;
+      var typeListeners = listeners[type];
+      if (!typeListeners) {
+        return;
+      }
+      var x = typeListeners[capture];
+      var length = x.length;
+      var filtered = [[], [], []];
+      var i = 0;
+      while (i < length) {
+        if (x[i] !== callback) {
+          filtered[0].push(typeListeners[0][i]);
+          filtered[1].push(typeListeners[1][i]);
+          filtered[2].push(typeListeners[2][i]);
         }
-        listener = i;
-        i = i.nextListener;
+        i += 1;
+      }
+      if (filtered[0].length === 0) {
+        delete listeners[type];
+      } else {
+        listeners[type] = filtered;
       }
     }
   };
@@ -114,11 +123,9 @@
       offset,
       charOffset,
       opened,
-      buffer = {
-        data: null,
-        lastEventId: '',
-        name: ''
-      },
+      dataBuffer = '',
+      lastEventIdBuffer = '',
+      eventTypeBuffer = '',
       tail = {
         next: null,
         event: null,
@@ -149,7 +156,9 @@
 
         if (readyState === CONNECTING) {
           // setTimeout will wait before previous setTimeout(0) have completed
-          retry2 = Math.min(retry2, 86400000);
+          if (retry2 > 21600000) {
+            retry2 = 21600000;
+          }
           reconnectTimeout = setTimeout(openConnection, retry2);
           retry2 = retry2 * 2 + 1;
         }
@@ -276,16 +285,16 @@
             value = '';
             j = field.indexOf(':');
             if (j !== -1) {
-              value = field.slice(j + (field.charAt(j + 1) === ' ' ? 2 : 1));
+              value = field.slice(j + (field.slice(j + 1, j + 2) === ' ' ? 2 : 1));
               field = field.slice(0, j);
             }
 
             if (field === 'event') {
-              buffer.name = value;
+              eventTypeBuffer = value;
             }
 
             if (field === 'id') {
-              buffer.lastEventId = value; // see http://www.w3.org/Bugs/Public/show_bug.cgi?id=13761
+              lastEventIdBuffer = value; // see http://www.w3.org/Bugs/Public/show_bug.cgi?id=13761
             }
 
             if (field === 'retry') {
@@ -296,33 +305,36 @@
             }
 
             if (field === 'heartbeatTimeout') {//!
-              heartbeatTimeout = Math.min(Math.max(1, Number(value) || 0), 86400000);
-              if (xhrTimeout !== null) {
-                clearTimeout(xhrTimeout);
-                xhrTimeout = setTimeout(onXHRTimeout, heartbeatTimeout);
+              if (/^\d+$/.test(value)) {
+                heartbeatTimeout = Number(value);
+                heartbeatTimeout = heartbeatTimeout < 1 ? 1 : (heartbeatTimeout > 21600000 ? 21600000 : heartbeatTimeout);
+                if (xhrTimeout !== null) {
+                  clearTimeout(xhrTimeout);
+                  xhrTimeout = setTimeout(onXHRTimeout, heartbeatTimeout);
+                }
               }
             }
 
             if (field === 'data') {
-              if (buffer.data === null) {
-                buffer.data = value;
+              if (dataBuffer === null) {
+                dataBuffer = value;
               } else {
-                buffer.data += '\n' + value;
+                dataBuffer += '\n' + value;
               }
             }
           } else {
             // dispatch the event
-            if (buffer.data !== null) {
-              lastEventId = buffer.lastEventId;
+            if (dataBuffer !== null) {
+              lastEventId = lastEventIdBuffer;
               queue({
-                type: buffer.name || 'message',
-                lastEventId: lastEventId,
-                data: buffer.data
+                type: eventTypeBuffer || 'message',
+                lastEventId: lastEventIdBuffer,
+                data: dataBuffer
               }, null);
             }
             // Set the data buffer and the event name buffer to the empty string.
-            buffer.data = null;
-            buffer.name = '';
+            dataBuffer = null;
+            eventTypeBuffer = '';
           }
         }
         charOffset = responseText.length;
@@ -360,9 +372,9 @@
       offset = 0;
       charOffset = 0;
       opened = false;
-      buffer.data = null;
-      buffer.name = '';
-      buffer.lastEventId = lastEventId;//resets to last successful
+      dataBuffer = null;
+      eventTypeBuffer = '';
+      lastEventIdBuffer = lastEventId;//resets to last successful
 
       // with GET method in FF xhr.onreadystatechange with readyState === 3 doesn't work + POST = no-cache
       xhr.open('POST', url, true);
