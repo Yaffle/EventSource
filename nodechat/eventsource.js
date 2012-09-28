@@ -120,12 +120,13 @@
       xhr = new Transport(),
       reconnectTimeout = null,
       withCredentials = Boolean(xhr2 && options && options.withCredentials),
-      offset,
-      charOffset,
+      charOffset = 0,
       opened,
       dataBuffer = '',
       lastEventIdBuffer = '',
       eventTypeBuffer = '',
+      responseBuffer = [],
+      isChunkedTextSupported = true,
       tail = {
         next: null,
         event: null,
@@ -275,10 +276,9 @@
           wasActivity = true;
         }
         while ((i = part.search(endOfLine)) !== -1) {
-          field = responseText.slice(offset, charOffset + i);
+          field = responseBuffer.join('') + part.slice(0, i);
+          responseBuffer.length = 0;
           i += part.slice(i, i + 2) === '\r\n' ? 2 : 1;
-          offset = charOffset + i;
-          charOffset = offset;
           part = part.slice(i);
 
           if (field) {
@@ -337,7 +337,10 @@
             eventTypeBuffer = '';
           }
         }
-        charOffset = responseText.length;
+        if (part !== '') {
+          responseBuffer.push(part);
+        }
+        charOffset = isChunkedTextSupported ? 0 : responseText.length;
       }
     }
 
@@ -369,7 +372,6 @@
       wasActivity = false;
       xhrTimeout = setTimeout(onXHRTimeout, heartbeatTimeout);
 
-      offset = 0;
       charOffset = 0;
       opened = false;
       dataBuffer = null;
@@ -381,6 +383,19 @@
 
       // withCredentials should be setted after "open" for Safari and Chrome (< 19 ?)
       xhr.withCredentials = withCredentials;
+
+      responseBuffer.length = 0;
+      if (isChunkedTextSupported) {
+        var t = "moz-chunked-text";
+        try {
+          if (xhr.setRequestHeader) {
+            xhr.responseType = t;
+          }
+          isChunkedTextSupported = xhr.responseType === t;
+        } catch (e) {
+          //console.log(e);
+        }
+      }
 
       if (xhr.setRequestHeader) { // !XDomainRequest
         // http://dvcs.w3.org/hg/cors/raw-file/tip/Overview.html
