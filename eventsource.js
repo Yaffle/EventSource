@@ -102,7 +102,6 @@
     CONNECTING = 0,
     OPEN = 1,
     CLOSED = 2,
-    endOfLine = /\r[\s\S]|\n/, // after "\r" should be some character
     proto;
 
   function empty() {}
@@ -122,9 +121,10 @@
       withCredentials = Boolean(xhr2 && options && options.withCredentials),
       charOffset = 0,
       opened,
-      dataBuffer = '',
+      dataBuffer = [],
       lastEventIdBuffer = '',
       eventTypeBuffer = '',
+      wasCR = false,
       responseBuffer = [],
       isChunkedTextSupported = true,
       tail = {
@@ -275,11 +275,23 @@
         if (part.length > 0) {
           wasActivity = true;
         }
-        while ((i = part.search(endOfLine)) !== -1) {
+        if (wasCR && part.length > 0) {
+          if (part.slice(0, 1) === '\n') {
+            part = part.slice(1);
+          }
+          wasCR = false;
+        }
+        while ((i = part.search(/[\r\n]/)) !== -1) {
           field = responseBuffer.join('') + part.slice(0, i);
           responseBuffer.length = 0;
-          i += part.slice(i, i + 2) === '\r\n' ? 2 : 1;
-          part = part.slice(i);
+          if (part.length > i + 1) {
+            part = part.slice(i + (part.slice(i, i + 2) === '\r\n' ? 2 : 1));
+          } else {
+            if (part.slice(i, i + 1) === '\r') {
+              wasCR = true;
+            }
+            part = '';
+          }
 
           if (field) {
             value = '';
@@ -316,24 +328,20 @@
             }
 
             if (field === 'data') {
-              if (dataBuffer === null) {
-                dataBuffer = value;
-              } else {
-                dataBuffer += '\n' + value;
-              }
+              dataBuffer.push(value);
             }
           } else {
             // dispatch the event
-            if (dataBuffer !== null) {
+            if (dataBuffer.length !== 0) {
               lastEventId = lastEventIdBuffer;
               queue({
                 type: eventTypeBuffer || 'message',
                 lastEventId: lastEventIdBuffer,
-                data: dataBuffer
+                data: dataBuffer.join('\n')
               }, null);
             }
             // Set the data buffer and the event name buffer to the empty string.
-            dataBuffer = null;
+            dataBuffer.length = 0;
             eventTypeBuffer = '';
           }
         }
@@ -374,7 +382,7 @@
 
       charOffset = 0;
       opened = false;
-      dataBuffer = null;
+      dataBuffer.length = 0;
       eventTypeBuffer = '';
       lastEventIdBuffer = lastEventId;//resets to last successful
 
@@ -384,6 +392,7 @@
       // withCredentials should be setted after "open" for Safari and Chrome (< 19 ?)
       xhr.withCredentials = withCredentials;
 
+      wasCR = false;
       responseBuffer.length = 0;
       if (isChunkedTextSupported) {
         var t = "moz-chunked-text";
