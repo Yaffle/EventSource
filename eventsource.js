@@ -1,5 +1,5 @@
 /*jslint indent: 2, vars: true */
-/*global setTimeout, clearTimeout */
+/*global setTimeout, clearTimeout, navigator */
 
 (function (global) {
   "use strict";
@@ -24,20 +24,20 @@
       if (!typeListeners) {
         return;
       }
-      var candidates = typeListeners[phase === 1 ? 0 : (phase === 3 ? 2 : 1)];
-      var length = candidates.length;
-      var i = 0;
+      var length = typeListeners.length;
+      var i = phase === 3 ? 1 : 0;
+      var increment = phase === 1 || phase === 3 ? 2 : 1;
       while (i < length) {
         event.currentTarget = this;
         try {
-          if (candidates[i]) {
-            candidates[i].call(this, event);
+          if (typeListeners[i]) {
+            typeListeners[i].call(this, event);
           }
         } catch (e) {
           this.throwError(e);
         }
         event.currentTarget = null;
-        i += 1;
+        i += increment;
       }
     },
     dispatchEvent: function (event) {
@@ -46,45 +46,41 @@
     },
     addEventListener: function (type, callback, capture) {
       type = String(type);
-      capture = capture ? 0 : 2;
+      capture = Boolean(capture);
       var listeners = this.listeners;
       var typeListeners = listeners[type];
       if (!typeListeners) {
-        listeners[type] = typeListeners = [[], [], []];
+        listeners[type] = typeListeners = []; // CAPTURING BUBBLING
       }
-      var x = typeListeners[capture];
-      var i = x.length;
-      while (i > 0) {
-        i -= 1;
-        if (x[i] === callback) {
+      var i = typeListeners.length - (capture ? 2 : 1);
+      while (i >= 0) {
+        if (typeListeners[i] === callback) {
           return;
         }
+        i -= 2;
       }
-      x.push(callback);
-      typeListeners[2 - capture].push(null);
-      typeListeners[1].push(callback);
+      typeListeners.push(capture ? callback : null);
+      typeListeners.push(capture ? null : callback);
     },
     removeEventListener: function (type, callback, capture) {
       type = String(type);
-      capture = capture ? 0 : 2;
+      capture = Boolean(capture);
       var listeners = this.listeners;
       var typeListeners = listeners[type];
       if (!typeListeners) {
         return;
       }
-      var x = typeListeners[capture];
-      var length = x.length;
-      var filtered = [[], [], []];
+      var length = typeListeners.length;
+      var filtered = [];
       var i = 0;
       while (i < length) {
-        if (x[i] !== callback) {
-          filtered[0].push(typeListeners[0][i]);
-          filtered[1].push(typeListeners[1][i]);
-          filtered[2].push(typeListeners[2][i]);
+        if (typeListeners[i + (capture ? 0 : 1)] !== callback) {
+          filtered.push(typeListeners[i]);
+          filtered.push(typeListeners[i + 1]);
         }
-        i += 1;
+        i += 2;
       }
-      if (filtered[0].length === 0) {
+      if (filtered.length === 0) {
         delete listeners[type];
       } else {
         listeners[type] = filtered;
@@ -97,14 +93,26 @@
   // http://cometdaily.com/2008/page/3/
 
   var XHR = global.XMLHttpRequest,
-    xhr2 = XHR && global.ProgressEvent && ((new XHR()).withCredentials !== undefined),
+    xhr2 = Boolean(XHR && global.ProgressEvent && ((new XHR()).withCredentials !== undefined)),
     Transport = xhr2 ? XHR : global.XDomainRequest,
     CONNECTING = 0,
     OPEN = 1,
     CLOSED = 2,
-    proto;
+    proto = null;
 
   function empty() {}
+
+  function Node() {
+    this.next = null;
+    this.event = null;
+    this.readyState = 0;
+  }
+
+  Node.prototype = {
+    next: null,
+    event: null,
+    readyState: 0
+  };
 
   function EventSource(url, options) {
     url = String(url);
@@ -113,33 +121,50 @@
       retry = 1000,
       retry2 = retry,
       heartbeatTimeout = 45000,
-      xhrTimeout = null,
+      xhrTimeout = 0,
       wasActivity = false,
       lastEventId = '',
       xhr = new Transport(),
-      reconnectTimeout = null,
+      reconnectTimeout = 0,
       withCredentials = Boolean(xhr2 && options && options.withCredentials),
       charOffset = 0,
-      opened,
+      opened = false,
       dataBuffer = [],
       lastEventIdBuffer = '',
       eventTypeBuffer = '',
       wasCR = false,
       responseBuffer = [],
       isChunkedTextSupported = true,
-      tail = {
-        next: null,
-        event: null,
-        readyState: null
-      },
+      tail = new Node(),
       head = tail,
-      channel = null;
+      channel = null,
+      isWaitingForOnlineEvent = true;
 
     options = null;
     that.url = url;
 
     that.readyState = CONNECTING;
     that.withCredentials = withCredentials;
+
+    function onOnline(event) {
+      if (isWaitingForOnlineEvent) {
+        isWaitingForOnlineEvent = false;
+        openConnection();
+      }
+    }
+
+    if (global.addEventListener) {
+      global.addEventListener('online', onOnline, false);
+    }
+
+    function waitOnLine() {
+      reconnectTimeout = 0;
+      if (navigator.onLine !== false || !('ononline' in global)) {
+        openConnection();
+      } else {
+        isWaitingForOnlineEvent = true;
+      }
+    }
 
     // Queue a task which, if the readyState is set to a value other than CLOSED,
     // sets the readyState to ... and fires event
@@ -157,10 +182,10 @@
 
         if (readyState === CONNECTING) {
           // setTimeout will wait before previous setTimeout(0) have completed
-          if (retry2 > 21600000) {
-            retry2 = 21600000;
+          if (retry2 > 900000) {
+            retry2 = 900000;
           }
-          reconnectTimeout = setTimeout(openConnection, retry2);
+          reconnectTimeout = setTimeout(waitOnLine, retry2);
           retry2 = retry2 * 2 + 1;
         }
 
@@ -183,11 +208,7 @@
     function queue(event, readyState) {
       tail.event = event;
       tail.readyState = readyState;
-      tail = tail.next = {
-        next: null,
-        event: null,
-        readyState: null
-      };
+      tail = tail.next = new Node();
       if (channel) {
         channel.port2.postMessage('');
       } else {
@@ -196,19 +217,22 @@
     }
 
     function close() {
+      if (global.addEventListener) {
+        global.removeEventListener('online', onOnline, false);
+      }
       // http://dev.w3.org/html5/eventsource/ The close() method must close the connection, if any; must abort any instances of the fetch algorithm started for this EventSource object; and must set the readyState attribute to CLOSED.
       if (xhr !== null) {
         xhr.onload = xhr.onerror = xhr.onprogress = xhr.onreadystatechange = empty;
         xhr.abort();
         xhr = null;
       }
-      if (reconnectTimeout !== null) {
+      if (reconnectTimeout !== 0) {
         clearTimeout(reconnectTimeout);
-        reconnectTimeout = null;
+        reconnectTimeout = 0;
       }
-      if (xhrTimeout !== null) {
+      if (xhrTimeout !== 0) {
         clearTimeout(xhrTimeout);
-        xhrTimeout = null;
+        xhrTimeout = 0;
       }
       that.readyState = CLOSED;
     }
@@ -225,14 +249,14 @@
         // fail the connection
       //  queue({type: 'error'}, CLOSED);
       //}
-      if (xhrTimeout !== null) {
+      if (xhrTimeout !== 0) {
         clearTimeout(xhrTimeout);
-        xhrTimeout = null;
+        xhrTimeout = 0;
       }
     }
 
     function onXHRTimeout() {
-      xhrTimeout = null;
+      xhrTimeout = 0;
       onProgress();
       if (wasActivity) {
         wasActivity = false;
@@ -320,7 +344,7 @@
               if (/^\d+$/.test(value)) {
                 heartbeatTimeout = Number(value);
                 heartbeatTimeout = heartbeatTimeout < 1 ? 1 : (heartbeatTimeout > 21600000 ? 21600000 : heartbeatTimeout);
-                if (xhrTimeout !== null) {
+                if (xhrTimeout !== 0) {
                   clearTimeout(xhrTimeout);
                   xhrTimeout = setTimeout(onXHRTimeout, heartbeatTimeout);
                 }
@@ -376,7 +400,7 @@
       // onreadystatechange fires more often, than "progress" in Chrome and Firefox
       xhr.onreadystatechange = onReadyStateChange;
 
-      reconnectTimeout = null;
+      reconnectTimeout = 0;
       wasActivity = false;
       xhrTimeout = setTimeout(onXHRTimeout, heartbeatTimeout);
 
