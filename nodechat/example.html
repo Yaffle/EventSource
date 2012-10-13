@@ -72,6 +72,13 @@
           msgs.insertBefore(div, msgs.firstChild);
           checkId();
         });
+        function showReadyState(event) {
+          document.getElementById('readyStateConnecting').style.visibility = es.readyState === es.CONNECTING ? 'visible' : 'hidden';
+          document.getElementById('readyStateOpen').style.visibility = es.readyState === es.OPEN ? 'visible' : 'hidden';
+          document.getElementById('readyStateClosed').style.visibility = es.readyState === es.CLOSED ? 'visible' : 'hidden';
+        }
+        es.addEventListener('open', showReadyState);
+        es.addEventListener('error', showReadyState);
       }, 10);
     }
 
@@ -110,11 +117,23 @@
     #msgs .ping {
       color: blue;
     }
+    #readyStateConnecting {
+      color: black;
+      margin: 4px;
+    }
+    #readyStateOpen {
+      color: green;
+      margin: 4px;
+    }
+    #readyStateClosed {
+      color: red;
+      margin: 4px;
+    }
   </style>
 </head>
 <body>
     <a href="http://github.com/yaffle/EventSource"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_red_aa0000.png" alt="Fork me on GitHub"></a>
-    <form action="?" onsubmit="return post();"><input type="text" name="message" id="message" required /><input type="submit" value="Send message" /></form>
+    <form action="?" onsubmit="return post();"><input type="text" name="message" id="message" required /><input type="submit" value="Send message" /><span id="readyStateConnecting">connecting</span><span id="readyStateOpen" style="visibility: hidden;">open</span><span id="readyStateClosed" style="visibility: hidden;">closed</span></form>
     <div id="msgs"></div>
 </body>
 </html>
