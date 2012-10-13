@@ -1,3 +1,9 @@
+/**
+ * eventsource.js
+ * Available under MIT License (MIT)
+ * https://github.com/Yaffle/EventSource/
+ */
+
 /*jslint indent: 2, vars: true */
 /*global setTimeout, clearTimeout, navigator */
 
