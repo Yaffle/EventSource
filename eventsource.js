@@ -144,7 +144,8 @@
       tail = new Node(),
       head = tail,
       channel = null,
-      isWaitingForOnlineEvent = true;
+      isWaitingForOnlineEvent = true,
+      onlineEventIsSupported = false;
 
     options = null;
     that.url = url;
@@ -159,13 +160,19 @@
       }
     }
 
-    if (global.addEventListener) {
+    if (global.addEventListener && ('ononline' in global)) {
       global.addEventListener('online', onOnline, false);
+      onlineEventIsSupported = true;
+    }
+    //! document.body is null while page is loading
+    if (global.document && global.document.body && global.document.body.attachEvent && ('ononline' in global.document.body)) {
+      global.document.body.attachEvent('ononline', onOnline);
+      onlineEventIsSupported = true;
     }
 
     function waitOnLine() {
       reconnectTimeout = 0;
-      if (navigator.onLine !== false || !('ononline' in global)) {
+      if (!onlineEventIsSupported || navigator.onLine !== false) {
         openConnection();
       } else {
         isWaitingForOnlineEvent = true;
@@ -188,8 +195,8 @@
 
         if (readyState === CONNECTING) {
           // setTimeout will wait before previous setTimeout(0) have completed
-          if (retry2 > 900000) {
-            retry2 = 900000;
+          if (retry2 > 300000) {
+            retry2 = 300000;
           }
           reconnectTimeout = setTimeout(waitOnLine, retry2);
           retry2 = retry2 * 2 + 1;
@@ -225,6 +232,9 @@
     function close() {
       if (global.addEventListener) {
         global.removeEventListener('online', onOnline, false);
+      }
+      if (global.document && global.document.body && global.document.body.attachEvent) {
+        global.document.body.detachEvent('ononline', onOnline);
       }
       // http://dev.w3.org/html5/eventsource/ The close() method must close the connection, if any; must abort any instances of the fetch algorithm started for this EventSource object; and must set the readyState attribute to CLOSED.
       if (xhr !== null) {
