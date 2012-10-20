@@ -120,12 +120,18 @@
     readyState: 0
   };
 
+  function delay(value) {
+    var n = Number(value);
+    return n < 1 ? 1 : (n > 18000000 ? 18000000 : n);
+  }
+
   function EventSource(url, options) {
     url = String(url);
 
     var that = this,
       retry = 1000,
       retry2 = retry,
+      retryLimit = 300000,
       heartbeatTimeout = 45000,
       xhrTimeout = 0,
       wasActivity = false,
@@ -195,8 +201,8 @@
 
         if (readyState === CONNECTING) {
           // setTimeout will wait before previous setTimeout(0) have completed
-          if (retry2 > 300000) {
-            retry2 = 300000;
+          if (retry2 > retryLimit) {
+            retry2 = retryLimit;
           }
           reconnectTimeout = setTimeout(waitOnLine, retry2);
           retry2 = retry2 * 2 + 1;
@@ -351,19 +357,27 @@
 
             if (field === 'retry') {
               if (/^\d+$/.test(value)) {
-                retry = Number(value);
+                retry = delay(value);
                 retry2 = retry;
+                if (retryLimit < retry) {
+                  retryLimit = retry;
+                }
               }
             }
 
             if (field === 'heartbeatTimeout') {//!
               if (/^\d+$/.test(value)) {
-                heartbeatTimeout = Number(value);
-                heartbeatTimeout = heartbeatTimeout < 1 ? 1 : (heartbeatTimeout > 21600000 ? 21600000 : heartbeatTimeout);
+                heartbeatTimeout = delay(value);
                 if (xhrTimeout !== 0) {
                   clearTimeout(xhrTimeout);
                   xhrTimeout = setTimeout(onXHRTimeout, heartbeatTimeout);
                 }
+              }
+            }
+
+            if (field === 'retryLimit') {//!
+              if (/^\d+$/.test(value)) {
+                retryLimit = delay(value);
               }
             }
 

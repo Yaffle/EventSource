@@ -74,6 +74,7 @@ http.createServer(function (req, res) {
     });
 
     res.write(':' + Array(2049).join(' ') + '\n'); //2kb padding for IE
+    res.write('retry: 2000\n');
     res.write('data: ' + Date() + '\n\n');
 
     t = setInterval(function () {
@@ -124,6 +125,7 @@ or use PHP (see php/events.php)
 
   // 2kb padding for IE
   echo ':' . str_repeat(' ', 2048) . "\n";
+  echo "retry: 2000\n";
 
   // event-stream
   for ($i = intval($lastEventId) + 1; $i < 100; $i++) {

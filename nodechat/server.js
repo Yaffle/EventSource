@@ -49,6 +49,7 @@ function eventStream(request, response) {
     // 2 kb comment message for XDomainRequest (IE8, IE9)
     response.write(':' + Array(2049).join(' ') + '\n');
     response.write('retry: 1000\n');
+    response.write('retryLimit: 60000\n');
     response.write('heartbeatTimeout: ' + heartbeatTimeout + '\n');//!
 
     emitter.addListener('message', sendMessages);

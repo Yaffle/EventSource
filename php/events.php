@@ -25,6 +25,7 @@
 
   // 2kb padding for IE
   echo ':' . str_repeat(' ', 2048) . "\n";
+  echo "retry: 2000\n";
 
   // event-stream
   for ($i = intval($lastEventId) + 1; $i < 100; $i++) {
