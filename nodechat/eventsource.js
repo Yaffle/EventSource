@@ -98,13 +98,12 @@
   // XDomainRequest does not have a binary interface. To use with non-text, first base64 to string.
   // http://cometdaily.com/2008/page/3/
 
-  var XHR = global.XMLHttpRequest,
-    xhr2 = Boolean(XHR && global.ProgressEvent && ((new XHR()).withCredentials !== undefined)),
-    Transport = xhr2 ? XHR : global.XDomainRequest,
-    CONNECTING = 0,
-    OPEN = 1,
-    CLOSED = 2,
-    proto = null;
+  var XHR = global.XMLHttpRequest;
+  var xhr2 = Boolean(XHR && global.ProgressEvent && ((new XHR()).withCredentials !== undefined));
+  var Transport = xhr2 ? XHR : global.XDomainRequest;
+  var CONNECTING = 0;
+  var OPEN = 1;
+  var CLOSED = 2;
 
   function empty() {}
 
@@ -125,33 +124,60 @@
     return n < 1 ? 1 : (n > 18000000 ? 18000000 : n);
   }
 
+  function Event(type) {
+    this.type = type;
+    this.eventPhase = 0;
+    this.currentTarget = null;
+    this.target = null;
+  }
+
+  Event.prototype = {
+    type: "",
+    eventPhase: 0,
+    currentTarget: null,
+    target: null
+  };
+
+  function MessageEvent(type, options) {
+    Event.call(this, type);
+    this.data = options.data;
+    this.lastEventId = options.lastEventId;
+  }
+
+  function E() {
+    this.data = null;
+    this.lastEventId = "";
+  }
+  E.prototype = Event.prototype;
+  MessageEvent.prototype = new E();
+
   function EventSource(url, options) {
     url = String(url);
 
-    var that = this,
-      retry = 1000,
-      retry2 = retry,
-      retryLimit = 300000,
-      heartbeatTimeout = 45000,
-      xhrTimeout = 0,
-      wasActivity = false,
-      lastEventId = '',
-      xhr = new Transport(),
-      reconnectTimeout = 0,
-      withCredentials = Boolean(xhr2 && options && options.withCredentials),
-      charOffset = 0,
-      opened = false,
-      dataBuffer = [],
-      lastEventIdBuffer = '',
-      eventTypeBuffer = '',
-      wasCR = false,
-      responseBuffer = [],
-      isChunkedTextSupported = true,
-      tail = new Node(),
-      head = tail,
-      channel = null,
-      isWaitingForOnlineEvent = true,
-      onlineEventIsSupported = false;
+    var that = this;
+    var retry = 1000;
+    var retry2 = retry;
+    var retryLimit = 300000;
+    var heartbeatTimeout = 45000;
+    var xhrTimeout = 0;
+    var wasActivity = false;
+    var lastEventId = "";
+    var xhr = new Transport();
+    var reconnectTimeout = 0;
+    var withCredentials = Boolean(xhr2 && options && options.withCredentials);
+    var charOffset = 0;
+    var opened = false;
+    var dataBuffer = [];
+    var lastEventIdBuffer = "";
+    var eventTypeBuffer = "";
+    var wasCR = false;
+    var responseBuffer = [];
+    var isChunkedTextSupported = true;
+    var tail = new Node();
+    var head = tail;
+    var channel = null;
+    var isWaitingForOnlineEvent = true;
+    var onlineEventIsSupported = false;
 
     options = null;
     that.url = url;
@@ -166,13 +192,13 @@
       }
     }
 
-    if (global.addEventListener && ('ononline' in global)) {
-      global.addEventListener('online', onOnline, false);
+    if (global.addEventListener && global.ononline !== undefined) {
+      global.addEventListener("online", onOnline, false);
       onlineEventIsSupported = true;
     }
     //! document.body is null while page is loading
-    if (global.document && global.document.body && global.document.body.attachEvent && ('ononline' in global.document.body)) {
-      global.document.body.attachEvent('ononline', onOnline);
+    if (global.document && global.document.body && global.document.body.attachEvent && global.document.body.ononline !== undefined) {
+      global.document.body.attachEvent("ononline", onOnline);
       onlineEventIsSupported = true;
     }
 
@@ -189,9 +215,9 @@
     // sets the readyState to ... and fires event
 
     function onTimeout() {
-      var event = head.event,
-        readyState = head.readyState,
-        type = String(event.type);
+      var event = head.event;
+      var readyState = head.readyState;
+      var type = String(event.type);
       head = head.next;
 
       if (that.readyState !== CLOSED) { // http://www.w3.org/Bugs/Public/show_bug.cgi?id=14331
@@ -211,9 +237,9 @@
         event.target = that;
         that.dispatchEvent(event);
 
-        if ((type === 'message' || type === 'error' || type === 'open') && typeof that['on' + type] === 'function') {
-          // as IE 8 doesn't support getters/setters, we can't implement 'onmessage' via addEventListener/removeEventListener
-          that['on' + type](event);
+        if ((type === "message" || type === "error" || type === "open") && typeof that["on" + type] === "function") {
+          // as IE 8 does not support getters/setters, we cannot implement "onmessage" via addEventListener/removeEventListener
+          that["on" + type](event);
         }
       }
     }
@@ -229,7 +255,7 @@
       tail.readyState = readyState;
       tail = tail.next = new Node();
       if (channel) {
-        channel.port2.postMessage('');
+        channel.port2.postMessage("");
       } else {
         setTimeout(onTimeout, 0);
       }
@@ -237,10 +263,10 @@
 
     function close() {
       if (global.addEventListener) {
-        global.removeEventListener('online', onOnline, false);
+        global.removeEventListener("online", onOnline, false);
       }
       if (global.document && global.document.body && global.document.body.attachEvent) {
-        global.document.body.detachEvent('ononline', onOnline);
+        global.document.body.detachEvent("ononline", onOnline);
       }
       // http://dev.w3.org/html5/eventsource/ The close() method must close the connection, if any; must abort any instances of the fetch algorithm started for this EventSource object; and must set the readyState attribute to CLOSED.
       if (xhr !== null) {
@@ -266,10 +292,10 @@
     function onError() {
       //if (opened) {
         // reestablishes the connection
-      queue({type: 'error'}, CONNECTING);
+      queue(new Event("error"), CONNECTING);
       //} else {
         // fail the connection
-      //  queue({type: 'error'}, CLOSED);
+      //  queue(new Event("error"), CLOSED);
       //}
       if (xhrTimeout !== 0) {
         clearTimeout(xhrTimeout);
@@ -291,17 +317,13 @@
     }
 
     function onProgress() {
-      var responseText = xhr.responseText || '',
-        contentType,
-        i,
-        j,
-        part,
-        field,
-        value;
+      var responseText = xhr.responseText || "";
+      var contentType = "";
+      var i = 0;
 
       if (!opened) {
         try {
-          contentType = xhr.getResponseHeader ? xhr.getResponseHeader('Content-Type') : xhr.contentType;
+          contentType = xhr.getResponseHeader ? xhr.getResponseHeader("Content-Type") : xhr.contentType;
         } catch (error) {
           // invalid state error when xhr.getResponseHeader called after xhr.abort in Chrome 18
           setTimeout(function () {
@@ -309,7 +331,7 @@
           }, 0);
         }
         if (contentType && (/^text\/event\-stream/i).test(contentType)) {
-          queue({type: 'open'}, OPEN);
+          queue(new Event("open"), OPEN);
           opened = true;
           wasActivity = true;
           retry2 = retry;
@@ -317,45 +339,45 @@
       }
 
       if (opened) {
-        part = responseText.slice(charOffset);
+        var part = responseText.slice(charOffset);
         if (part.length > 0) {
           wasActivity = true;
         }
         if (wasCR && part.length > 0) {
-          if (part.slice(0, 1) === '\n') {
+          if (part.slice(0, 1) === "\n") {
             part = part.slice(1);
           }
           wasCR = false;
         }
         while ((i = part.search(/[\r\n]/)) !== -1) {
-          field = responseBuffer.join('') + part.slice(0, i);
+          var field = responseBuffer.join("") + part.slice(0, i);
           responseBuffer.length = 0;
           if (part.length > i + 1) {
-            part = part.slice(i + (part.slice(i, i + 2) === '\r\n' ? 2 : 1));
+            part = part.slice(i + (part.slice(i, i + 2) === "\r\n" ? 2 : 1));
           } else {
-            if (part.slice(i, i + 1) === '\r') {
+            if (part.slice(i, i + 1) === "\r") {
               wasCR = true;
             }
-            part = '';
+            part = "";
           }
 
           if (field) {
-            value = '';
-            j = field.indexOf(':');
+            var value = "";
+            var j = field.indexOf(":");
             if (j !== -1) {
-              value = field.slice(j + (field.slice(j + 1, j + 2) === ' ' ? 2 : 1));
+              value = field.slice(j + (field.slice(j + 1, j + 2) === " " ? 2 : 1));
               field = field.slice(0, j);
             }
 
-            if (field === 'event') {
+            if (field === "event") {
               eventTypeBuffer = value;
             }
 
-            if (field === 'id') {
+            if (field === "id") {
               lastEventIdBuffer = value; // see http://www.w3.org/Bugs/Public/show_bug.cgi?id=13761
             }
 
-            if (field === 'retry') {
+            if (field === "retry") {
               if (/^\d+$/.test(value)) {
                 retry = delay(value);
                 retry2 = retry;
@@ -365,7 +387,7 @@
               }
             }
 
-            if (field === 'heartbeatTimeout') {//!
+            if (field === "heartbeatTimeout") {//!
               if (/^\d+$/.test(value)) {
                 heartbeatTimeout = delay(value);
                 if (xhrTimeout !== 0) {
@@ -375,31 +397,30 @@
               }
             }
 
-            if (field === 'retryLimit') {//!
+            if (field === "retryLimit") {//!
               if (/^\d+$/.test(value)) {
                 retryLimit = delay(value);
               }
             }
 
-            if (field === 'data') {
+            if (field === "data") {
               dataBuffer.push(value);
             }
           } else {
             // dispatch the event
             if (dataBuffer.length !== 0) {
               lastEventId = lastEventIdBuffer;
-              queue({
-                type: eventTypeBuffer || 'message',
-                lastEventId: lastEventIdBuffer,
-                data: dataBuffer.join('\n')
-              }, null);
+              queue(new MessageEvent(eventTypeBuffer || "message", {
+                data: dataBuffer.join("\n"),
+                lastEventId: lastEventIdBuffer
+              }), null);
             }
             // Set the data buffer and the event name buffer to the empty string.
             dataBuffer.length = 0;
-            eventTypeBuffer = '';
+            eventTypeBuffer = "";
           }
         }
-        if (part !== '') {
+        if (part !== "") {
           responseBuffer.push(part);
         }
         charOffset = isChunkedTextSupported ? 0 : responseText.length;
@@ -437,11 +458,11 @@
       charOffset = 0;
       opened = false;
       dataBuffer.length = 0;
-      eventTypeBuffer = '';
+      eventTypeBuffer = "";
       lastEventIdBuffer = lastEventId;//resets to last successful
 
-      // with GET method in FF xhr.onreadystatechange with readyState === 3 doesn't work + POST = no-cache
-      xhr.open('POST', url, true);
+      // with GET method in FF xhr.onreadystatechange with readyState === 3 does not work + POST = no-cache
+      xhr.open("POST", url, true);
 
       // withCredentials should be setted after "open" for Safari and Chrome (< 19 ?)
       xhr.withCredentials = withCredentials;
@@ -464,21 +485,21 @@
         // http://dvcs.w3.org/hg/cors/raw-file/tip/Overview.html
         // Cache-Control is not a simple header
         // Request header field Cache-Control is not allowed by Access-Control-Allow-Headers.
-        //xhr.setRequestHeader('Cache-Control', 'no-cache');
+        //xhr.setRequestHeader("Cache-Control", "no-cache");
 
         // Chrome bug:
         // http://code.google.com/p/chromium/issues/detail?id=71694
         // If you force Chrome to have a whitelisted content-type, either explicitly with setRequestHeader(), or implicitly by sending a FormData, then no preflight is done.
-        xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
-        xhr.setRequestHeader('Accept', 'text/event-stream');
+        xhr.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+        xhr.setRequestHeader("Accept", "text/event-stream");
 
         // Request header field Last-Event-ID is not allowed by Access-Control-Allow-Headers.
-        // +setRequestHeader shouldn't be used to avoid preflight requests
-        //if (lastEventId !== '') {
-        //  xhr.setRequestHeader('Last-Event-ID', lastEventId);
+        // +setRequestHeader should not be used to avoid preflight requests
+        //if (lastEventId !== "") {
+        //  xhr.setRequestHeader("Last-Event-ID", lastEventId);
         //}
       }
-      xhr.send(lastEventId !== '' ? 'Last-Event-ID=' + encodeURIComponent(lastEventId) : '');
+      xhr.send(lastEventId !== "" ? "Last-Event-ID=" + encodeURIComponent(lastEventId) : "");
     }
 
     openConnection();
@@ -486,16 +507,17 @@
     return that;
   }
 
-  proto = new EventTarget();
-  proto.CONNECTING = CONNECTING;
-  proto.OPEN = OPEN;
-  proto.CLOSED = CLOSED;
+  function F() {
+    this.CONNECTING = CONNECTING;
+    this.OPEN = OPEN;
+    this.CLOSED = CLOSED;
+  }
+  F.prototype = EventTarget.prototype;
 
-  EventSource.prototype = proto;
+  EventSource.prototype = new F();
   EventSource.CONNECTING = CONNECTING;
   EventSource.OPEN = OPEN;
   EventSource.CLOSED = CLOSED;
-  proto = null;
 
   if (Transport) {
     global.EventSource = EventSource;
