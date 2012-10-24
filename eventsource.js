@@ -104,6 +104,7 @@
   var CONNECTING = 0;
   var OPEN = 1;
   var CLOSED = 2;
+  var NONE = -1;
 
   function empty() {}
 
@@ -221,7 +222,7 @@
       head = head.next;
 
       if (that.readyState !== CLOSED) { // http://www.w3.org/Bugs/Public/show_bug.cgi?id=14331
-        if (readyState !== null) {
+        if (readyState !== NONE) {
           that.readyState = readyState;
         }
 
@@ -413,7 +414,7 @@
               queue(new MessageEvent(eventTypeBuffer || "message", {
                 data: dataBuffer.join("\n"),
                 lastEventId: lastEventIdBuffer
-              }), null);
+              }), NONE);
             }
             // Set the data buffer and the event name buffer to the empty string.
             dataBuffer.length = 0;
