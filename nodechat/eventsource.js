@@ -35,12 +35,13 @@
       var increment = phase === 1 || phase === 3 ? 2 : 1;
       while (i < length) {
         event.currentTarget = this;
-        try {
-          if (typeListeners[i]) {
-            typeListeners[i].call(this, event);
+        var listener = typeListeners[i];
+        if (listener !== null) {
+          try {
+            listener.call(this, event);
+          } catch (e) {
+            this.throwError(e);
           }
-        } catch (e) {
-          this.throwError(e);
         }
         event.currentTarget = null;
         i += increment;
@@ -104,6 +105,7 @@
   var CONNECTING = 0;
   var OPEN = 1;
   var CLOSED = 2;
+  var NONE = -1;
 
   function empty() {}
 
@@ -221,7 +223,7 @@
       head = head.next;
 
       if (that.readyState !== CLOSED) { // http://www.w3.org/Bugs/Public/show_bug.cgi?id=14331
-        if (readyState !== null) {
+        if (readyState !== NONE) {
           that.readyState = readyState;
         }
 
@@ -413,7 +415,7 @@
               queue(new MessageEvent(eventTypeBuffer || "message", {
                 data: dataBuffer.join("\n"),
                 lastEventId: lastEventIdBuffer
-              }), null);
+              }), NONE);
             }
             // Set the data buffer and the event name buffer to the empty string.
             dataBuffer.length = 0;

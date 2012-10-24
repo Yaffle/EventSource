@@ -35,12 +35,13 @@
       var increment = phase === 1 || phase === 3 ? 2 : 1;
       while (i < length) {
         event.currentTarget = this;
-        try {
-          if (typeListeners[i]) {
-            typeListeners[i].call(this, event);
+        var listener = typeListeners[i];
+        if (listener !== null) {
+          try {
+            listener.call(this, event);
+          } catch (e) {
+            this.throwError(e);
           }
-        } catch (e) {
-          this.throwError(e);
         }
         event.currentTarget = null;
         i += increment;
