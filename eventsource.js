@@ -11,7 +11,7 @@
   "use strict";
 
   function EventTarget() {
-    this.listeners = {};
+    this.listeners = Object.create ? Object.create(null) : {};
     return this;
   }
 
