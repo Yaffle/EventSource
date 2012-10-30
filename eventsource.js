@@ -95,6 +95,46 @@
     }
   };
 
+  function Node() {
+    this.next = null;
+    this.callback = null;
+    this.arg = null;
+  }
+
+  Node.prototype = {
+    next: null,
+    callback: null,
+    arg: null
+  };
+
+  var tail = new Node();
+  var head = tail;
+  var channel = null;
+
+  function onTimeout() {
+    var callback = head.callback;
+    var arg = head.arg;
+    head = head.next;
+    callback(arg);
+  }
+
+  // MessageChannel support: IE 10, Opera 11.6x?, Chrome ?, Safari ?
+  if (global.MessageChannel) {
+    channel = new global.MessageChannel();
+    channel.port1.onmessage = onTimeout;
+  }
+
+  function queue(callback, arg) {
+    tail.callback = callback;
+    tail.arg = arg;
+    tail = tail.next = new Node();
+    if (channel !== null) {
+      channel.port2.postMessage("");
+    } else {
+      setTimeout(onTimeout, 0);
+    }
+  }
+
   // http://blogs.msdn.com/b/ieinternals/archive/2010/04/06/comet-streaming-in-internet-explorer-with-xmlhttprequest-and-xdomainrequest.aspx?PageIndex=1#comments
   // XDomainRequest does not have a binary interface. To use with non-text, first base64 to string.
   // http://cometdaily.com/2008/page/3/
@@ -105,21 +145,8 @@
   var CONNECTING = 0;
   var OPEN = 1;
   var CLOSED = 2;
-  var NONE = -1;
 
   function empty() {}
-
-  function Node() {
-    this.next = null;
-    this.event = null;
-    this.readyState = 0;
-  }
-
-  Node.prototype = {
-    next: null,
-    event: null,
-    readyState: 0
-  };
 
   function delay(value) {
     var n = Number(value);
@@ -157,8 +184,8 @@
     url = String(url);
 
     var that = this;
-    var retry = 1000;
-    var retry2 = retry;
+    var initialRetry = 1000;
+    var retry = initialRetry;
     var retryLimit = 300000;
     var heartbeatTimeout = 45000;
     var xhrTimeout = 0;
@@ -175,101 +202,25 @@
     var wasCR = false;
     var responseBuffer = [];
     var isChunkedTextSupported = true;
-    var tail = new Node();
-    var head = tail;
-    var channel = null;
-    var isWaitingForOnlineEvent = true;
-    var onlineEventIsSupported = false;
+    var readyState = CONNECTING;
+    var onlineEventListener = null;
 
     options = null;
-    that.url = url;
 
-    that.readyState = CONNECTING;
-    that.withCredentials = withCredentials;
-
-    function onOnline(event) {
-      if (isWaitingForOnlineEvent) {
-        isWaitingForOnlineEvent = false;
-        openConnection();
-      }
-    }
-
-    if (global.addEventListener && global.ononline !== undefined) {
-      global.addEventListener("online", onOnline, false);
-      onlineEventIsSupported = true;
-    }
-    //! document.body is null while page is loading
-    if (global.document && global.document.body && global.document.body.attachEvent && global.document.body.ononline !== undefined) {
-      global.document.body.attachEvent("ononline", onOnline);
-      onlineEventIsSupported = true;
-    }
-
-    function waitOnLine() {
-      reconnectTimeout = 0;
-      if (!onlineEventIsSupported || navigator.onLine !== false) {
-        openConnection();
-      } else {
-        isWaitingForOnlineEvent = true;
-      }
-    }
-
-    // Queue a task which, if the readyState is set to a value other than CLOSED,
-    // sets the readyState to ... and fires event
-
-    function onTimeout() {
-      var event = head.event;
-      var readyState = head.readyState;
-      var type = String(event.type);
-      head = head.next;
-
-      if (that.readyState !== CLOSED) { // http://www.w3.org/Bugs/Public/show_bug.cgi?id=14331
-        if (readyState !== NONE) {
-          that.readyState = readyState;
+    function removeOnlineListeners() {
+      if (onlineEventListener !== null) {
+        if (global.addEventListener) {
+          global.removeEventListener("online", onlineEventListener, false);
         }
-
-        if (readyState === CONNECTING) {
-          // setTimeout will wait before previous setTimeout(0) have completed
-          if (retry2 > retryLimit) {
-            retry2 = retryLimit;
-          }
-          reconnectTimeout = setTimeout(waitOnLine, retry2);
-          retry2 = retry2 * 2 + 1;
+        if (global.document && global.document.body && global.document.body.attachEvent) {
+          global.document.body.detachEvent("ononline", onlineEventListener);
         }
-
-        event.target = that;
-        that.dispatchEvent(event);
-
-        if ((type === "message" || type === "error" || type === "open") && typeof that["on" + type] === "function") {
-          // as IE 8 does not support getters/setters, we cannot implement "onmessage" via addEventListener/removeEventListener
-          that["on" + type](event);
-        }
-      }
-    }
-
-    // MessageChannel support: IE 10, Opera 11.6x?, Chrome ?, Safari ?
-    if (global.MessageChannel) {
-      channel = new global.MessageChannel();
-      channel.port1.onmessage = onTimeout;
-    }
-
-    function queue(event, readyState) {
-      tail.event = event;
-      tail.readyState = readyState;
-      tail = tail.next = new Node();
-      if (channel) {
-        channel.port2.postMessage("");
-      } else {
-        setTimeout(onTimeout, 0);
+        onlineEventListener = null;
       }
     }
 
     function close() {
-      if (global.addEventListener) {
-        global.removeEventListener("online", onOnline, false);
-      }
-      if (global.document && global.document.body && global.document.body.attachEvent) {
-        global.document.body.detachEvent("ononline", onOnline);
-      }
+      removeOnlineListeners();
       // http://dev.w3.org/html5/eventsource/ The close() method must close the connection, if any; must abort any instances of the fetch algorithm started for this EventSource object; and must set the readyState attribute to CLOSED.
       if (xhr !== null) {
         xhr.onload = xhr.onerror = xhr.onprogress = xhr.onreadystatechange = empty;
@@ -284,21 +235,31 @@
         clearTimeout(xhrTimeout);
         xhrTimeout = 0;
       }
+      readyState = CLOSED;
       that.readyState = CLOSED;
     }
 
-    that.close = close;
+    function setConnectionState(event) {
+      if (readyState !== CLOSED) {
+        // setTimeout will wait before previous setTimeout(0) have completed
+        if (retry > retryLimit) {
+          retry = retryLimit;
+        }
+        reconnectTimeout = setTimeout(openConnection, retry);
+        retry = retry * 2 + 1;
 
-    EventTarget.call(that);
+        readyState = CONNECTING;
+        that.readyState = CONNECTING;
+        event.target = that;
+        that.dispatchEvent(event);
+        if (typeof that.onerror === "function") {
+          that.onerror(event);
+        }
+      }
+    }
 
     function onError() {
-      //if (opened) {
-        // reestablishes the connection
-      queue(new Event("error"), CONNECTING);
-      //} else {
-        // fail the connection
-      //  queue(new Event("error"), CLOSED);
-      //}
+      queue(setConnectionState, new Event("error"));
       if (xhrTimeout !== 0) {
         clearTimeout(xhrTimeout);
         xhrTimeout = 0;
@@ -312,18 +273,38 @@
         wasActivity = false;
         xhrTimeout = setTimeout(onXHRTimeout, heartbeatTimeout);
       } else {
-        xhr.onload = xhr.onerror = xhr.onprogress = empty;
+        xhr.onload = xhr.onerror = xhr.onprogress = xhr.onreadystatechange = empty;
         xhr.abort();
         onError();
       }
     }
 
-    function onProgress() {
-      var responseText = xhr.responseText || "";
-      var contentType = "";
-      var i = 0;
+    function setOpenState(event) {
+      if (readyState !== CLOSED) {
+        readyState = OPEN;
+        that.readyState = OPEN;
+        event.target = that;
+        that.dispatchEvent(event);
+        if (typeof that.onopen === "function") {
+          that.onopen(event);
+        }
+      }
+    }
 
+    function dispatchEvent(event) {
+      if (readyState !== CLOSED) {
+        var type = String(event.type);
+        event.target = that;
+        that.dispatchEvent(event);
+        if (type === "message" && typeof that.onmessage === "function") {
+          that.onmessage(event);
+        }
+      }
+    }
+
+    function onProgress() {
       if (!opened) {
+        var contentType = "";
         try {
           contentType = xhr.getResponseHeader ? xhr.getResponseHeader("Content-Type") : xhr.contentType;
         } catch (error) {
@@ -333,14 +314,15 @@
           }, 0);
         }
         if (contentType && (/^text\/event\-stream/i).test(contentType)) {
-          queue(new Event("open"), OPEN);
+          queue(setOpenState, new Event("open"));
           opened = true;
           wasActivity = true;
-          retry2 = retry;
+          retry = initialRetry;
         }
       }
 
       if (opened) {
+        var responseText = xhr.responseText || "";
         var part = responseText.slice(charOffset);
         if (part.length > 0) {
           wasActivity = true;
@@ -351,6 +333,7 @@
           }
           wasCR = false;
         }
+        var i = 0;
         while ((i = part.search(/[\r\n]/)) !== -1) {
           var field = responseBuffer.join("") + part.slice(0, i);
           responseBuffer.length = 0;
@@ -381,10 +364,10 @@
 
             if (field === "retry") {
               if (/^\d+$/.test(value)) {
-                retry = delay(value);
-                retry2 = retry;
-                if (retryLimit < retry) {
-                  retryLimit = retry;
+                initialRetry = delay(value);
+                retry = initialRetry;
+                if (retryLimit < initialRetry) {
+                  retryLimit = initialRetry;
                 }
               }
             }
@@ -412,10 +395,10 @@
             // dispatch the event
             if (dataBuffer.length !== 0) {
               lastEventId = lastEventIdBuffer;
-              queue(new MessageEvent(eventTypeBuffer || "message", {
+              queue(dispatchEvent, new MessageEvent(eventTypeBuffer || "message", {
                 data: dataBuffer.join("\n"),
                 lastEventId: lastEventIdBuffer
-              }), NONE);
+              }));
             }
             // Set the data buffer and the event name buffer to the empty string.
             dataBuffer.length = 0;
@@ -441,6 +424,19 @@
     }
 
     function openConnection() {
+      removeOnlineListeners();
+      if (navigator.onLine === false) {
+        onlineEventListener = openConnection;
+        if (global.addEventListener && global.ononline !== undefined) {
+          global.addEventListener("online", onlineEventListener, false);
+          return;
+        }
+        //! document.body is null while page is loading
+        if (global.document && global.document.body && global.document.body.attachEvent && global.document.body.ononline !== undefined) {
+          global.document.body.attachEvent("ononline", onlineEventListener);
+          return;
+        }
+      }
       // XDomainRequest#abort removes onprogress, onerror, onload
 
       xhr.onload = xhr.onerror = onLoad;
@@ -474,7 +470,8 @@
       if (isChunkedTextSupported) {
         var t = "moz-chunked-text";
         try {
-          if (xhr.setRequestHeader) {
+          // setting xhr.responseType = t outputs annoying message in Chrome
+          if (xhr.setRequestHeader && !!global.webkitPostMessage) {
             xhr.responseType = t;
           }
           isChunkedTextSupported = xhr.responseType === t;
@@ -506,6 +503,12 @@
 
     openConnection();
 
+    EventTarget.call(that);
+    that.close = close;
+
+    that.url = url;
+    that.readyState = readyState;
+    that.withCredentials = withCredentials;
     return that;
   }
 
