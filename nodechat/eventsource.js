@@ -10,8 +10,33 @@
 (function (global) {
   "use strict";
 
+  function Map() {
+    this.data = Object.create ? Object.create(null) : {};
+  }
+
+  var hasOwnProperty = Object.prototype.hasOwnProperty;
+
+  function escapeKey(key) {
+    return key !== "" && key.charAt(0) === "_" ? key + "~" : key;
+  }
+
+  Map.prototype = {
+    data: null,
+    get: function (key) {
+      var k = escapeKey(key);
+      var data = this.data;
+      return hasOwnProperty.call(data, k) ? data[k] : undefined;
+    },
+    set: function (key, value) {
+      this.data[escapeKey(key)] = value;
+    },
+    "delete": function (key) {
+      delete this.data[escapeKey(key)];
+    }
+  };
+
   function EventTarget() {
-    this.listeners = Object.create ? Object.create(null) : {};
+    this.listeners = new Map();
     return this;
   }
 
@@ -26,7 +51,7 @@
       var type = String(event.type);
       var phase = event.eventPhase;
       var listeners = this.listeners;
-      var typeListeners = listeners[type];
+      var typeListeners = listeners.get(type);
       if (!typeListeners) {
         return;
       }
@@ -55,9 +80,9 @@
       type = String(type);
       capture = Boolean(capture);
       var listeners = this.listeners;
-      var typeListeners = listeners[type];
+      var typeListeners = listeners.get(type);
       if (!typeListeners) {
-        listeners[type] = typeListeners = []; // CAPTURING BUBBLING
+        listeners.set(type, typeListeners = []); // CAPTURING BUBBLING
       }
       var i = typeListeners.length - (capture ? 2 : 1);
       while (i >= 0) {
@@ -73,7 +98,7 @@
       type = String(type);
       capture = Boolean(capture);
       var listeners = this.listeners;
-      var typeListeners = listeners[type];
+      var typeListeners = listeners.get(type);
       if (!typeListeners) {
         return;
       }
@@ -88,9 +113,9 @@
         i += 2;
       }
       if (filtered.length === 0) {
-        delete listeners[type];
+        listeners["delete"](type);
       } else {
-        listeners[type] = filtered;
+        listeners.set(type, filtered);
       }
     }
   };
