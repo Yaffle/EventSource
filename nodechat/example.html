@@ -38,9 +38,6 @@
       if (performance && performance.now) {
         return performance.now();
       }
-      if (performance && performance.webkitNow) {
-        return performance.webkitNow();
-      }
       return new Date().getTime();
     }
 

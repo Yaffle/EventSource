@@ -35,6 +35,24 @@
     }
   };
 
+  function Event(type) {
+    this.type = type;
+    this.eventPhase = 0;
+    this.currentTarget = null;
+    this.target = null;
+  }
+
+  Event.CAPTURING_PHASE = 1;
+  Event.AT_TARGET = 2;
+  Event.BUBBLING_PHASE = 3;
+
+  Event.prototype = {
+    type: "",
+    eventPhase: 0,
+    currentTarget: null,
+    target: null
+  };
+
   function EventTarget() {
     this.listeners = new Map();
     return this;
@@ -42,6 +60,9 @@
 
   EventTarget.prototype = {
     listeners: null,
+    hasListeners: function (type) {
+      return this.listeners.get(String(type)) !== undefined;
+    },
     throwError: function (e) {
       setTimeout(function () {
         throw e;
@@ -56,8 +77,8 @@
         return;
       }
       var length = typeListeners.length;
-      var i = phase === 3 ? 1 : 0;
-      var increment = phase === 1 || phase === 3 ? 2 : 1;
+      var i = phase === Event.BUBBLING_PHASE ? 1 : 0;
+      var increment = phase === Event.CAPTURING_PHASE || phase === Event.BUBBLING_PHASE ? 2 : 1;
       while (i < length) {
         event.currentTarget = this;
         var listener = typeListeners[i];
@@ -73,7 +94,7 @@
       }
     },
     dispatchEvent: function (event) {
-      event.eventPhase = 2;
+      event.eventPhase = Event.AT_TARGET;
       this.invokeEvent(event);
     },
     addEventListener: function (type, callback, capture) {
@@ -177,20 +198,6 @@
     var n = Number(value);
     return n < 1 ? 1 : (n > 18000000 ? 18000000 : n);
   }
-
-  function Event(type) {
-    this.type = type;
-    this.eventPhase = 0;
-    this.currentTarget = null;
-    this.target = null;
-  }
-
-  Event.prototype = {
-    type: "",
-    eventPhase: 0,
-    currentTarget: null,
-    target: null
-  };
 
   function MessageEvent(type, options) {
     Event.call(this, type);
@@ -449,6 +456,7 @@
     }
 
     function openConnection() {
+      reconnectTimeout = 0;
       removeOnlineListeners();
       if (navigator.onLine === false) {
         onlineEventListener = openConnection;
@@ -461,6 +469,9 @@
           global.document.body.attachEvent("ononline", onlineEventListener);
           return;
         }
+        // Web Workers
+        reconnectTimeout = setTimeout(openConnection, 500);
+        return;
       }
       // XDomainRequest#abort removes onprogress, onerror, onload
 
@@ -474,7 +485,6 @@
       // onreadystatechange fires more often, than "progress" in Chrome and Firefox
       xhr.onreadystatechange = onReadyStateChange;
 
-      reconnectTimeout = 0;
       wasActivity = false;
       xhrTimeout = setTimeout(onXHRTimeout, heartbeatTimeout);
 
