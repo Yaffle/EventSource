@@ -503,6 +503,7 @@
       wasCR = false;
       responseBuffer.length = 0;
       if (isChunkedTextSupported) {
+        isChunkedTextSupported = false;
         var t = "moz-chunked-text";
         try {
           // setting xhr.responseType = t outputs annoying message in Chrome
