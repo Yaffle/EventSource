@@ -441,6 +441,11 @@
           responseBuffer.push(part);
         }
         charOffset = isChunkedTextSupported ? 0 : responseText.length;
+        if (!isChunkedTextSupported && (responseText.length > 1 * 1024 * 1024)) {
+          xhr.onload = xhr.onerror = xhr.onprogress = xhr.onreadystatechange = empty;
+          xhr.abort();
+          onError();
+        }
       }
     }
 
@@ -499,6 +504,8 @@
 
       // withCredentials should be setted after "open" for Safari and Chrome (< 19 ?)
       xhr.withCredentials = withCredentials;
+
+      xhr.responseType = "text";
 
       wasCR = false;
       responseBuffer.length = 0;
