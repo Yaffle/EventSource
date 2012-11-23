@@ -236,6 +236,7 @@
     var isChunkedTextSupported = true;
     var readyState = CONNECTING;
     var onlineEventListener = null;
+    var loadListener = null;
 
     options = null;
 
@@ -251,8 +252,21 @@
       }
     }
 
+    function removeLoadListeners() {
+      if (loadListener !== null) {
+        if (global.addEventListener) {
+          global.removeEventListener("load", loadListener, false);
+        }
+        if (global.attachEvent) {
+          global.detachEvent("onload", loadListener);
+        }
+        loadListener = null;
+      }
+    }
+
     function close() {
       removeOnlineListeners();
+      removeLoadListeners();
       // http://dev.w3.org/html5/eventsource/ The close() method must close the connection, if any; must abort any instances of the fetch algorithm started for this EventSource object; and must set the readyState attribute to CLOSED.
       if (xhr !== null) {
         xhr.onload = xhr.onerror = xhr.onprogress = xhr.onreadystatechange = empty;
@@ -271,7 +285,7 @@
       that.readyState = CLOSED;
     }
 
-    function setConnectionState(event) {
+    function setConnectingState(event) {
       if (readyState !== CLOSED) {
         // setTimeout will wait before previous setTimeout(0) have completed
         if (retry > retryLimit) {
@@ -291,7 +305,7 @@
     }
 
     function onError() {
-      queue(setConnectionState, new Event("error"));
+      queue(setConnectingState, new Event("error"));
       if (xhrTimeout !== 0) {
         clearTimeout(xhrTimeout);
         xhrTimeout = 0;
@@ -441,7 +455,7 @@
           responseBuffer.push(part);
         }
         charOffset = isChunkedTextSupported ? 0 : responseText.length;
-        if (!isChunkedTextSupported && (responseText.length > 1 * 1024 * 1024)) {
+        if (!isChunkedTextSupported && (responseText.length > 1024 * 1024)) {
           xhr.onload = xhr.onerror = xhr.onprogress = xhr.onreadystatechange = empty;
           xhr.abort();
           onError();
@@ -463,6 +477,7 @@
     function openConnection() {
       reconnectTimeout = 0;
       removeOnlineListeners();
+      removeLoadListeners();
       if (navigator.onLine === false) {
         onlineEventListener = openConnection;
         if (global.addEventListener && global.ononline !== undefined) {
@@ -511,15 +526,16 @@
       responseBuffer.length = 0;
       if (isChunkedTextSupported) {
         isChunkedTextSupported = false;
-        var t = "moz-chunked-text";
-        try {
-          // setting xhr.responseType = t outputs annoying message in Chrome
-          if (xhr.setRequestHeader && !!global.webkitPostMessage) {
-            xhr.responseType = t;
+        // setting xhr.responseType = t outputs annoying message in Chrome
+        if (xhr.mozAnon !== undefined) {
+          var t = "moz-chunked-text";
+          try {
+            if (xhr.setRequestHeader) {
+              xhr.responseType = t;
+            }
+            isChunkedTextSupported = xhr.responseType === t;
+          } catch (e) {
           }
-          isChunkedTextSupported = xhr.responseType === t;
-        } catch (e) {
-          //console.log(e);
         }
       }
 
@@ -544,14 +560,28 @@
       xhr.send(lastEventId !== "" ? "Last-Event-ID=" + encodeURIComponent(lastEventId) : "");
     }
 
-    openConnection();
-
     EventTarget.call(that);
     that.close = close;
-
     that.url = url;
     that.readyState = readyState;
     that.withCredentials = withCredentials;
+
+    // waiting for "complete" state to prevent loading indicator in Firefox,
+    // other browser should wait too for identity
+    if (global.document && !(/^$|loaded|complete/.test(global.document.readyState || ""))) {
+      if (global.addEventListener) {
+        loadListener = openConnection;
+        global.addEventListener("load", loadListener, false);
+      } else if (global.attachEvent) {
+        loadListener = openConnection;
+        global.attachEvent("onload", loadListener);
+      } else {
+        openConnection();
+      }
+    } else {
+      openConnection();
+    }
+
     return that;
   }
 
