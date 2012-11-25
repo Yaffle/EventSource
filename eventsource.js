@@ -233,10 +233,8 @@
     var eventTypeBuffer = "";
     var wasCR = false;
     var responseBuffer = [];
-    var isChunkedTextSupported = true;
     var readyState = CONNECTING;
     var onlineEventListener = null;
-    var loadListener = null;
 
     options = null;
 
@@ -252,21 +250,8 @@
       }
     }
 
-    function removeLoadListeners() {
-      if (loadListener !== null) {
-        if (global.addEventListener) {
-          global.removeEventListener("load", loadListener, false);
-        }
-        if (global.attachEvent) {
-          global.detachEvent("onload", loadListener);
-        }
-        loadListener = null;
-      }
-    }
-
     function close() {
       removeOnlineListeners();
-      removeLoadListeners();
       // http://dev.w3.org/html5/eventsource/ The close() method must close the connection, if any; must abort any instances of the fetch algorithm started for this EventSource object; and must set the readyState attribute to CLOSED.
       if (xhr !== null) {
         xhr.onload = xhr.onerror = xhr.onprogress = xhr.onreadystatechange = empty;
@@ -454,8 +439,8 @@
         if (part !== "") {
           responseBuffer.push(part);
         }
-        charOffset = isChunkedTextSupported ? 0 : responseText.length;
-        if (!isChunkedTextSupported && (responseText.length > 1024 * 1024)) {
+        charOffset = responseText.length;
+        if (responseText.length > 1024 * 1024) {
           xhr.onload = xhr.onerror = xhr.onprogress = xhr.onreadystatechange = empty;
           xhr.abort();
           onError();
@@ -477,7 +462,6 @@
     function openConnection() {
       reconnectTimeout = 0;
       removeOnlineListeners();
-      removeLoadListeners();
       if (navigator.onLine === false) {
         onlineEventListener = openConnection;
         if (global.addEventListener && global.ononline !== undefined) {
@@ -499,7 +483,9 @@
 
       // onprogress fires multiple times while readyState === 3
       // onprogress should be setted before calling "open" for Firefox 3.6
-      xhr.onprogress = onProgress;
+      if (xhr.mozAnon === undefined) {// Firefox shows loading indicator
+        xhr.onprogress = onProgress;
+      }
 
       // Firefox 3.6
       // onreadystatechange fires more often, than "progress" in Chrome and Firefox
@@ -524,20 +510,6 @@
 
       wasCR = false;
       responseBuffer.length = 0;
-      if (isChunkedTextSupported) {
-        isChunkedTextSupported = false;
-        // setting xhr.responseType = t outputs annoying message in Chrome
-        if (xhr.mozAnon !== undefined) {
-          var t = "moz-chunked-text";
-          try {
-            if (xhr.setRequestHeader) {
-              xhr.responseType = t;
-            }
-            isChunkedTextSupported = xhr.responseType === t;
-          } catch (e) {
-          }
-        }
-      }
 
       if (xhr.setRequestHeader) { // !XDomainRequest
         // http://dvcs.w3.org/hg/cors/raw-file/tip/Overview.html
@@ -566,21 +538,7 @@
     that.readyState = readyState;
     that.withCredentials = withCredentials;
 
-    // waiting for "complete" state to prevent loading indicator in Firefox,
-    // other browser should wait too for identity
-    if (global.document && !(/^$|loaded|complete/.test(global.document.readyState || ""))) {
-      if (global.addEventListener) {
-        loadListener = openConnection;
-        global.addEventListener("load", loadListener, false);
-      } else if (global.attachEvent) {
-        loadListener = openConnection;
-        global.attachEvent("onload", loadListener);
-      } else {
-        openConnection();
-      }
-    } else {
-      openConnection();
-    }
+    openConnection();
 
     return that;
   }
