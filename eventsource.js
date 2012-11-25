@@ -234,24 +234,10 @@
     var wasCR = false;
     var responseBuffer = [];
     var readyState = CONNECTING;
-    var onlineEventListener = null;
 
     options = null;
 
-    function removeOnlineListeners() {
-      if (onlineEventListener !== null) {
-        if (global.addEventListener) {
-          global.removeEventListener("online", onlineEventListener, false);
-        }
-        if (global.document && global.document.body && global.document.body.attachEvent) {
-          global.document.body.detachEvent("ononline", onlineEventListener);
-        }
-        onlineEventListener = null;
-      }
-    }
-
     function close() {
-      removeOnlineListeners();
       // http://dev.w3.org/html5/eventsource/ The close() method must close the connection, if any; must abort any instances of the fetch algorithm started for this EventSource object; and must set the readyState attribute to CLOSED.
       if (xhr !== null) {
         xhr.onload = xhr.onerror = xhr.onprogress = xhr.onreadystatechange = empty;
@@ -461,19 +447,8 @@
 
     function openConnection() {
       reconnectTimeout = 0;
-      removeOnlineListeners();
       if (navigator.onLine === false) {
-        onlineEventListener = openConnection;
-        if (global.addEventListener && global.ononline !== undefined) {
-          global.addEventListener("online", onlineEventListener, false);
-          return;
-        }
-        //! document.body is null while page is loading
-        if (global.document && global.document.body && global.document.body.attachEvent && global.document.body.ononline !== undefined) {
-          global.document.body.attachEvent("ononline", onlineEventListener);
-          return;
-        }
-        // Web Workers
+        // "online" event is not supported under Web Workers
         reconnectTimeout = setTimeout(openConnection, 500);
         return;
       }
