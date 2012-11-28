@@ -156,7 +156,6 @@
 
   var tail = new Node();
   var head = tail;
-  var channel = null;
 
   function onTimeout() {
     while (head !== tail) {
@@ -171,23 +170,12 @@
     }
   }
 
-  // MessageChannel support: IE 10, Opera 11.6x?, Chrome ?, Safari ?
-  if (global.MessageChannel) {
-    channel = new global.MessageChannel();
-    channel.port1.onmessage = onTimeout;
-    channel.port2.postMessage(""); // opt.
-  }
-
   function queue(callback, arg) {
     tail.callback = callback;
     tail.arg = arg;
-    if (head === tail) {
-      if (channel !== null) {
-        channel.port2.postMessage("");
-      } else {
-        setTimeout(onTimeout, 0);
-      }
-    }
+    //if (head === tail) {
+    //  setTimeout(onTimeout, 0);
+    //}
     tail = tail.next = new Node();
   }
 
@@ -222,6 +210,11 @@
   E.prototype = Event.prototype;
   MessageEvent.prototype = new E();
 
+  function abort(xhr) {
+    xhr.onload = xhr.onerror = xhr.onprogress = xhr.onreadystatechange = empty;
+    xhr.abort();
+  }
+
   function EventSource(url, options) {
     url = String(url);
 
@@ -250,8 +243,7 @@
     function close() {
       // http://dev.w3.org/html5/eventsource/ The close() method must close the connection, if any; must abort any instances of the fetch algorithm started for this EventSource object; and must set the readyState attribute to CLOSED.
       if (xhr !== null) {
-        xhr.onload = xhr.onerror = xhr.onprogress = xhr.onreadystatechange = empty;
-        xhr.abort();
+        abort(xhr);
         xhr = null;
       }
       if (reconnectTimeout !== 0) {
@@ -300,10 +292,10 @@
         wasActivity = false;
         xhrTimeout = setTimeout(onXHRTimeout, heartbeatTimeout);
       } else {
-        xhr.onload = xhr.onerror = xhr.onprogress = xhr.onreadystatechange = empty;
-        xhr.abort();
+        abort(xhr);
         onError();
       }
+      onTimeout();
     }
 
     function setOpenState(event) {
@@ -434,22 +426,30 @@
           responseBuffer.push(part);
         }
         charOffset = responseText.length;
+      }
+    }
+
+    function onProgress2() {
+      onProgress();
+      if (opened) {
+        var responseText = xhr.responseText || "";      
         if (responseText.length > 1024 * 1024) {
-          xhr.onload = xhr.onerror = xhr.onprogress = xhr.onreadystatechange = empty;
-          xhr.abort();
+          abort(xhr);
           onError();
         }
       }
+      onTimeout();
     }
 
     function onLoad() {
       onProgress();
       onError();
+      onTimeout();
     }
 
     function onReadyStateChange() {
-      if (xhr.readyState === 3) {
-        onProgress();
+      if (xhr.readyState === 3) {      
+        onProgress2();
       }
     }
 
@@ -467,7 +467,7 @@
       // onprogress fires multiple times while readyState === 3
       // onprogress should be setted before calling "open" for Firefox 3.6
       if (xhr.mozAnon === undefined) {// Firefox shows loading indicator
-        xhr.onprogress = onProgress;
+        xhr.onprogress = onProgress2;
       }
 
       // Firefox 3.6
@@ -482,6 +482,8 @@
       dataBuffer.length = 0;
       eventTypeBuffer = "";
       lastEventIdBuffer = lastEventId;//resets to last successful
+      wasCR = false;
+      responseBuffer.length = 0;
 
       // with GET method in FF xhr.onreadystatechange with readyState === 3 does not work + POST = no-cache
       xhr.open("POST", url, true);
@@ -490,9 +492,6 @@
       xhr.withCredentials = withCredentials;
 
       xhr.responseType = "text";
-
-      wasCR = false;
-      responseBuffer.length = 0;
 
       if (xhr.setRequestHeader) { // !XDomainRequest
         // http://dvcs.w3.org/hg/cors/raw-file/tip/Overview.html
