@@ -142,41 +142,12 @@
     }
   };
 
-  function Node() {
-    this.next = null;
-    this.callback = null;
-    this.arg = null;
-  }
-
-  Node.prototype = {
-    next: null,
-    callback: null,
-    arg: null
-  };
-
-  var tail = new Node();
-  var head = tail;
-
-  function onTimeout() {
-    while (head !== tail) {
-      var callback = head.callback;
-      var arg = head.arg;
-      head = head.next;
-      try {
-        callback(arg);
-      } catch (e) {
-        throwError(e);
-      }
-    }
-  }
-
   function queue(callback, arg) {
-    tail.callback = callback;
-    tail.arg = arg;
-    //if (head === tail) {
-    //  setTimeout(onTimeout, 0);
-    //}
-    tail = tail.next = new Node();
+    try {
+      callback(arg);
+    } catch (e) {
+      throwError(e);
+    }
   }
 
   // http://blogs.msdn.com/b/ieinternals/archive/2010/04/06/comet-streaming-in-internet-explorer-with-xmlhttprequest-and-xdomainrequest.aspx?PageIndex=1#comments
@@ -214,6 +185,10 @@
     xhr.onload = xhr.onerror = xhr.onprogress = xhr.onreadystatechange = empty;
     xhr.abort();
   }
+
+  var digits = /^\d+$/;
+  var contentTypeRegExp = /^text\/event\-stream/i;
+  var crlf = /[\r\n]/;
 
   function EventSource(url, options) {
     url = String(url);
@@ -278,11 +253,11 @@
     }
 
     function onError() {
-      queue(setConnectingState, new Event("error"));
       if (xhrTimeout !== 0) {
         clearTimeout(xhrTimeout);
         xhrTimeout = 0;
       }
+      queue(setConnectingState, new Event("error"));
     }
 
     function onXHRTimeout() {
@@ -295,7 +270,6 @@
         abort(xhr);
         onError();
       }
-      onTimeout();
     }
 
     function setOpenState(event) {
@@ -330,15 +304,15 @@
           // invalid state error when xhr.getResponseHeader called after xhr.abort in Chrome 18
           throwError(error);
         }
-        if (contentType && (/^text\/event\-stream/i).test(contentType)) {
-          queue(setOpenState, new Event("open"));
+        if (contentType && contentTypeRegExp.test(contentType)) {
           opened = true;
           wasActivity = true;
           retry = initialRetry;
+          queue(setOpenState, new Event("open"));
         }
       }
 
-      if (opened) {
+      if (opened && readyState !== CLOSED) {
         var responseText = xhr.responseText || "";
         var part = responseText.slice(charOffset);
         if (part.length > 0) {
@@ -351,7 +325,7 @@
           wasCR = false;
         }
         var i = 0;
-        while ((i = part.search(/[\r\n]/)) !== -1) {
+        while ((i = part.search(crlf)) !== -1) {
           var field = responseBuffer.join("") + part.slice(0, i);
           responseBuffer.length = 0;
           if (part.length > i + 1) {
@@ -380,7 +354,7 @@
             }
 
             if (field === "retry") {
-              if (/^\d+$/.test(value)) {
+              if (digits.test(value)) {
                 initialRetry = delay(value);
                 retry = initialRetry;
                 if (retryLimit < initialRetry) {
@@ -390,7 +364,7 @@
             }
 
             if (field === "heartbeatTimeout") {//!
-              if (/^\d+$/.test(value)) {
+              if (digits.test(value)) {
                 heartbeatTimeout = delay(value);
                 if (xhrTimeout !== 0) {
                   clearTimeout(xhrTimeout);
@@ -400,7 +374,7 @@
             }
 
             if (field === "retryLimit") {//!
-              if (/^\d+$/.test(value)) {
+              if (digits.test(value)) {
                 retryLimit = delay(value);
               }
             }
@@ -432,23 +406,21 @@
     function onProgress2() {
       onProgress();
       if (opened) {
-        var responseText = xhr.responseText || "";      
+        var responseText = xhr.responseText || "";
         if (responseText.length > 1024 * 1024) {
           abort(xhr);
           onError();
         }
       }
-      onTimeout();
     }
 
     function onLoad() {
       onProgress();
       onError();
-      onTimeout();
     }
 
     function onReadyStateChange() {
-      if (xhr.readyState === 3) {      
+      if (xhr.readyState === 3) {
         onProgress2();
       }
     }
