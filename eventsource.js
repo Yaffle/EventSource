@@ -17,7 +17,7 @@
   var hasOwnProperty = Object.prototype.hasOwnProperty;
 
   function escapeKey(key) {
-    return key !== "" && key.charAt(0) === "_" ? key + "~" : key;
+    return key.slice(0, 1) === "_" ? key + "~" : key;
   }
 
   Map.prototype = {
@@ -58,15 +58,16 @@
     return this;
   }
 
+  function throwError(e) {
+    setTimeout(function () {
+      throw e;
+    }, 0);
+  }
+
   EventTarget.prototype = {
     listeners: null,
     hasListeners: function (type) {
       return this.listeners.get(String(type)) !== undefined;
-    },
-    throwError: function (e) {
-      setTimeout(function () {
-        throw e;
-      }, 0);
     },
     invokeEvent: function (event) {
       var type = String(event.type);
@@ -86,7 +87,7 @@
           try {
             listener.call(this, event);
           } catch (e) {
-            this.throwError(e);
+            throwError(e);
           }
         }
         event.currentTarget = null;
@@ -158,27 +159,36 @@
   var channel = null;
 
   function onTimeout() {
-    var callback = head.callback;
-    var arg = head.arg;
-    head = head.next;
-    callback(arg);
+    while (head !== tail) {
+      var callback = head.callback;
+      var arg = head.arg;
+      head = head.next;
+      try {
+        callback(arg);
+      } catch (e) {
+        throwError(e);
+      }
+    }
   }
 
   // MessageChannel support: IE 10, Opera 11.6x?, Chrome ?, Safari ?
   if (global.MessageChannel) {
     channel = new global.MessageChannel();
     channel.port1.onmessage = onTimeout;
+    channel.port2.postMessage(""); // opt.
   }
 
   function queue(callback, arg) {
     tail.callback = callback;
     tail.arg = arg;
-    tail = tail.next = new Node();
-    if (channel !== null) {
-      channel.port2.postMessage("");
-    } else {
-      setTimeout(onTimeout, 0);
+    if (head === tail) {
+      if (channel !== null) {
+        channel.port2.postMessage("");
+      } else {
+        setTimeout(onTimeout, 0);
+      }
     }
+    tail = tail.next = new Node();
   }
 
   // http://blogs.msdn.com/b/ieinternals/archive/2010/04/06/comet-streaming-in-internet-explorer-with-xmlhttprequest-and-xdomainrequest.aspx?PageIndex=1#comments
@@ -326,9 +336,7 @@
           contentType = xhr.getResponseHeader ? xhr.getResponseHeader("Content-Type") : xhr.contentType;
         } catch (error) {
           // invalid state error when xhr.getResponseHeader called after xhr.abort in Chrome 18
-          setTimeout(function () {
-            throw error;
-          }, 0);
+          throwError(error);
         }
         if (contentType && (/^text\/event\-stream/i).test(contentType)) {
           queue(setOpenState, new Event("open"));
