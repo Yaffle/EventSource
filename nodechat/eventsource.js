@@ -16,12 +16,11 @@
 
   var hasOwnProperty = Object.prototype.hasOwnProperty;
 
-  function escapeKey(key) {
+  var escapeKey = function (key) {
     return key.slice(0, 1) === "_" ? key + "~" : key;
-  }
+  };
 
   Map.prototype = {
-    data: null,
     get: function (key) {
       var k = escapeKey(key);
       var data = this.data;
@@ -46,16 +45,8 @@
   Event.AT_TARGET = 2;
   Event.BUBBLING_PHASE = 3;
 
-  Event.prototype = {
-    type: "",
-    eventPhase: 0,
-    currentTarget: null,
-    target: null
-  };
-
   function EventTarget() {
     this.listeners = new Map();
-    return this;
   }
 
   function throwError(e) {
@@ -65,7 +56,6 @@
   }
 
   EventTarget.prototype = {
-    listeners: null,
     hasListeners: function (type) {
       return this.listeners.get(String(type)) !== undefined;
     },
@@ -160,12 +150,18 @@
   var CONNECTING = 0;
   var OPEN = 1;
   var CLOSED = 2;
+  var digits = /^\d+$/;
+  var contentTypeRegExp = /^text\/event\-stream/i;
+  var crlf = /[\r\n]/;
 
   function empty() {}
 
-  function delay(value) {
-    var n = Number(value);
-    return n < 1 ? 1 : (n > 18000000 ? 18000000 : n);
+  function getDuration(value, def) {
+    if (digits.test(value)) {
+      var n = Number(value);
+      return n < 1 ? 1 : (n > 18000000 ? 18000000 : n);
+    }
+    return def;
   }
 
   function MessageEvent(type, options) {
@@ -174,10 +170,7 @@
     this.lastEventId = options.lastEventId;
   }
 
-  function E() {
-    this.data = null;
-    this.lastEventId = "";
-  }
+  var E = function () {};
   E.prototype = Event.prototype;
   MessageEvent.prototype = new E();
 
@@ -185,10 +178,6 @@
     xhr.onload = xhr.onerror = xhr.onprogress = xhr.onreadystatechange = empty;
     xhr.abort();
   }
-
-  var digits = /^\d+$/;
-  var contentTypeRegExp = /^text\/event\-stream/i;
-  var crlf = /[\r\n]/;
 
   function EventSource(url, options) {
     url = String(url);
@@ -198,11 +187,10 @@
     var retry = initialRetry;
     var retryLimit = 300000;
     var heartbeatTimeout = 45000;
-    var xhrTimeout = 0;
     var wasActivity = false;
     var lastEventId = "";
     var xhr = new Transport();
-    var reconnectTimeout = 0;
+    var timeout = 0;
     var withCredentials = Boolean(xhr2 && options && options.withCredentials);
     var charOffset = 0;
     var opened = false;
@@ -221,13 +209,9 @@
         abort(xhr);
         xhr = null;
       }
-      if (reconnectTimeout !== 0) {
-        clearTimeout(reconnectTimeout);
-        reconnectTimeout = 0;
-      }
-      if (xhrTimeout !== 0) {
-        clearTimeout(xhrTimeout);
-        xhrTimeout = 0;
+      if (timeout !== 0) {
+        clearTimeout(timeout);
+        timeout = 0;
       }
       readyState = CLOSED;
       that.readyState = CLOSED;
@@ -239,7 +223,7 @@
         if (retry > retryLimit) {
           retry = retryLimit;
         }
-        reconnectTimeout = setTimeout(openConnection, retry);
+        timeout = setTimeout(openConnection, retry);
         retry = retry * 2 + 1;
 
         readyState = CONNECTING;
@@ -253,19 +237,19 @@
     }
 
     function onError() {
-      if (xhrTimeout !== 0) {
-        clearTimeout(xhrTimeout);
-        xhrTimeout = 0;
+      if (timeout !== 0) {
+        clearTimeout(timeout);
+        timeout = 0;
       }
       queue(setConnectingState, new Event("error"));
     }
 
     function onXHRTimeout() {
-      xhrTimeout = 0;
+      timeout = 0;
       onProgress();
       if (wasActivity) {
         wasActivity = false;
-        xhrTimeout = setTimeout(onXHRTimeout, heartbeatTimeout);
+        timeout = setTimeout(onXHRTimeout, heartbeatTimeout);
       } else {
         abort(xhr);
         onError();
@@ -337,7 +321,7 @@
             part = "";
           }
 
-          if (field) {
+          if (field !== "") {
             var value = "";
             var j = field.indexOf(":");
             if (j !== -1) {
@@ -345,43 +329,28 @@
               field = field.slice(0, j);
             }
 
-            if (field === "event") {
-              eventTypeBuffer = value;
-            }
-
-            if (field === "id") {
-              lastEventIdBuffer = value; // see http://www.w3.org/Bugs/Public/show_bug.cgi?id=13761
-            }
-
-            if (field === "retry") {
-              if (digits.test(value)) {
-                initialRetry = delay(value);
-                retry = initialRetry;
-                if (retryLimit < initialRetry) {
-                  retryLimit = initialRetry;
-                }
-              }
-            }
-
-            if (field === "heartbeatTimeout") {//!
-              if (digits.test(value)) {
-                heartbeatTimeout = delay(value);
-                if (xhrTimeout !== 0) {
-                  clearTimeout(xhrTimeout);
-                  xhrTimeout = setTimeout(onXHRTimeout, heartbeatTimeout);
-                }
-              }
-            }
-
-            if (field === "retryLimit") {//!
-              if (digits.test(value)) {
-                retryLimit = delay(value);
-              }
-            }
-
             if (field === "data") {
               dataBuffer.push(value);
+            } else if (field === "id") {
+              lastEventIdBuffer = value;
+            } else if (field === "event") {
+              eventTypeBuffer = value;
+            } else if (field === "retry") {
+              initialRetry = getDuration(value, initialRetry);
+              retry = initialRetry;
+              if (retryLimit < initialRetry) {
+                retryLimit = initialRetry;
+              }
+            } else if (field === "retryLimit") {//!
+              retryLimit = getDuration(value, retryLimit);
+            } else if (field === "heartbeatTimeout") {//!
+              heartbeatTimeout = getDuration(value, heartbeatTimeout);
+              if (timeout !== 0) {
+                clearTimeout(timeout);
+                timeout = setTimeout(onXHRTimeout, heartbeatTimeout);
+              }
             }
+
           } else {
             // dispatch the event
             if (dataBuffer.length !== 0) {
@@ -405,7 +374,7 @@
 
     function onProgress2() {
       onProgress();
-      if (opened) {
+      if (opened && readyState !== CLOSED) {
         var responseText = xhr.responseText || "";
         if (responseText.length > 1024 * 1024) {
           abort(xhr);
@@ -426,10 +395,10 @@
     }
 
     function openConnection() {
-      reconnectTimeout = 0;
+      timeout = 0;
       if (navigator.onLine === false) {
         // "online" event is not supported under Web Workers
-        reconnectTimeout = setTimeout(openConnection, 500);
+        timeout = setTimeout(openConnection, 500);
         return;
       }
       // XDomainRequest#abort removes onprogress, onerror, onload
@@ -447,7 +416,7 @@
       xhr.onreadystatechange = onReadyStateChange;
 
       wasActivity = false;
-      xhrTimeout = setTimeout(onXHRTimeout, heartbeatTimeout);
+      timeout = setTimeout(onXHRTimeout, heartbeatTimeout);
 
       charOffset = 0;
       opened = false;
@@ -486,15 +455,13 @@
       xhr.send(lastEventId !== "" ? "Last-Event-ID=" + encodeURIComponent(lastEventId) : "");
     }
 
-    EventTarget.call(that);
-    that.close = close;
-    that.url = url;
-    that.readyState = readyState;
-    that.withCredentials = withCredentials;
+    EventTarget.call(this);
+    this.close = close;
+    this.url = url;
+    this.readyState = readyState;
+    this.withCredentials = withCredentials;
 
     openConnection();
-
-    return that;
   }
 
   function F() {
