@@ -54,6 +54,7 @@ EventSource polyfill - http://www.w3.org/TR/eventsource/
 
   * http://code.google.com/p/chromium/issues/detail?id=114475
   * https://bugzilla.mozilla.org/show_bug.cgi?id=654579#c9
+  * https://bugzilla.mozilla.org/show_bug.cgi?id=444328
 
 EXAMPLE
 -------
