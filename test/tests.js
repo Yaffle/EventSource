@@ -236,6 +236,21 @@ $(document).ready(function() {
     };
   });
 
+  asyncTest('event-stream null character', function () {
+    var es = new EventSource(url + '?test=12');
+    var ok = false;
+    es.addEventListener('message', function (event) {
+      ok = event.data === "\x00\ud800\udc01";
+    });
+    es.onerror = function (event) {
+      if (!event.data) {// !(event instanceof MessageEvent)
+        strictEqual(true, ok);
+        start();
+        es.close();
+      }
+    };
+  });
+
 /*
   asyncTest('EventSource from Worker', function () {
     var s = 0;

@@ -20,6 +20,7 @@ EventSource polyfill - http://www.w3.org/TR/eventsource/
   * "Last-Event-ID" sended in POST body (CORS + "Last-Event-ID" header is not supported by all browsers)
   * IE requires send two kilobyte padding at the top of the response stream - see http://blogs.msdn.com/b/ieinternals/archive/2010/04/06/comet-streaming-in-internet-explorer-with-xmlhttprequest-and-xdomainrequest.aspx?PageIndex=1
   * you need to send "comment" message each 15-30 seconds
+  * do not use the null character, some browsers have problems with it
 
   Specification:
   --------------

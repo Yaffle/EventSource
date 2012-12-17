@@ -140,10 +140,6 @@
     }
   }
 
-  // http://blogs.msdn.com/b/ieinternals/archive/2010/04/06/comet-streaming-in-internet-explorer-with-xmlhttprequest-and-xdomainrequest.aspx?PageIndex=1#comments
-  // XDomainRequest does not have a binary interface. To use with non-text, first base64 to string.
-  // http://cometdaily.com/2008/page/3/
-
   var XHR = global.XMLHttpRequest;
   var xhr2 = Boolean(XHR && global.ProgressEvent && ((new XHR()).withCredentials !== undefined));
   var Transport = xhr2 ? XHR : global.XDomainRequest;
@@ -152,7 +148,6 @@
   var CLOSED = 2;
   var digits = /^\d+$/;
   var contentTypeRegExp = /^text\/event\-stream/i;
-  var crlf = /[\r\n]/;
 
   function empty() {}
 
@@ -197,7 +192,6 @@
     var dataBuffer = [];
     var lastEventIdBuffer = "";
     var eventTypeBuffer = "";
-    var wasCR = false;
     var responseBuffer = [];
     var readyState = CONNECTING;
 
@@ -302,24 +296,12 @@
         if (part.length > 0) {
           wasActivity = true;
         }
-        if (wasCR && part.length > 0) {
-          if (part.slice(0, 1) === "\n") {
-            part = part.slice(1);
-          }
-          wasCR = false;
-        }
         var i = 0;
-        while ((i = part.search(crlf)) !== -1) {
-          var field = responseBuffer.join("") + part.slice(0, i);
+        while ((i = part.indexOf("\n")) !== -1) {
+          responseBuffer.push(part.slice(0, i));
+          var field = responseBuffer.join("");
           responseBuffer.length = 0;
-          if (part.length > i + 1) {
-            part = part.slice(i + (part.slice(i, i + 2) === "\r\n" ? 2 : 1));
-          } else {
-            if (part.slice(i, i + 1) === "\r") {
-              wasCR = true;
-            }
-            part = "";
-          }
+          part = part.slice(i + 1);
 
           if (field !== "") {
             var value = "";
@@ -423,7 +405,6 @@
       dataBuffer.length = 0;
       eventTypeBuffer = "";
       lastEventIdBuffer = lastEventId;//resets to last successful
-      wasCR = false;
       responseBuffer.length = 0;
 
       // with GET method in FF xhr.onreadystatechange with readyState === 3 does not work + POST = no-cache

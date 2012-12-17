@@ -8,6 +8,7 @@ var querystring = require('querystring');
 var path = require('path');
 var URL = require('url');
 
+util.puts('Version: ' + process.version);
 util.puts('Starting server at http://localhost:' + PORT1);
 
 function eventStream(request, response) {
@@ -116,7 +117,7 @@ function eventStream(request, response) {
       response.write("event: open\ndata: b\n\n");
       response.write("event: message\ndata: c\n\n");
       response.write("event: error\ndata: d\n\n");
-      response.write("event:\ndata: e\n\n");//пойдет как event: message
+      response.write("event:\ndata: e\n\n");
       response.write("event: end\ndata: f\n\n");
       response.end();
     }
@@ -126,6 +127,10 @@ function eventStream(request, response) {
       response.end();
     }
 
+    if (test === 12) {
+      response.write("data: \x00\ud800\udc01\n\n");
+      response.end();
+    }
   }
 
   response.connection.once('close', function () {
