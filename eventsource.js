@@ -132,17 +132,11 @@
     }
   };
 
-  function queue(callback, arg) {
-    try {
-      callback(arg);
-    } catch (e) {
-      throwError(e);
-    }
-  }
-
   var XHR = global.XMLHttpRequest;
-  var xhr2 = Boolean(XHR && global.ProgressEvent && ((new XHR()).withCredentials !== undefined));
-  var Transport = xhr2 ? XHR : global.XDomainRequest;
+  var XDR = global.XDomainRequest;
+  var xhr2 = Boolean(XHR && ((new XHR()).withCredentials !== undefined));
+  var isXHR = xhr2;
+  var Transport = xhr2 ? XHR : XDR;
   var CONNECTING = 0;
   var OPEN = 1;
   var CLOSED = 2;
@@ -224,8 +218,12 @@
         that.readyState = CONNECTING;
         event.target = that;
         that.dispatchEvent(event);
-        if (typeof that.onerror === "function") {
-          that.onerror(event);
+        try {
+          if (typeof that.onerror === "function") {
+            that.onerror(event);
+          }
+        } catch (e) {
+          throwError(e);
         }
       }
     }
@@ -235,7 +233,7 @@
         clearTimeout(timeout);
         timeout = 0;
       }
-      queue(setConnectingState, new Event("error"));
+      setConnectingState(new Event("error"));
     }
 
     function onXHRTimeout() {
@@ -256,8 +254,12 @@
         that.readyState = OPEN;
         event.target = that;
         that.dispatchEvent(event);
-        if (typeof that.onopen === "function") {
-          that.onopen(event);
+        try {
+          if (typeof that.onopen === "function") {
+            that.onopen(event);
+          }
+        } catch (e) {
+          throwError(e);
         }
       }
     }
@@ -267,31 +269,38 @@
         var type = String(event.type);
         event.target = that;
         that.dispatchEvent(event);
-        if (type === "message" && typeof that.onmessage === "function") {
-          that.onmessage(event);
+        try {
+          if (type === "message" && typeof that.onmessage === "function") {
+            that.onmessage(event);
+          }
+        } catch (e) {
+          throwError(e);
         }
       }
     }
 
     function onProgress() {
+      var responseText = xhr.responseText || "";
+
       if (!opened) {
         var contentType = "";
-        try {
-          contentType = xhr.getResponseHeader ? xhr.getResponseHeader("Content-Type") : xhr.contentType;
-        } catch (error) {
-          // invalid state error when xhr.getResponseHeader called after xhr.abort in Chrome 18
-          throwError(error);
+        if (isXHR) {
+          // invalid state error when xhr.getResponseHeader called after xhr.abort or before readyState === 2 in Chrome 18
+          if (responseText !== "") {
+            contentType = xhr.getResponseHeader("Content-Type");
+          }
+        } else {
+          contentType = xhr.contentType;
         }
         if (contentType && contentTypeRegExp.test(contentType)) {
           opened = true;
           wasActivity = true;
           retry = initialRetry;
-          queue(setOpenState, new Event("open"));
+          setOpenState(new Event("open"));
         }
       }
 
       if (opened && readyState !== CLOSED) {
-        var responseText = xhr.responseText || "";
         var part = responseText.slice(charOffset);
         if (part.length > 0) {
           wasActivity = true;
@@ -337,7 +346,7 @@
             // dispatch the event
             if (dataBuffer.length !== 0) {
               lastEventId = lastEventIdBuffer;
-              queue(dispatchEvent, new MessageEvent(eventTypeBuffer || "message", {
+              dispatchEvent(new MessageEvent(eventTypeBuffer || "message", {
                 data: dataBuffer.join("\n"),
                 lastEventId: lastEventIdBuffer
               }));
@@ -357,8 +366,7 @@
     function onProgress2() {
       onProgress();
       if (opened && readyState !== CLOSED) {
-        var responseText = xhr.responseText || "";
-        if (responseText.length > 1024 * 1024) {
+        if (charOffset > 1024 * 1024) {
           abort(xhr);
           onError();
         }
@@ -368,12 +376,6 @@
     function onLoad() {
       onProgress();
       onError();
-    }
-
-    function onReadyStateChange() {
-      if (xhr.readyState === 3) {
-        onProgress2();
-      }
     }
 
     function openConnection() {
@@ -395,7 +397,7 @@
 
       // Firefox 3.6
       // onreadystatechange fires more often, than "progress" in Chrome and Firefox
-      xhr.onreadystatechange = onReadyStateChange;
+      xhr.onreadystatechange = onProgress2;
 
       wasActivity = false;
       timeout = setTimeout(onXHRTimeout, heartbeatTimeout);
@@ -415,7 +417,7 @@
 
       xhr.responseType = "text";
 
-      if (xhr.setRequestHeader) { // !XDomainRequest
+      if (isXHR) {
         // http://dvcs.w3.org/hg/cors/raw-file/tip/Overview.html
         // Cache-Control is not a simple header
         // Request header field Cache-Control is not allowed by Access-Control-Allow-Headers.

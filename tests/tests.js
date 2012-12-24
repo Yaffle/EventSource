@@ -1,14 +1,17 @@
 
+var NativeEventSource = this.EventSource;
 
+window.onload = function() {
 
-
-$(document).ready(function() {
+  if (location.hash === '#native') {
+    window.EventSource = NativeEventSource;
+  }
 
   var url = '/events';
-  var url4CORS = 'http://' + location.hostname + ':8004/events';
+  var url4CORS = 'http://' + location.hostname + ':8003/events';
 
   asyncTest('EventSource constructor', function () {
-    var es = new EventSource(url);
+    var es = new EventSource(url + '?test=0');
     ok(es instanceof EventSource, 'failed');    
     es.close();
     start();
@@ -20,7 +23,7 @@ $(document).ready(function() {
   });
 
   asyncTest('EventSource 1; 2; 3; 4; 5;', function () {
-    var es = new EventSource(url),
+    var es = new EventSource(url + '?test=0'),
         s = '', timer;
 
     function onTimeout() {
@@ -174,7 +177,7 @@ $(document).ready(function() {
     }, 200);
   });
 
-  asyncTest('EventTarget#close()', function () {
+  asyncTest('EventSource#close()', function () {
     var es = new EventSource(url + '?test=2');
     var s = '';
     es.onmessage = function () {
@@ -188,7 +191,7 @@ $(document).ready(function() {
     }, 200);
   });
 
-  asyncTest('EventTarget#close()', function () {
+  asyncTest('EventSource#close()', function () {
     var es = new EventSource(url + '?test=7');
     es.onopen = function () {
       strictEqual(es.readyState, 1);
@@ -197,7 +200,7 @@ $(document).ready(function() {
     };
   });
 
-  asyncTest('EventTarget CORS', function () {
+  asyncTest('EventSource CORS', function () {
     var es = new EventSource(url4CORS + '?test=8');
 
     es.onmessage = function (event) {
@@ -251,40 +254,6 @@ $(document).ready(function() {
     };
   });
 
-/*
-  asyncTest('EventSource from Worker', function () {
-    var s = 0;
-
-    var worker = new Worker('esworker.js?' + Math.random());
-    worker.addEventListener('message', function (event) {
-      s = 1;
-    }, false);
-
-    setTimeout(function () {
-      ok(s === 1, '!');
-      start();
-    }, 1000);
-
-    worker.postMessage(url);
-  });
-*/
-  /*
-  asyncTest('EventSource from SharedWorker', function () {
-    var s = 0;
-
-    setTimeout(function () {
-      ok(s === 1, '!');
-      start();
-    }, 1000);
-
-    var worker = new SharedWorker('esworker.js?' + Math.random());
-    worker.port.addEventListener('message', function (event) {
-      s = 1;
-    }, false);
-    worker.port.start();
-    worker.port.postMessage(url);
-  });*/
-
   asyncTest('EventSource retry delay - see http://code.google.com/p/chromium/issues/detail?id=86230', function () {
     var es = new EventSource(url + '?test=800');
     var s = 0;
@@ -300,4 +269,4 @@ $(document).ready(function() {
     };
   });
 
-});
+};

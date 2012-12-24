@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>ES</title>
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<script src="http://hostel6.ru:8002/eventsource.js"></script>
+<script>
+
+(function () {
+  var base = "http://hostel6.ru:8008/";
+  var id = Math.floor(Math.pow(2, 53) * Math.random());
+
+  function post(message, to) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', base + '?message=' + encodeURIComponent(message) + '&id=' + id + '&to=' + to, true);
+    xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+    xhr.send(null);
+  }
+
+  var es = new EventSource(base + "?id=" + id);
+  es.addEventListener("message", function (event) {
+    var data = event.data;
+    var tmp = data.split(" ");
+    var from = Number(decodeURIComponent(tmp[0]));
+    if (from === id) {
+      return;
+    }
+    var message = decodeURIComponent(tmp[1]);
+    if (message.indexOf("response: ") === 0) {
+      message = message.slice("response: ".length);
+      var s = ("response from " + id + ": " + message);
+      var x = document.createElement("div");
+      x.appendChild(document.createTextNode(s));
+      var div = document.querySelector("div");
+      div.insertBefore(x, div.firstChild);
+      return;
+    }
+    //console.log(from + ": " + message);
+    try {
+      post("response: " + String(eval(message)), from);
+    } catch (e) {
+      //post(String(e), from);
+      //throw e;
+    }
+  });
+
+  window.onload = function () {
+    var textarea = document.querySelector("textarea");
+    document.querySelector("input").addEventListener("click", function (event) {
+      post(textarea.value, "*");
+      event.preventDefault();
+      event.stopPropagation();
+    }, false);
+  };
+}());
+
+</script>
+<style>
+
+</style>
+</head>
+<body>
+
+<textarea>navigator.userAgent</textarea>
+<input type="button" value="send" />
+<br />
+<div></div>
+
+
+</body>
+</html>

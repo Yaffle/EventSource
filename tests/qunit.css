@@ -39,9 +39,6 @@
 	font-weight: normal;
 
 	border-radius: 15px 15px 0 0;
-	-moz-border-radius: 15px 15px 0 0;
-	-webkit-border-top-right-radius: 15px;
-	-webkit-border-top-left-radius: 15px;
 }
 
 #qunit-header a {
@@ -105,16 +102,9 @@
 #qunit-tests ol {
 	margin-top: 0.5em;
 	padding: 0.5em;
-
 	background-color: #fff;
-
 	border-radius: 15px;
-	-moz-border-radius: 15px;
-	-webkit-border-radius: 15px;
-
 	box-shadow: inset 0px 2px 13px #999;
-	-moz-box-shadow: inset 0px 2px 13px #999;
-	-webkit-box-shadow: inset 0px 2px 13px #999;
 }
 
 #qunit-tests table {
@@ -191,9 +181,6 @@
 
 #qunit-tests > li:last-child {
 	border-radius: 0 0 15px 15px;
-	-moz-border-radius: 0 0 15px 15px;
-	-webkit-border-bottom-right-radius: 15px;
-	-webkit-border-bottom-left-radius: 15px;
 }
 
 #qunit-tests .fail                          { color: #000000; background-color: #EE5757; }

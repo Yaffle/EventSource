@@ -10,7 +10,7 @@ EventSource polyfill - http://www.w3.org/TR/eventsource/
   -----------
 
   * Simple server-side code - you don't need any library.
-  * Based on latest specification of EventSource
+  * Based on latest specification
   * Polyfill is independent from document methods, so you can use it in a Web Worker's
   * Cross-domain requests support ("withCredentials" is not supported in IE8-IE9)
 
@@ -18,7 +18,7 @@ EventSource polyfill - http://www.w3.org/TR/eventsource/
   -------------------------
 
   * "Last-Event-ID" sended in POST body (CORS + "Last-Event-ID" header is not supported by all browsers)
-  * IE requires send two kilobyte padding at the top of the response stream - see http://blogs.msdn.com/b/ieinternals/archive/2010/04/06/comet-streaming-in-internet-explorer-with-xmlhttprequest-and-xdomainrequest.aspx?PageIndex=1
+  * It is required to send two kilobyte padding for IE at the top of the response stream - see http://blogs.msdn.com/b/ieinternals/archive/2010/04/06/comet-streaming-in-internet-explorer-with-xmlhttprequest-and-xdomainrequest.aspx?PageIndex=1
   * you need to send "comment" message each 15-30 seconds
   * do not use the null character, some browsers have problems with it
 
@@ -36,9 +36,9 @@ EventSource polyfill - http://www.w3.org/TR/eventsource/
   Native EventSource bugs (this shim replaces native browsers EventSource object):
   --------------------------------------------------------------------------------
   CORS
-  * https://bugzilla.mozilla.org/show_bug.cgi?id=664179 (Firefox 11)
-  * https://bugs.webkit.org/show_bug.cgi?id=61862 (not implemented)
-  * Opera 12 supports EventSource + CORS
+  * Firefox 11
+  * https://bugs.webkit.org/show_bug.cgi?id=61862 (Chrome 25?)
+  * Opera 12
 
   lastEventId shouldn't be set when connection dropped without data dispatch - http://www.w3.org/Bugs/Public/show_bug.cgi?id=13761
   * https://bugzilla.mozilla.org/show_bug.cgi?id=710546
@@ -55,6 +55,7 @@ EventSource polyfill - http://www.w3.org/TR/eventsource/
   * http://code.google.com/p/chromium/issues/detail?id=114475
   * https://bugzilla.mozilla.org/show_bug.cgi?id=654579#c9
   * https://bugzilla.mozilla.org/show_bug.cgi?id=444328
+  * https://bugzilla.mozilla.org/show_bug.cgi?id=721306
 
 EXAMPLE
 -------
@@ -69,7 +70,7 @@ var http = require('http');
 var fs = require('fs');
 
 http.createServer(function (req, res) {
-  var t = null;
+  var t = 0;
   if (req.url.indexOf('/events') === 0) {
 
     res.writeHead(200, {
