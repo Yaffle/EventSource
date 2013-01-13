@@ -8,7 +8,7 @@ window.onload = function() {
   }
 
   var url = '/events';
-  var url4CORS = 'http://' + location.hostname + ':8003/events';
+  var url4CORS = 'http://' + location.hostname + ':' + (String(location.port) === "8002" ? "8003" : "8002") + '/events';
 
   asyncTest('EventSource constructor', function () {
     var es = new EventSource(url + '?test=0');
@@ -96,35 +96,16 @@ window.onload = function() {
     es.addEventListener('message', function () {
       s += '1';
       throw new Error('test');
-    }, false);
+    });
     es.addEventListener('message', function () {
       s += '2';
-    }, false);
+    });
     es.onerror = function () {
       es.close();
       strictEqual(s, '12', '!');
       start();
     }
 
-  });
-
-  asyncTest('EventTarget addEventListener', function () {
-    var es = new EventSource(url + '?test=1');
-    var s = '';
-    function test() {
-      s += '1';
-      es.close();
-      strictEqual(s, '1', '!');
-      start();
-    }
-    es.addEventListener('message', test, false);
-    es.addEventListener('message', test, true);
-    es.removeEventListener('message', test, false);
-    es.onerror = function () {
-      es.close();
-      strictEqual(s, '1', '!');
-      start();
-    }
   });
 
   // http://dev.w3.org/2006/webapi/DOM-Level-3-Events/html/DOM3-Events.html#event-flow
@@ -134,8 +115,8 @@ window.onload = function() {
     var s = '';
     function a1() {
       s += 1;
-      es.removeEventListener('message', a3, false);
-      es.addEventListener('message', a4, false);
+      es.removeEventListener('message', a3);
+      es.addEventListener('message', a4);
 
       setTimeout(function () {
         es.close();
@@ -153,10 +134,10 @@ window.onload = function() {
     function a4() {
       s += 4;
     }    
-    es.addEventListener('message', a1, false);
-    es.addEventListener('message', a2, false);
-    es.addEventListener('message', a3, false);
-    es.removeEventListener('message', a2, false);
+    es.addEventListener('message', a1);
+    es.addEventListener('message', a2);
+    es.addEventListener('message', a3);
+    es.removeEventListener('message', a2);
 
   });
 
