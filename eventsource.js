@@ -116,15 +116,11 @@
   var CONNECTING = 0;
   var OPEN = 1;
   var CLOSED = 2;
-  var digits = /^\d+$/;
   var contentTypeRegExp = /^text\/event\-stream(;\s*charset\=utf\-8)?$/i;
 
   function getDuration(value, def) {
-    if (digits.test(value)) {
-      var n = Number(value);
-      return n < 1 ? 1 : (n > 18000000 ? 18000000 : n);
-    }
-    return def;
+    var n = Number(value);
+    return (n < 1 ? 1 : (n > 18000000 ? 18000000 : n)) || def;
   }
 
   function abort(xhr) {
@@ -145,23 +141,22 @@
   function EventSource(url, options) {
     url = String(url);
 
+    var withCredentials = Boolean(xhr2 && options && options.withCredentials);
+    var initialRetry = getDuration(options ? options.retry : NaN, 1000);
+    var retryLimit = getDuration(options ? options.retryLimit : NaN, 300000);
+    var heartbeatTimeout = getDuration(options ? options.heartbeatTimeout : NaN, 45000);
+    var lastEventId = (options && options.lastEventId && String(options.lastEventId)) || "";
     var that = this;
-    var initialRetry = 1000;
     var retry = initialRetry;
-    var retryLimit = 300000;
-    var heartbeatTimeout = 45000;
     var wasActivity = false;
-    var lastEventId = "";
     var xhr = new Transport();
     var timeout = 0;
-    var withCredentials = Boolean(xhr2 && options && options.withCredentials);
     var charOffset = 0;
     var currentState = WAITING;
     var dataBuffer = [];
     var lastEventIdBuffer = "";
     var eventTypeBuffer = "";
     var responseBuffer = [];
-    var readyState = CONNECTING;
 
     options = null;
 
@@ -174,7 +169,7 @@
         clearTimeout(timeout);
         timeout = 0;
       }
-      readyState = CLOSED;
+      currentState = CLOSED;
       that.readyState = CLOSED;
     }
 
@@ -196,12 +191,11 @@
           currentState = OPEN;
           wasActivity = true;
           retry = initialRetry;
-          readyState = OPEN;
           that.readyState = OPEN;
           event = new Event("open");
           that.dispatchEvent(event);
           fire(that, "onopen", event);
-          if (readyState === CLOSED) {
+          if (currentState === CLOSED) {
             return;
           }
         }
@@ -262,7 +256,7 @@
               if (type === "message") {
                 fire(that, "onmessage", event);
               }
-              if (readyState === CLOSED) {
+              if (currentState === CLOSED) {
                 return;
               }
             }
@@ -290,7 +284,6 @@
         timeout = setTimeout(onTimeout, retry);
         retry = retry * 2 + 1;
 
-        readyState = CONNECTING;
         that.readyState = CONNECTING;
         event = new Event("error");
         that.dispatchEvent(event);
@@ -373,7 +366,7 @@
     EventTarget.call(this);
     this.close = close;
     this.url = url;
-    this.readyState = readyState;
+    this.readyState = CONNECTING;
     this.withCredentials = withCredentials;
 
     onTimeout();
