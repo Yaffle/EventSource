@@ -22,28 +22,62 @@ window.onload = function() {
     start();
   });
 
-  asyncTest('EventSource 1; 2; 3; 4; 5;', function () {
-    var es = new EventSource(url + '?test=0'),
-        s = '', timer;
+  // Opera bug with "XMLHttpRequest#onprogress" 
+  asyncTest('EventSource 3 messages with small delay', function () {
+    var es = new EventSource(url + '?test=4');
+    var n = 0;
+    es.onmessage = function (event) {
+      n++;
+    };
+    es.onerror = es.onopen = function () {
+      es.onerror = es.onopen = null;
+      setTimeout(function () {
+        es.close();
+        ok(n === 3, 'failed, n = ' + n);
+        start();
+      }, 1000);
+    };
+  });
+
+  asyncTest('EventSource ping-pong', function () {
+    var es = new EventSource(url + '?test=0');
+    var n = 0;
+    var x = "";
 
     function onTimeout() {
       es.close();
-      ok(false, 'failed');
+      ok(false, 'failed, n = ' + n);
       start();
     }
 
-    timer = setTimeout(onTimeout, 2000);
+    var timer = setTimeout(onTimeout, 2000);
 
-    es.onmessage = function (event) {
-      s += ' ' + event.data;
-      clearTimeout(timer);
-      timer = setTimeout(onTimeout, 2000);
-    };
+    function ping() {
+      x = String(Math.random());
+      var xhr = new XMLHttpRequest();
+      xhr.open("POST", url + "?ping=" + x, true);
+      xhr.send(null);
+    }
+
+    es.onopen = ping;
+
+    es.addEventListener("pong", function (event) {
+      if (event.data === x) {
+        ++n;
+        clearTimeout(timer);
+        timer = setTimeout(onTimeout, 2000);
+        if (n < 3) {
+          ping();
+        } else {
+          es.onerror();
+        }
+      }
+    });
 
     es.onerror = function () {
       es.close();
       clearTimeout(timer);
-      strictEqual(s, ' 1; 2; 3; 4; 5;', 'test 0');
+      strictEqual(n, 3, 'test 0');
       start();
     };
   });
@@ -58,7 +92,7 @@ window.onload = function() {
       start();
     }
 
-    timer = setTimeout(onTimeout, 2000);
+    timer = setTimeout(onTimeout, 1000);
 
     es.onmessage = function (event) {
       s += ' ' + event.data;
@@ -110,6 +144,7 @@ window.onload = function() {
 
   // http://dev.w3.org/2006/webapi/DOM-Level-3-Events/html/DOM3-Events.html#event-flow
   // Once determined, the candidate event listeners cannot be changed; adding or removing listeners does not affect the current target's candidate event listeners.
+/*  
   asyncTest('EventTarget addEventListener/removeEventListener', function () {
     var es = new EventSource(url + '?test=1');
     var s = '';
@@ -140,36 +175,39 @@ window.onload = function() {
     es.removeEventListener('message', a2);
 
   });
+*/
 
   // https://developer.mozilla.org/en/DOM/element.removeEventListener#Browser_compatibility
   // optional useCapture
 
-  asyncTest('EventTarget', function () {
+  asyncTest('EventSource test 3', function () {
     var es = new EventSource(url + '?test=3');
     var s = '';
     es.onmessage = function (e) {
       s = e.data;
       es.close();
     };
-    setTimeout(function () {
+    es.onerror = function () {
       es.close();
       strictEqual(s, '', 'Once the end of the file is reached, any pending data must be discarded. (If the file ends in the middle of an event, before the final empty line, the incomplete event is not dispatched.)');
       start();
-    }, 200);
+    };
   });
 
   asyncTest('EventSource#close()', function () {
     var es = new EventSource(url + '?test=2');
     var s = '';
     es.onmessage = function () {
+      if (s === '') {
+        setTimeout(function () {
+          es.close();
+          ok(s === '1', 'http://www.w3.org/Bugs/Public/show_bug.cgi?id=14331');
+          start();
+        }, 200);
+      }
       s += '1';
       es.close();
     };
-    setTimeout(function () {
-      es.close();
-      ok(s === '1', 'http://www.w3.org/Bugs/Public/show_bug.cgi?id=14331');
-      start();
-    }, 200);
   });
 
   asyncTest('EventSource#close()', function () {
@@ -220,6 +258,8 @@ window.onload = function() {
     };
   });
 
+  /*
+  IE 8 - 9 issue
   asyncTest('event-stream null character', function () {
     var es = new EventSource(url + '?test=12');
     var ok = false;
@@ -234,6 +274,7 @@ window.onload = function() {
       }
     };
   });
+  */
 
   asyncTest('EventSource retry delay - see http://code.google.com/p/chromium/issues/detail?id=86230', function () {
     var es = new EventSource(url + '?test=800');
@@ -246,6 +287,29 @@ window.onload = function() {
         s = +new Date() - s;
         ok(s >= 750, '!' + s);
         start();
+      }
+    };
+  });
+
+  asyncTest('infinite reconnection', function () {
+    var es = new EventSource("http://functionfunction" + Math.floor(Math.random() * 1e10) + ".org");
+    var s = +new Date();
+    var n = 0;
+    es.onerror = function (event) {
+      if (window.console) {
+        console.log(es.readyState + " " + event.type + " " + ((+new Date()) - s));
+      }
+      ++n;
+      if (es.readyState === 2) {
+        es.close();
+        ok(false, "!");
+        start();
+      } else {
+        if (n === 5) {
+          es.close();
+          ok(true, "!");
+          start();
+        }
       }
     };
   });

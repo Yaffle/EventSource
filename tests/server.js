@@ -30,16 +30,12 @@ setInterval(function () {
 function onTest(response, lastEventId, test, cookies) {
   var i = lastEventId + 1;
   if (test === 0) {
-    var intervalId = setInterval(function () {
-      response.write("id: " + i + "\n");
-      response.write("data: " + i + ";\n\n");
-      i += 1;
-      if (i > 5) {
-        response.end();
-      }
-    }, 1000);
+    var onPing = function (x) {
+      response.write("event: pong\ndata: " + x + "\n\n");
+    };
+    emitter.addListener("ping", onPing);
     response.connection.once('close', function () {
-      clearInterval(intervalId);
+      emitter.removeListener("ping", onPing);
     });
   }
   if (test === 1) {
@@ -62,6 +58,18 @@ function onTest(response, lastEventId, test, cookies) {
     response.write("data: data0");
     response.end();
   }
+  if (test === 4) {
+    response.write("data\n\n");
+    setTimeout(function () {
+      response.write("data\n\n");
+      setTimeout(function () {
+        response.write("data\n\n");
+      }, 25);
+    }, 25);
+    setTimeout(function () {
+      response.end();
+    }, 10000);
+  }
   if (test === 8) {
     if (lastEventId === 100) {
       response.write("data: ok\n\n");
@@ -77,7 +85,7 @@ function onTest(response, lastEventId, test, cookies) {
   }
   if (test === 10) {
     while (i < 6) {
-      response.write("retry: 1000\n");
+      response.write("retry: 500\n");
       response.write("id: " + i + "\n");
       response.write("data: " + i + ";\n\n");
       if (i === 3) {
@@ -86,6 +94,7 @@ function onTest(response, lastEventId, test, cookies) {
       }
       i += 1;
     }
+    response.end();
   }
   if (test === 11) {
     response.write("data: a\n\n");
@@ -172,6 +181,17 @@ function eventStream(request, response) {
 }
 
 function onRequest(request, response) {
+  if (request.method === "OPTIONS") {
+    response.writeHead(200, {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, GET",
+      "Access-Control-Allow-Headers": "Last-Event-ID",
+      "Access-Control-Max-Age": "86400"
+    });
+    response.end();
+    return;
+  }
+
   var url = request.url;
   var u = URL.parse(url, true);
   var query = u.query;
@@ -187,6 +207,15 @@ function onRequest(request, response) {
     });
     response.end(String(history.push(data)));
     emitter.emit('message');
+    return;
+  }
+
+  if (query.ping) {
+    response.writeHead(200, {
+      'Content-Type': 'text/plain'
+    });
+    response.end("ok");
+    emitter.emit("ping", query.ping);
     return;
   }
 

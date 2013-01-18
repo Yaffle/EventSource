@@ -3,30 +3,20 @@
 
 "use strict";
 
-// errors logging
-window.onerror = function postError(message, url, line) {
-  try {
-    postError.sended = postError.sended || {};
-
-    if (!window.JSON || message === 'Error loading script' || line === 0) {
-      return;
-    }
+this.onerror = (function () {
+  var sent = {};
+  return function (message, url, lineNumber) {
     var x = JSON.stringify({
-      errorMessage : message || '',
-      errorURL     : url  || '',
-      errorLine    : line || '',
-      errorStack   : String((new Error()).stack || '') || '',
-      location     : location.href || '',
-      userAgent    : navigator.userAgent || '',
-      platform     : navigator.platform  || '',
-      plugins      : (((navigator.mimeTypes || {})['application/x-vlc-plugin'] || {}).enabledPlugin || {}).description || ''
+      message: String(message || ''),
+      url: String(url || ''),
+      lineNumber: String(lineNumber || '')
     });
-    if (!postError.sended.hasOwnProperty(x)) {
-      postError.sended[x] = 1;
+    if (!sent[x]) {
+      sent[x] = true;
       (new Image()).src = 'http://matrixcalc.org/jserrors.php' + '?error=' + encodeURIComponent(x) + '&nc=' + encodeURIComponent(Math.random());
     }
-  } catch (e) { }
-};
+  };
+}());
 
 function now() {
   var performance = window.performance;

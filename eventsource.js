@@ -296,8 +296,16 @@
       }
     }
 
+    function p() {
+      if (currentState === OPEN) {
+        onProgress(false);
+      }
+    }
+
     function onProgress2() {
       onProgress(false);
+      // workaround for Opera issue
+      setTimeout(p, 64);
     }
 
     function onLoad() {
