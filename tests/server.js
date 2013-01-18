@@ -1,4 +1,4 @@
-var PORT1 = 8002;
+var PORT1 = 8004;
 var PORT2 = 8003;
 
 var util = require('util');

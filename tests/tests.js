@@ -8,7 +8,7 @@ window.onload = function() {
   }
 
   var url = '/events';
-  var url4CORS = 'http://' + location.hostname + ':' + (String(location.port) === "8002" ? "8003" : "8002") + '/events';
+  var url4CORS = 'http://' + location.hostname + ':' + (String(location.port) === "8004" ? "8003" : "8004") + '/events';
 
   asyncTest('EventSource constructor', function () {
     var es = new EventSource(url + '?test=0');
@@ -92,10 +92,15 @@ window.onload = function() {
       start();
     }
 
-    timer = setTimeout(onTimeout, 1000);
+    timer = setTimeout(onTimeout, 2000);
 
     es.onmessage = function (event) {
       s += ' ' + event.data;
+    };
+    es.onerror = function () {
+      es.onerror = null;
+      clearTimeout(timer);
+      timer = setTimeout(onTimeout, 4000);
     };
   });
 
