@@ -6,6 +6,8 @@ EventSource polyfill - http://www.w3.org/TR/eventsource/
 
   IE 8+, Firefox 3.5+, Chrome 6+, Safari 5+, Opera 12+
 
+  It works on Mobile Safari, Android Browser, Opera Mobile, Chrome for Android, Firefox for Android
+
   Advantages:
   -----------
 
@@ -17,7 +19,7 @@ EventSource polyfill - http://www.w3.org/TR/eventsource/
   Server-side requirements:
   -------------------------
 
-  * "Last-Event-ID" sended in POST body (CORS + "Last-Event-ID" header is not supported by all browsers)
+  * "Last-Event-ID" is sent in POST body (CORS + "Last-Event-ID" header is not supported by all browsers)
   * It is required to send two kilobyte padding for IE at the top of the response stream - see http://blogs.msdn.com/b/ieinternals/archive/2010/04/06/comet-streaming-in-internet-explorer-with-xmlhttprequest-and-xdomainrequest.aspx?PageIndex=1
   * you need to send "comment" message each 15-30 seconds
   * do not use the null character, some browsers have problems with it
