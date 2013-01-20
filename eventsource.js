@@ -117,6 +117,8 @@
   var OPEN = 1;
   var CLOSED = 2;
   var contentTypeRegExp = /^text\/event\-stream(;\s*charset\=utf\-8)?$/i;
+  var webkitVersion = /AppleWebKit\/(\d+)/.exec(navigator.userAgent);
+  webkitVersion = webkitVersion ? Number(webkitVersion[1]) : 0;
 
   function getDuration(value, def) {
     var n = Number(value);
@@ -321,6 +323,11 @@
       if (navigator.onLine === false) {
         // "online" event is not supported under Web Workers
         timeout = setTimeout(onTimeout, 500);
+        return;
+      }
+      // loading indicator in Safari, Chrome < 14
+      if (500 < webkitVersion && webkitVersion < 535 && global.document && (global.document.readyState === 'loading' || global.document.readyState === 'interactive')) {
+        timeout = setTimeout(onTimeout, 100);
         return;
       }
       // XDomainRequest#abort removes onprogress, onerror, onload
