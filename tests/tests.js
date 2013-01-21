@@ -1,7 +1,10 @@
+/*jslint indent: 2, vars: true, plusplus: true */
+/*global setTimeout, clearTimeout, navigator, window, location, asyncTest, EventSource, ok, strictEqual, start, XMLHttpRequest */
 
 var NativeEventSource = this.EventSource;
 
-window.onload = function() {
+window.onload = function () {
+  "use strict";
 
   if (location.hash === '#native') {
     window.EventSource = NativeEventSource;
@@ -12,13 +15,13 @@ window.onload = function() {
 
   asyncTest('EventSource constructor', function () {
     var es = new EventSource(url + '?test=0');
-    ok(es instanceof EventSource, 'failed');    
+    ok(es instanceof EventSource, 'failed');
     es.close();
     start();
   });
 
   asyncTest('EventSource.CLOSED', function () {
-    ok(EventSource.CLOSED === 2, 'failed');    
+    ok(EventSource.CLOSED === 2, 'failed');
     start();
   });
 
@@ -26,7 +29,7 @@ window.onload = function() {
   asyncTest('EventSource 3 messages with small delay', function () {
     var es = new EventSource(url + '?test=4');
     var n = 0;
-    es.onmessage = function (event) {
+    es.onmessage = function () {
       n++;
     };
     es.onerror = es.onopen = function () {
@@ -83,8 +86,8 @@ window.onload = function() {
   });
 
   asyncTest('EventSource 1; 2; 3; 4; 5;', function () {
-    var es = new EventSource(url + '?test=10'),
-        s = '', timer;
+    var es = new EventSource(url + '?test=10');
+    var s = '';
 
     function onTimeout() {
       strictEqual(s, ' 1; 2; 3; 4; 5;', 'test 10');
@@ -92,7 +95,7 @@ window.onload = function() {
       start();
     }
 
-    timer = setTimeout(onTimeout, 2000);
+    var timer = setTimeout(onTimeout, 2000);
 
     es.onmessage = function (event) {
       s += ' ' + event.data;
@@ -105,8 +108,8 @@ window.onload = function() {
   });
 
   asyncTest('EventSource test next', function () {
-    var es = new EventSource(url + '?test=1'), 
-        closeCount = 0;
+    var es = new EventSource(url + '?test=1');
+    var closeCount = 0;
 
     es.onmessage = function (event) {
       if (+event.lastEventId === 2) {
@@ -127,7 +130,7 @@ window.onload = function() {
     };
   });
 
-  
+
   asyncTest('EventTarget exceptions throwed from listeners should not stop dispathing', function () {
     var es = new EventSource(url + '?test=1');
 
@@ -143,7 +146,7 @@ window.onload = function() {
       es.close();
       strictEqual(s, '12', '!');
       start();
-    }
+    };
 
   });
 
@@ -245,8 +248,8 @@ window.onload = function() {
 
   // Opera 11, 12 fails this tests (Chrome 17, Firefox 11, Safari 5.1 - ok)
   asyncTest('event-stream with "message", "error", "open" events', function () {
-    var es = new EventSource(url + '?test=11'),
-        s = '';
+    var es = new EventSource(url + '?test=11');
+    var s = '';
     function handler(event) {
       s += event.data || '';
     }
@@ -298,12 +301,8 @@ window.onload = function() {
 
   asyncTest('infinite reconnection', function () {
     var es = new EventSource("http://functionfunction" + Math.floor(Math.random() * 1e10) + ".org");
-    var s = +new Date();
     var n = 0;
-    es.onerror = function (event) {
-      if (window.console) {
-        console.log(es.readyState + " " + event.type + " " + ((+new Date()) - s));
-      }
+    es.onerror = function () {
       ++n;
       if (es.readyState === 2) {
         es.close();

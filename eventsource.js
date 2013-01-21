@@ -48,12 +48,10 @@
       var i = -1;
       while (++i < length) {
         var listener = typeListeners[i];
-        if (listener !== null) {
-          try {
-            listener.call(this, event);
-          } catch (e) {
-            throwError(e);
-          }
+        try {
+          listener.call(this, event);
+        } catch (e) {
+          throwError(e);
         }
       }
     },
@@ -116,9 +114,8 @@
   var CONNECTING = 0;
   var OPEN = 1;
   var CLOSED = 2;
-  var contentTypeRegExp = /^text\/event\-stream(;\s*charset\=utf\-8)?$/i;
-  var webkitVersion = /AppleWebKit\/(\d+)/.exec(navigator.userAgent);
-  webkitVersion = webkitVersion ? Number(webkitVersion[1]) : 0;
+  var contentTypeRegExp = /^text\/event\-stream;?(\s*charset\=utf\-8)?$/i;
+  var webkitBefore535 = /AppleWebKit\/5([0-2][0-9]|3[0-4])[^\d]/.test(navigator.userAgent);
 
   function getDuration(value, def) {
     var n = Number(value);
@@ -180,15 +177,8 @@
       var event = null;
 
       if (currentState === CONNECTING) {
-        var contentType = "";
-        if (isXHR) {
-          // invalid state error when xhr.getResponseHeader called after xhr.abort or before readyState === 2 in Chrome 18
-          if (responseText !== "") {
-            contentType = xhr.getResponseHeader("Content-Type");
-          }
-        } else {
-          contentType = xhr.contentType;
-        }
+        // invalid state error when xhr.getResponseHeader called after xhr.abort or before readyState === 2 in Chrome 18
+        var contentType = isXHR ? (responseText !== "" ? xhr.getResponseHeader("Content-Type") : "") : xhr.contentType;
         if (contentType && contentTypeRegExp.test(contentType)) {
           currentState = OPEN;
           wasActivity = true;
@@ -326,7 +316,7 @@
         return;
       }
       // loading indicator in Safari, Chrome < 14
-      if (500 < webkitVersion && webkitVersion < 535 && global.document && (global.document.readyState === 'loading' || global.document.readyState === 'interactive')) {
+      if (webkitBefore535 && global.document && (global.document.readyState === 'loading' || global.document.readyState === 'interactive')) {
         timeout = setTimeout(onTimeout, 100);
         return;
       }
