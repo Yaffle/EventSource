@@ -116,6 +116,7 @@
   var CLOSED = 2;
   var contentTypeRegExp = /^text\/event\-stream;?(\s*charset\=utf\-8)?$/i;
   var webkitBefore535 = /AppleWebKit\/5([0-2][0-9]|3[0-4])[^\d]/.test(navigator.userAgent);
+  var endOfLine = /[\r\n]/;
 
   function getDuration(value, def) {
     var n = Number(value);
@@ -156,6 +157,7 @@
     var lastEventIdBuffer = "";
     var eventTypeBuffer = "";
     var responseBuffer = [];
+    var wasCR = false;
 
     options = null;
 
@@ -199,7 +201,14 @@
           wasActivity = true;
         }
         var i = 0;
-        while ((i = part.indexOf("\n")) !== -1) {
+        while ((i = part.search(endOfLine)) !== -1) {
+          var c = part.slice(i, i + 1);
+          if (wasCR && i === 0 && c === "\n") {
+            wasCR = false;
+            part = part.slice(i + 1);
+            continue;
+          }
+          wasCR = c === "\r";
           responseBuffer.push(part.slice(0, i));
           var field = responseBuffer.join("");
           responseBuffer.length = 0;
@@ -343,9 +352,10 @@
       eventTypeBuffer = "";
       lastEventIdBuffer = lastEventId;//resets to last successful
       responseBuffer.length = 0;
+      wasCR = false;
 
       // with GET method in FF xhr.onreadystatechange with readyState === 3 does not work + POST = no-cache
-      xhr.open("POST", url, true);
+      xhr.open("GET", url + ((url.indexOf("?") === -1 ? "?" : "&") + "lastEventId=" + encodeURIComponent(lastEventId) + "&r=" + String(Math.random()).slice(2)), true);
 
       // withCredentials should be setted after "open" for Safari and Chrome (< 19 ?)
       xhr.withCredentials = withCredentials;
@@ -354,18 +364,13 @@
 
       if (isXHR) {
         // Request header field Cache-Control is not allowed by Access-Control-Allow-Headers.
-        //xhr.setRequestHeader("Cache-Control", "no-cache");
-
-        // http://code.google.com/p/chromium/issues/detail?id=71694
-        xhr.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+        xhr.setRequestHeader("Cache-Control", "no-cache");
         xhr.setRequestHeader("Accept", "text/event-stream");
-
         // Request header field Last-Event-ID is not allowed by Access-Control-Allow-Headers.
-        //if (lastEventId !== "") {
-        //  xhr.setRequestHeader("Last-Event-ID", lastEventId);
-        //}
+        xhr.setRequestHeader("Last-Event-ID", lastEventId);
       }
-      xhr.send(lastEventId !== "" ? "Last-Event-ID=" + encodeURIComponent(lastEventId) : "");
+
+      xhr.send(null);
     }
 
     EventTarget.call(this);

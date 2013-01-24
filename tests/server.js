@@ -116,10 +116,10 @@ function onTest(response, lastEventId, test, cookies) {
 }
 
 function eventStream(request, response) {
-  var post = '';
   var lastEventId = '';
   var test = Number(URL.parse(request.url, true).query.test);
   var cookies = {};
+  var u = URL.parse(request.url, true);
 
   (request.headers.cookie || '').split(';').forEach(function (cookie) {
     cookie = cookie.split('=');
@@ -135,63 +135,41 @@ function eventStream(request, response) {
     response.write(':\n');
   }
 
-  function onRequestEnd() {
-    var p = querystring.parse(post);
-    var headers = {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Access-Control-Allow-Origin': '*'
-    };
-    if (test === 9) {
-      headers['Access-Control-Allow-Credentials'] = 'true';
-    }
-
-    response.writeHead(200, headers);
-    lastEventId = +request.headers['last-event-id'] || +p['Last-Event-ID'] || 0;
-
-    // 2 kb comment message for XDomainRequest (IE8, IE9)
-    response.write(':' + Array(2049).join(' ') + '\n');
-    response.write('retry: 1000\n');
-    response.write('retryLimit: 60000\n');
-    response.write('heartbeatTimeout: ' + heartbeatTimeout + '\n');//!
-
-    if (!isNaN(test)) {
-      onTest(response, lastEventId, test, cookies);
-    } else {
-      emitter.addListener('message', sendMessages);
-      emitter.setMaxListeners(0);
-      sendMessages();
-    }
-  }
-
   response.socket.on('close', function () {
     emitter.removeListener('message', sendMessages);
-    request.removeListener('end', onRequestEnd);
     response.end();
   });
 
-  request.addListener('data', function (data) {
-    if (post.length < 256) {
-      post += data;
-    }
-  });
-
-  request.addListener('end', onRequestEnd);
   response.socket.setTimeout(0); // see http://contourline.wordpress.com/2011/03/30/preventing-server-timeout-in-node-js/
+
+  var headers = {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Access-Control-Allow-Origin': '*'
+  };
+  if (test === 9) {
+    headers['Access-Control-Allow-Credentials'] = 'true';
+  }
+
+  response.writeHead(200, headers);
+  lastEventId = +request.headers['last-event-id'] || +u.query.lastEventId || 0;
+
+  // 2 kb comment message for XDomainRequest (IE8, IE9)
+  response.write(':' + Array(2049).join(' ') + '\n');
+  response.write('retry: 1000\n');
+  response.write('retryLimit: 60000\n');
+  response.write('heartbeatTimeout: ' + heartbeatTimeout + '\n');//!
+
+  if (!isNaN(test)) {
+    onTest(response, lastEventId, test, cookies);
+  } else {
+    emitter.addListener('message', sendMessages);
+    emitter.setMaxListeners(0);
+    sendMessages();
+  }
 }
 
 function onRequest(request, response) {
-  if (request.method === "OPTIONS") {
-    response.writeHead(200, {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, GET",
-      "Access-Control-Allow-Headers": "Last-Event-ID",
-      "Access-Control-Max-Age": "86400"
-    });
-    response.end();
-    return;
-  }
-
   var url = request.url;
   var u = URL.parse(url, true);
   var query = u.query;
@@ -220,6 +198,16 @@ function onRequest(request, response) {
   }
 
   if (path === '/events') {
+    if (request.method === "OPTIONS") {
+      response.writeHead(200, {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET",
+        "Access-Control-Allow-Headers": "Last-Event-ID, Cache-Control",
+        "Access-Control-Max-Age": "86400"
+      });
+      response.end();
+      return;
+    }
     eventStream(request, response);
   } else {
     var files = [

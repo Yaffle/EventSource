@@ -19,7 +19,8 @@ EventSource polyfill - http://www.w3.org/TR/eventsource/
   Server-side requirements:
   -------------------------
 
-  * "Last-Event-ID" is sent in POST body (CORS + "Last-Event-ID" header is not supported by all browsers)
+  * "Last-Event-ID" is sent in a query string (CORS + "Last-Event-ID" header is not supported by all browsers)
+  * Answer to preflight request is required (see example)
   * It is required to send two kilobyte padding for IE at the top of the response stream - see http://blogs.msdn.com/b/ieinternals/archive/2010/04/06/comet-streaming-in-internet-explorer-with-xmlhttprequest-and-xdomainrequest.aspx?PageIndex=1
   * you need to send "comment" message each 15-30 seconds
   * do not use the null character, some browsers have problems with it
@@ -39,7 +40,7 @@ EventSource polyfill - http://www.w3.org/TR/eventsource/
   --------------------------------------------------------------------------------
   CORS
   * Firefox 11
-  * https://bugs.webkit.org/show_bug.cgi?id=61862 (Chrome 25?)
+  * Chrome 26 (WebKit 537.27)
   * Opera 12
 
   lastEventId shouldn't be set when connection dropped without data dispatch - http://www.w3.org/Bugs/Public/show_bug.cgi?id=13761
@@ -75,6 +76,17 @@ http.createServer(function (req, res) {
   var t = 0;
   if (req.url.indexOf('/events') === 0) {
 
+    if (req.method === "OPTIONS") {
+      res.writeHead(200, {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET",
+        "Access-Control-Allow-Headers": "Last-Event-ID, Cache-Control",
+        "Access-Control-Max-Age": "86400"
+      });
+      res.end();
+      return;
+    }
+
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
@@ -109,6 +121,14 @@ or use PHP (see php/events.php)
 ```php
 <?
 
+  if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
+    header('Access-Control-Allow-Origin: *');
+    header('Access-Control-Allow-Methods: GET');
+    header('Access-Control-Allow-Headers: Last-Event-ID, Cache-Control');
+    header('Access-Control-Max-Age: 86400');
+    exit();
+  }
+
   header('Content-Type: text/event-stream');
   header('Cache-Control: no-cache');
   header('Access-Control-Allow-Origin: *');
@@ -122,11 +142,8 @@ or use PHP (see php/events.php)
   for ($i = 0; $i < ob_get_level(); $i++) { ob_end_flush(); }
   ob_implicit_flush(1);
 
-  // getting last-event-id from POST or from http headers
-  $postData = @file_get_contents('php://input');
-  parse_str($postData, $tmp);
-  if (isset($tmp['Last-Event-ID'])) {
-    $lastEventId = $tmp['Last-Event-ID'];
+  if (isset($_GET['lastEventId'])) {
+    $lastEventId = $_GET['lastEventId'];
   } else {
     $lastEventId = @$_SERVER["HTTP_LAST_EVENT_ID"];
   }

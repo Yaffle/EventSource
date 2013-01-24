@@ -1,5 +1,13 @@
 <?
 
+  if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
+    header('Access-Control-Allow-Origin: *');
+    header('Access-Control-Allow-Methods: GET');
+    header('Access-Control-Allow-Headers: Last-Event-ID, Cache-Control');
+    header('Access-Control-Max-Age: 86400');
+    exit();
+  }
+
   header('Content-Type: text/event-stream');
   header('Cache-Control: no-cache');
   header('Access-Control-Allow-Origin: ' . @$_SERVER['HTTP_ORIGIN']);
@@ -14,11 +22,8 @@
   for ($i = 0; $i < ob_get_level(); $i++) { ob_end_flush(); }
   ob_implicit_flush(1);
 
-  // getting last-event-id from POST or from http headers
-  $postData = @file_get_contents('php://input');
-  parse_str($postData, $tmp);
-  if (isset($tmp['Last-Event-ID'])) {
-    $lastEventId = $tmp['Last-Event-ID'];
+  if (isset($_GET['lastEventId'])) {
+    $lastEventId = $_GET['lastEventId'];
   } else {
     $lastEventId = @$_SERVER["HTTP_LAST_EVENT_ID"];
   }
