@@ -191,14 +191,18 @@ window.onload = function () {
   asyncTest('EventSource test 3', function () {
     var es = new EventSource(url + '?test=3');
     var s = '';
-    es.onmessage = function (e) {
-      s = e.data;
-      es.close();
-    };
-    es.onerror = function () {
+    var f = function () {
+      es.onerror = es.onmessage = null;
       es.close();
       strictEqual(s, '', 'Once the end of the file is reached, any pending data must be discarded. (If the file ends in the middle of an event, before the final empty line, the incomplete event is not dispatched.)');
       start();
+    };
+    es.onmessage = function (e) {
+      s = e.data;
+      f();
+    };
+    es.onerror = function () {
+      f();
     };
   });
 

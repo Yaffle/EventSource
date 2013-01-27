@@ -123,11 +123,6 @@
     return (n < 1 ? 1 : (n > 18000000 ? 18000000 : n)) || def;
   }
 
-  function abort(xhr) {
-    xhr.onload = xhr.onerror = xhr.onprogress = xhr.onreadystatechange = null;
-    xhr.abort();
-  }
-
   function fire(that, property, event) {
     try {
       if (typeof that[property] === "function") {
@@ -162,15 +157,15 @@
     options = null;
 
     function close() {
+      currentState = CLOSED;
       if (xhr !== null) {
-        abort(xhr);
+        xhr.abort();
         xhr = null;
       }
       if (timeout !== 0) {
         clearTimeout(timeout);
         timeout = 0;
       }
-      currentState = CLOSED;
       that.readyState = CLOSED;
     }
 
@@ -181,6 +176,7 @@
       if (currentState === CONNECTING) {
         // invalid state error when xhr.getResponseHeader called after xhr.abort or before readyState === 2 in Chrome 18
         var contentType = isXHR ? (responseText !== "" ? xhr.getResponseHeader("Content-Type") : "") : xhr.contentType;
+        //var status = isXHR ? (responseText !== "" ? xhr.status : 0) : 200;
         if (contentType && contentTypeRegExp.test(contentType)) {
           currentState = OPEN;
           wasActivity = true;
@@ -202,68 +198,66 @@
         }
         var i = 0;
         while ((i = part.search(endOfLine)) !== -1) {
-          var c = part.slice(i, i + 1);
-          if (wasCR && i === 0 && c === "\n") {
-            wasCR = false;
-            part = part.slice(i + 1);
-            continue;
-          }
-          wasCR = c === "\r";
-          responseBuffer.push(part.slice(0, i));
-          var field = responseBuffer.join("");
-          responseBuffer.length = 0;
+          var line = part.slice(0, i);
+          var oldWasCR = wasCR;
+          wasCR = part.slice(i, i + 1) === "\r";
           part = part.slice(i + 1);
+          if (!oldWasCR || i !== 0 || wasCR) {
+            responseBuffer.push(line);
+            var field = responseBuffer.join("");
+            responseBuffer.length = 0;
 
-          if (field !== "") {
-            var value = "";
-            var j = field.indexOf(":");
-            if (j !== -1) {
-              value = field.slice(j + (field.slice(j + 1, j + 2) === " " ? 2 : 1));
-              field = field.slice(0, j);
-            }
+            if (field !== "") {
+              var value = "";
+              var j = field.indexOf(":");
+              if (j !== -1) {
+                value = field.slice(j + (field.slice(j + 1, j + 2) === " " ? 2 : 1));
+                field = field.slice(0, j);
+              }
 
-            if (field === "data") {
-              dataBuffer.push(value);
-            } else if (field === "id") {
-              lastEventIdBuffer = value;
-            } else if (field === "event") {
-              eventTypeBuffer = value;
-            } else if (field === "retry") {
-              initialRetry = getDuration(value, initialRetry);
-              retry = initialRetry;
-              if (retryLimit < initialRetry) {
-                retryLimit = initialRetry;
+              if (field === "data") {
+                dataBuffer.push(value);
+              } else if (field === "id") {
+                lastEventIdBuffer = value;
+              } else if (field === "event") {
+                eventTypeBuffer = value;
+              } else if (field === "retry") {
+                initialRetry = getDuration(value, initialRetry);
+                retry = initialRetry;
+                if (retryLimit < initialRetry) {
+                  retryLimit = initialRetry;
+                }
+              } else if (field === "retryLimit") {//!
+                retryLimit = getDuration(value, retryLimit);
+              } else if (field === "heartbeatTimeout") {//!
+                heartbeatTimeout = getDuration(value, heartbeatTimeout);
+                if (timeout !== 0) {
+                  clearTimeout(timeout);
+                  timeout = setTimeout(onTimeout, heartbeatTimeout);
+                }
               }
-            } else if (field === "retryLimit") {//!
-              retryLimit = getDuration(value, retryLimit);
-            } else if (field === "heartbeatTimeout") {//!
-              heartbeatTimeout = getDuration(value, heartbeatTimeout);
-              if (timeout !== 0) {
-                clearTimeout(timeout);
-                timeout = setTimeout(onTimeout, heartbeatTimeout);
-              }
-            }
 
-          } else {
-            // dispatch the event
-            if (dataBuffer.length !== 0) {
-              lastEventId = lastEventIdBuffer;
-              var type = eventTypeBuffer || "message";
-              event = new MessageEvent(type, {
-                data: dataBuffer.join("\n"),
-                lastEventId: lastEventIdBuffer
-              });
-              that.dispatchEvent(event);
-              if (type === "message") {
-                fire(that, "onmessage", event);
+            } else {
+              // dispatch the event
+              if (dataBuffer.length !== 0) {
+                lastEventId = lastEventIdBuffer;
+                var type = eventTypeBuffer || "message";
+                event = new MessageEvent(type, {
+                  data: dataBuffer.join("\n"),
+                  lastEventId: lastEventIdBuffer
+                });
+                that.dispatchEvent(event);
+                if (type === "message") {
+                  fire(that, "onmessage", event);
+                }
+                if (currentState === CLOSED) {
+                  return;
+                }
               }
-              if (currentState === CLOSED) {
-                return;
-              }
+              // Set the data buffer and the event name buffer to the empty string.
+              dataBuffer.length = 0;
+              eventTypeBuffer = "";
             }
-            // Set the data buffer and the event name buffer to the empty string.
-            dataBuffer.length = 0;
-            eventTypeBuffer = "";
           }
         }
         if (part !== "") {
@@ -272,8 +266,10 @@
         charOffset = responseText.length;
       }
 
-      if (isLoadEnd || (charOffset > 1024 * 1024) || (timeout === 0 && !wasActivity)) {
-        abort(xhr);
+      if ((currentState === OPEN || currentState === CONNECTING) &&
+          (isLoadEnd || (charOffset > 1024 * 1024) || (timeout === 0 && !wasActivity))) {
+        currentState = WAITING;
+        xhr.abort();
         if (timeout !== 0) {
           clearTimeout(timeout);
           timeout = 0;
@@ -281,7 +277,6 @@
         if (retry > retryLimit) {
           retry = retryLimit;
         }
-        currentState = WAITING;
         timeout = setTimeout(onTimeout, retry);
         retry = retry * 2 + 1;
 
@@ -298,9 +293,7 @@
     }
 
     function p() {
-      if (currentState === OPEN) {
-        onProgress(false);
-      }
+      onProgress(false);
     }
 
     function onProgress2() {
@@ -325,7 +318,7 @@
         return;
       }
       // loading indicator in Safari, Chrome < 14
-      if (webkitBefore535 && global.document && (global.document.readyState === 'loading' || global.document.readyState === 'interactive')) {
+      if (webkitBefore535 && global.document && (global.document.readyState === "loading" || global.document.readyState === "interactive")) {
         timeout = setTimeout(onTimeout, 100);
         return;
       }
@@ -341,7 +334,9 @@
 
       // Firefox 3.6
       // onreadystatechange fires more often, than "progress" in Chrome and Firefox
-      xhr.onreadystatechange = onProgress2;
+      if (isXHR) {
+        xhr.onreadystatechange = onProgress2;
+      }
 
       wasActivity = false;
       timeout = setTimeout(onTimeout, heartbeatTimeout);
@@ -355,7 +350,7 @@
       wasCR = false;
 
       // with GET method in FF xhr.onreadystatechange with readyState === 3 does not work + POST = no-cache
-      xhr.open("GET", url + ((url.indexOf("?") === -1 ? "?" : "&") + "lastEventId=" + encodeURIComponent(lastEventId) + "&r=" + String(Math.random()).slice(2)), true);
+      xhr.open("GET", url + ((url.indexOf("?") === -1 ? "?" : "&") + "lastEventId=" + encodeURIComponent(lastEventId) + "&r=" + String(Math.random() + 1).slice(2)), true);
 
       // withCredentials should be setted after "open" for Safari and Chrome (< 19 ?)
       xhr.withCredentials = withCredentials;
@@ -364,10 +359,12 @@
 
       if (isXHR) {
         // Request header field Cache-Control is not allowed by Access-Control-Allow-Headers.
-        xhr.setRequestHeader("Cache-Control", "no-cache");
+        // "Cache-control: no-cache" are not honored in Chrome and Firefox
+        // https://bugzilla.mozilla.org/show_bug.cgi?id=428916
+        //xhr.setRequestHeader("Cache-Control", "no-cache");
         xhr.setRequestHeader("Accept", "text/event-stream");
         // Request header field Last-Event-ID is not allowed by Access-Control-Allow-Headers.
-        xhr.setRequestHeader("Last-Event-ID", lastEventId);
+        //xhr.setRequestHeader("Last-Event-ID", lastEventId);
       }
 
       xhr.send(null);
