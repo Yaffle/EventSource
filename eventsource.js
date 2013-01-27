@@ -170,7 +170,7 @@
     }
 
     function onProgress(isLoadEnd) {
-      var responseText = xhr.responseText || "";
+      var responseText = currentState === OPEN || currentState === CONNECTING ? xhr.responseText || "" : "";
       var event = null;
 
       if (currentState === CONNECTING) {
@@ -302,7 +302,7 @@
       setTimeout(p, 64);
     }
 
-    function onLoad() {
+    function onLoadEnd(e) {
       onProgress(true);
     }
 
@@ -324,7 +324,7 @@
       }
       // XDomainRequest#abort removes onprogress, onerror, onload
 
-      xhr.onload = xhr.onerror = onLoad;
+      xhr.ontimeout = xhr.onload = xhr.onerror = onLoadEnd;
 
       // onprogress fires multiple times while readyState === 3
       // onprogress should be setted before calling "open" for Firefox 3.6
@@ -332,10 +332,12 @@
         xhr.onprogress = onProgress2;
       }
 
-      // Firefox 3.6
-      // onreadystatechange fires more often, than "progress" in Chrome and Firefox
       if (isXHR) {
+        // Firefox 3.6
+        // onreadystatechange fires more often, than "progress" in Chrome and Firefox
         xhr.onreadystatechange = onProgress2;
+
+        xhr.onloadend = onLoadEnd;
       }
 
       wasActivity = false;
