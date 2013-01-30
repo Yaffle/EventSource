@@ -153,6 +153,7 @@
     var eventTypeBuffer = "";
     var responseBuffer = [];
     var wasCR = false;
+    var progressTimeout = 0;
 
     options = null;
 
@@ -293,13 +294,16 @@
     }
 
     function p() {
+      progressTimeout = 0;
       onProgress(false);
     }
 
     function onProgress2() {
       onProgress(false);
       // workaround for Opera issue
-      setTimeout(p, 64);
+      if (progressTimeout === 0) {
+        progressTimeout = setTimeout(p, 64);
+      }
     }
 
     function onLoadEnd(e) {
