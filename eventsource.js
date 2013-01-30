@@ -195,6 +195,10 @@
       if (currentState === OPEN) {
         var part = responseText.slice(charOffset);
         if (part.length > 0) {
+          // workaround for Opera issue
+          if (progressTimeout === 0) {
+            progressTimeout = setTimeout(p, 80);
+          }
           wasActivity = true;
         }
         var i = 0;
@@ -300,13 +304,9 @@
 
     function onProgress2() {
       onProgress(false);
-      // workaround for Opera issue
-      if (progressTimeout === 0) {
-        progressTimeout = setTimeout(p, 64);
-      }
     }
 
-    function onLoadEnd(e) {
+    function onLoadEnd() {
       onProgress(true);
     }
 
@@ -334,14 +334,9 @@
       // onprogress should be setted before calling "open" for Firefox 3.6
       if (xhr.mozAnon === undefined) {// Firefox shows loading indicator
         xhr.onprogress = onProgress2;
-      }
-
-      if (isXHR) {
+      } else {
         // Firefox 3.6
-        // onreadystatechange fires more often, than "progress" in Chrome and Firefox
         xhr.onreadystatechange = onProgress2;
-
-        xhr.onloadend = onLoadEnd;
       }
 
       wasActivity = false;
@@ -355,7 +350,6 @@
       responseBuffer.length = 0;
       wasCR = false;
 
-      // with GET method in FF xhr.onreadystatechange with readyState === 3 does not work + POST = no-cache
       xhr.open("GET", url + ((url.indexOf("?") === -1 ? "?" : "&") + "lastEventId=" + encodeURIComponent(lastEventId) + "&r=" + String(Math.random() + 1).slice(2)), true);
 
       // withCredentials should be setted after "open" for Safari and Chrome (< 19 ?)
