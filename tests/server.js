@@ -74,7 +74,7 @@ function onTest(response, lastEventId, test, cookies) {
     if (lastEventId === 100) {
       response.write("data: ok\n\n");
     } else {
-      response.write("id: 100\n\n");
+      response.write("id: 100\n");
       response.write("data: data0;\n\n");
     }
     response.end();
