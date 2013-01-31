@@ -154,6 +154,7 @@
     var responseBuffer = [];
     var wasCR = false;
     var progressTimeout = 0;
+    var wasAct = false;
 
     options = null;
 
@@ -195,10 +196,7 @@
       if (currentState === OPEN) {
         var part = responseText.slice(charOffset);
         if (part.length > 0) {
-          // workaround for Opera issue
-          if (progressTimeout === 0) {
-            progressTimeout = setTimeout(p, 80);
-          }
+          wasAct = true;
           wasActivity = true;
         }
         var i = 0;
@@ -271,6 +269,12 @@
         charOffset = responseText.length;
       }
 
+      // workaround for Opera issue
+      if (wasAct && progressTimeout === 0) {
+        wasAct = false;
+        progressTimeout = setTimeout(p, 80);
+      }
+
       if ((currentState === OPEN || currentState === CONNECTING) &&
           (isLoadEnd || (charOffset > 1024 * 1024) || (timeout === 0 && !wasActivity))) {
         currentState = WAITING;
@@ -328,7 +332,7 @@
       }
       // XDomainRequest#abort removes onprogress, onerror, onload
 
-      xhr.ontimeout = xhr.onload = xhr.onerror = onLoadEnd;
+      xhr.onload = xhr.onerror = onLoadEnd;
 
       // onprogress fires multiple times while readyState === 3
       // onprogress should be setted before calling "open" for Firefox 3.6

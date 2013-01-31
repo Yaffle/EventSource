@@ -46,6 +46,7 @@ window.onload = function () {
     var es = new EventSource(url + '?test=0');
     var n = 0;
     var x = "";
+    var timeStamp = +new Date();
 
     function onTimeout() {
       es.close();
@@ -80,7 +81,7 @@ window.onload = function () {
     es.onerror = function () {
       es.close();
       clearTimeout(timer);
-      strictEqual(n, 3, 'test 0');
+      strictEqual(n, 3, 'test 0, duration: ' + (+new Date() - timeStamp));
       start();
     };
   });
