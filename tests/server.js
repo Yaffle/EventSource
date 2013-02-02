@@ -110,7 +110,9 @@ function onTest(response, lastEventId, test, cookies) {
     response.end();
   }
   if (test === 12) {
-    response.write("data: \x00\ud800\udc01\n\n");
+    response.write("data: a\n\n");
+    response.write("data: \x00\n\n");
+    response.write("data: b\n\n");
     response.end();
   }
 }

@@ -1,64 +1,35 @@
 EventSource polyfill - http://www.w3.org/TR/eventsource/
 ========================================================
 
-  Browser support:
-  ----------------
+Browser support:
+----------------
 
-  IE 8+, Firefox 3.5+, Chrome 6+, Safari 5+, Opera 12+
+* IE 8+, Firefox 3.5+, Chrome 6+, Safari 5+, Opera 12+
+* It works on Mobile Safari, Android Browser, Opera Mobile, Chrome for Android, Firefox for Android
 
-  It works on Mobile Safari, Android Browser, Opera Mobile, Chrome for Android, Firefox for Android
+Advantages:
+-----------
 
-  Advantages:
-  -----------
+* Simple server-side code
+* Cross-domain requests support ("withCredentials" is not supported in IE8-IE9)
 
-  * Simple server-side code - you don't need any library.
-  * Based on latest specification
-  * Polyfill is independent from document methods, so you can use it in a Web Worker's
-  * Cross-domain requests support ("withCredentials" is not supported in IE8-IE9)
+Server-side requirements:
+-------------------------
 
-  Server-side requirements:
-  -------------------------
+* "Last-Event-ID" is sent in a query string (CORS + "Last-Event-ID" header is not supported by all browsers)
+* It is required to send two kilobyte padding for IE at the top of the response stream
+* You need to send "comment" messages each 15-30 seconds, this messages will be used as heartbeat to detect disconnects - see https://bugzilla.mozilla.org/show_bug.cgi?id=444328
 
-  * "Last-Event-ID" is sent in a query string (CORS + "Last-Event-ID" header is not supported by all browsers)
-  * Answer to preflight request is required (see example)
-  * It is required to send two kilobyte padding for IE at the top of the response stream - see http://blogs.msdn.com/b/ieinternals/archive/2010/04/06/comet-streaming-in-internet-explorer-with-xmlhttprequest-and-xdomainrequest.aspx?PageIndex=1
-  * you need to send "comment" message each 15-30 seconds
-  * do not use the null character, some browsers have problems with it
+Specification:
+--------------
 
-  Specification:
-  --------------
+* http://www.w3.org/TR/eventsource/
 
-  * http://www.w3.org/TR/eventsource/
+Other EventSource polyfills:
+----------------------------
 
-  Other EventSource polyfills:
-  ----------------------------
-
-  * https://github.com/remy/polyfills/blob/master/EventSource.js by Remy Sharp
-  * https://github.com/rwldrn/jquery.eventsource by rick waldron
-
-  Native EventSource bugs (this shim replaces native browsers EventSource object):
-  --------------------------------------------------------------------------------
-  CORS
-  * Firefox 11
-  * Chrome 26 (WebKit 537.27)
-  * Opera 12
-
-  lastEventId shouldn't be set when connection dropped without data dispatch - http://www.w3.org/Bugs/Public/show_bug.cgi?id=13761
-  * https://bugzilla.mozilla.org/show_bug.cgi?id=710546
-  * Opera DSK-353296, Opera DSK-346814
-
-  http://www.w3.org/Bugs/Public/show_bug.cgi?id=14331
-  * DSK-362330 - Opera
-  * https://code.google.com/p/chromium/issues/detail?id=125190 - Chrome/Safari (resolved)
-  * DSK-362337 - Opera bug with event-stream with "message", "error", "open" events (minor)
-  * http://code.google.com/p/chromium/issues/detail?id=86230 - Crhome bug with small "retry" (minor)
-
-  * http://lists.w3.org/Archives/Public/public-webapps/2012AprJun/0388.html
-
-  * http://code.google.com/p/chromium/issues/detail?id=114475
-  * https://bugzilla.mozilla.org/show_bug.cgi?id=654579#c9
-  * https://bugzilla.mozilla.org/show_bug.cgi?id=444328
-  * https://bugzilla.mozilla.org/show_bug.cgi?id=721306
+* https://github.com/remy/polyfills/blob/master/EventSource.js by Remy Sharp
+* https://github.com/rwldrn/jquery.eventsource by rick waldron
 
 EXAMPLE
 -------

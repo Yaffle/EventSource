@@ -108,6 +108,7 @@ window.onload = function () {
     };
   });
 
+  // native EventSource is buggy in Opera, FF < 11, Chrome < ?
   asyncTest('EventSource test next', function () {
     var es = new EventSource(url + '?test=1');
     var closeCount = 0;
@@ -232,6 +233,7 @@ window.onload = function () {
     };
   });
 
+  // Native EventSource + CORS: Opera 12, Firefox 11, Chrome 26 (WebKit 537.27)
   asyncTest('EventSource CORS', function () {
     var es = new EventSource(url4CORS + '?test=8');
 
@@ -251,7 +253,7 @@ window.onload = function () {
     };
   });
 
-  // Opera 11, 12 fails this tests (Chrome 17, Firefox 11, Safari 5.1 - ok)
+  // buggy with native EventSource in Opera - DSK-362337
   asyncTest('event-stream with "message", "error", "open" events', function () {
     var es = new EventSource(url + '?test=11');
     var s = '';
@@ -271,23 +273,21 @@ window.onload = function () {
     };
   });
 
-  /*
-  IE 8 - 9 issue
+  //IE 8 - 9 issue, Native EventSource in Opera 12
   asyncTest('event-stream null character', function () {
     var es = new EventSource(url + '?test=12');
     var ok = false;
     es.addEventListener('message', function (event) {
-      ok = event.data === "\x00\ud800\udc01";
+      if (event.data === "\x00") {
+        ok = true;
+      }
     });
     es.onerror = function (event) {
-      if (!event.data) {// !(event instanceof MessageEvent)
-        strictEqual(true, ok);
-        start();
-        es.close();
-      }
+      es.close();
+      strictEqual(true, ok);
+      start();
     };
   });
-  */
 
   asyncTest('EventSource retry delay - see http://code.google.com/p/chromium/issues/detail?id=86230', function () {
     var es = new EventSource(url + '?test=800');
