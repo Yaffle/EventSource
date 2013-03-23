@@ -142,7 +142,7 @@ index.html (php/index.html):
     <meta charset="utf-8" />
     <title>EventSource example</title>
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <script src="../eventsource.js"></script>
+    <script type="text/event-stream" src="../eventsource.js"></script>
     <script>
       var es = new EventSource('events.php');
       es.addEventListener('open', function (event) {
