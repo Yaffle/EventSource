@@ -5,7 +5,8 @@ Browser support:
 ----------------
 
 * IE 8+, Firefox 3.5+, Chrome 6+, Safari 5+, Opera 12+
-* It works on Mobile Safari, Android Browser, Opera Mobile, Chrome for Android, Firefox for Android
+* It works on Mobile Safari, Opera Mobile, Chrome for Android, Firefox for Android
+* It does not work on: Android Browser(requires 4kb padding), Opera Mini
 
 Advantages:
 -----------

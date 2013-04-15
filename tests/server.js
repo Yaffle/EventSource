@@ -152,6 +152,14 @@ function eventStream(request, response) {
   if (test === 9) {
     headers['Access-Control-Allow-Credentials'] = 'true';
   }
+  if (test === 16) {
+    headers['Cache-Control'] = 'max-age=3600';
+    headers['Expires'] = new Date(Date.now() + 3600000).toUTCString();
+    response.writeHead(200, headers);
+    response.write('retry:1000\ndata:' + Math.random() + '\n\n');
+    response.end();
+    return;
+  }
 
   response.writeHead(200, headers);
   lastEventId = +request.headers['last-event-id'] || +u.query.lastEventId || 0;

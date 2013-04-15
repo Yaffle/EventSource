@@ -13,6 +13,26 @@ window.onload = function () {
   var url = '/events';
   var url4CORS = 'http://' + location.hostname + ':' + (String(location.port) === "8004" ? "8003" : "8004") + '/events';
 
+  asyncTest('Cache-Control: no-cache', function () {
+    var es = new EventSource(url + '?test=16');
+    var data = "";
+    var f = true;
+    var counter = 0;
+    es.onmessage = function (event) {
+      var x = event.data;
+      f = data !== x;
+      data = x;
+      ++counter;
+    };
+    es.onerror = function () {
+      if (counter === 2) {
+        es.close();
+        ok(f, 'failed');
+        start();
+      }
+    };
+  });
+
   asyncTest('EventSource constructor', function () {
     var es = new EventSource(url + '?test=0');
     ok(es instanceof EventSource, 'failed');
@@ -152,38 +172,31 @@ window.onload = function () {
 
   });
 
-  // http://dev.w3.org/2006/webapi/DOM-Level-3-Events/html/DOM3-Events.html#event-flow
-  // Once determined, the candidate event listeners cannot be changed; adding or removing listeners does not affect the current target's candidate event listeners.
-/*  
+/*
   asyncTest('EventTarget addEventListener/removeEventListener', function () {
     var es = new EventSource(url + '?test=1');
     var s = '';
-    function a1() {
-      s += 1;
-      es.removeEventListener('message', a3);
-      es.addEventListener('message', a4);
-
-      setTimeout(function () {
-        es.close();
-        var t = "Once determined, the candidate event listeners cannot be changed; adding or removing listeners does not affect the current target's candidate event listeners";
-        strictEqual(s, '13', t + ' - http://www.w3.org/TR/DOM-Level-3-Events/');
-        start();
-      }, 0);
+    var listeners = {};
+    function a(n) {
+      return listeners[n] || (listeners[n] = function () {
+        s += n;
+        if (n === 0) {
+          es.removeEventListener('message', a(0));
+          es.removeEventListener('message', a(2));
+          es.addEventListener('message', a(4));
+          setTimeout(function () {
+            es.close();
+            strictEqual(s, '03', 'EventTarget');
+            start();
+          }, 0);
+        }
+      });
     }
-    function a2() {
-      s += 2;
-    }
-    function a3() {
-      s += 3;
-    }
-    function a4() {
-      s += 4;
-    }    
-    es.addEventListener('message', a1);
-    es.addEventListener('message', a2);
-    es.addEventListener('message', a3);
-    es.removeEventListener('message', a2);
-
+    es.addEventListener('message', a(0));
+    es.addEventListener('message', a(1));
+    es.addEventListener('message', a(2));
+    es.addEventListener('message', a(3));
+    es.removeEventListener('message', a(1));
   });
 */
 
