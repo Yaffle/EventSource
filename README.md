@@ -46,7 +46,7 @@ var fs = require('fs');
 
 http.createServer(function (req, res) {
   var t = 0;
-  if (req.url.indexOf('/events') === 0) {
+  if (req.url.indexOf('/events') === 0 && req.url.indexOf('/eventsource.js') === -1) {
 
     if (req.method === "OPTIONS") {
       res.writeHead(200, {
