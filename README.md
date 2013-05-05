@@ -41,93 +41,87 @@ server-side (node.js)
 ---------------------
 
 ```javascript
-var http = require('http');
-var fs = require('fs');
+var PORT = 8081;
 
-http.createServer(function (req, res) {
-  var t = 0;
-  if (req.url.indexOf('/events') === 0 && req.url.indexOf('/eventsource.js') === -1) {
+var http = require("http");
+var fs = require("fs");
+var url = require("url");
 
-    if (req.method === "OPTIONS") {
-      res.writeHead(200, {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET",
-        "Access-Control-Allow-Headers": "Last-Event-ID, Cache-Control",
-        "Access-Control-Max-Age": "86400"
-      });
-      res.end();
-      return;
-    }
+http.createServer(function (request, response) {
+  var parsedURL = url.parse(request.url, true);
+  var pathname = parsedURL.pathname;
+  if (pathname === "/events.php") {
 
-    res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Access-Control-Allow-Origin': '*'
+    response.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Access-Control-Allow-Origin": "*"
     });
 
-    res.write(':' + Array(2049).join(' ') + '\n'); //2kb padding for IE
-    res.write('retry: 2000\n');
-    res.write('data: ' + Date() + '\n\n');
+    response.write(":" + Array(2049).join(" ") + "\n"); // 2kB padding for IE
+    response.write("retry: 2000\n");
 
-    t = setInterval(function () {
-      res.write('data: ' + Date() + '\n\n');
-    }, 1000);
+    var lastEventId = Number(request.headers["last-event-id"]) || Number(parsedURL.query.lastEventId) || 0;
 
-    res.socket.on('close', function () {
-      clearInterval(t);
+    var timeoutId = 0;
+    var i = lastEventId;
+    var c = i + 100;
+    var f = function () {
+      if (++i < c) {
+        response.write("id: " + i + "\n");
+        response.write("data: " + i + "\n\n");
+        timeoutId = setTimeout(f, 1000);
+      } else {
+        response.end();
+      }
+    };
+
+    f();
+
+    response.on("close", function () {
+      clearTimeout(timeoutId);
     });
-
 
   } else {
-    if (req.url === '/index.html' || req.url === '/eventsource.js') {
-      res.writeHead(200, {'Content-Type': req.url === '/index.html' ? 'text/html' : 'text/javascript'});
-      res.write(fs.readFileSync(__dirname + req.url));
+    if (pathname === "/") {
+      pathname = "/index.html";
     }
-    res.end();
+    if (pathname === "/index.html" || pathname === "../eventsource.js") {
+      response.writeHead(200, {
+        "Content-Type": pathname === "/index.html" ? "text/html" : "text/javascript"
+      });
+      response.write(fs.readFileSync(__dirname + pathname));
+    }
+    response.end();
   }
-}).listen(8081); //! port :8081
+}).listen(PORT);
 ```
 
 or use PHP (see php/events.php)
 -------------------------------
 ```php
-<?
+<?php
 
-  if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
-    header('Access-Control-Allow-Origin: *');
-    header('Access-Control-Allow-Methods: GET');
-    header('Access-Control-Allow-Headers: Last-Event-ID, Cache-Control');
-    header('Access-Control-Max-Age: 86400');
-    exit();
+  header("Content-Type: text/event-stream");
+  header("Cache-Control: no-cache");
+  header("Access-Control-Allow-Origin: *");
+
+  $lastEventId = floatval(isset($_SERVER["HTTP_LAST_EVENT_ID"]) ? $_SERVER["HTTP_LAST_EVENT_ID"] : 0);
+  if ($lastEventId == 0) {
+    $lastEventId = floatval(isset($_GET["lastEventId"]) ? $_GET["lastEventId"] : 0);
   }
 
-  header('Content-Type: text/event-stream');
-  header('Cache-Control: no-cache');
-  header('Access-Control-Allow-Origin: *');
-
-  // prevent bufferring
-  if (function_exists('apache_setenv')) {
-    @apache_setenv('no-gzip', 1);
-  }
-  @ini_set('zlib.output_compression', 0);
-  @ini_set('implicit_flush', 1);
-  for ($i = 0; $i < ob_get_level(); $i++) { ob_end_flush(); }
-  ob_implicit_flush(1);
-
-  if (isset($_GET['lastEventId'])) {
-    $lastEventId = $_GET['lastEventId'];
-  } else {
-    $lastEventId = @$_SERVER["HTTP_LAST_EVENT_ID"];
-  }
-
-  // 2kb padding for IE
-  echo ':' . str_repeat(' ', 2048) . "\n";
+  echo ":" . str_repeat(" ", 2048) . "\n"; // 2 kB padding for IE
   echo "retry: 2000\n";
 
   // event-stream
-  for ($i = intval($lastEventId) + 1; $i < 100; $i++) {
-    echo "id: $i\n";
-    echo "data: $i;\n\n";
+  $i = $lastEventId;
+  $c = $i + 100;
+  while (++$i < $c) {
+    echo "id: " . $i . "\n";
+    echo "data: " . $i . ";\n\n";
+    ob_flush();
+    flush();
     sleep(1);
   }
 
@@ -145,20 +139,16 @@ index.html (php/index.html):
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <script src="../eventsource.js"></script>
     <script>
-      var es = new EventSource('events.php');
-      es.addEventListener('open', function (event) {
-        var div = document.createElement('div');
-        div.innerHTML = 'opened: ' + es.url;
+      var es = new EventSource("events.php");
+      var listener = function (event) {
+        var div = document.createElement("div");
+        var type = event.type;
+        div.appendChild(document.createTextNode(type + ": " + (type === "message" ? event.data : es.url)));
         document.body.appendChild(div);
-      });
-      es.addEventListener('message', function (event) {
-        document.body.appendChild(document.createTextNode(event.data));
-      });
-      es.addEventListener('error', function (event) {
-        var div = document.createElement('div');
-        div.innerHTML = 'closed';
-        document.body.appendChild(div);
-      });
+      };
+      es.addEventListener("open", listener);
+      es.addEventListener("message", listener);
+      es.addEventListener("error", listener);
     </script>
 </head>
 <body>

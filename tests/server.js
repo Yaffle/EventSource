@@ -1,20 +1,18 @@
 var PORT1 = 8004;
 var PORT2 = 8003;
 
-var util = require('util');
-var http = require('http');
-var fs = require('fs');
-var EventEmitter = require('events').EventEmitter;
-var querystring = require('querystring');
-var path = require('path');
-var URL = require('url');
+var http = require("http");
+var fs = require("fs");
+var url = require("url");
+var util = require("util");
+var EventEmitter = require("events").EventEmitter;
 
-util.puts('Version: ' + process.version);
-util.puts('Starting server at http://localhost:' + PORT1);
+util.puts("Version: " + process.version);
+util.puts("Starting server at http://localhost:" + PORT1);
 
-process.on('uncaughtException', function (e) {
+process.on("uncaughtException", function (e) {
   try {
-    util.puts('Caught exception: ' + e + ' ' + (typeof(e) === 'object' ? e.stack : ''));
+    util.puts("Caught exception: " + e + " " + (typeof(e) === "object" ? e.stack : ""));
   } catch (e0) {}
 });
 
@@ -24,7 +22,7 @@ var heartbeatTimeout = 9000;
 var firstId = Number(new Date());
 
 setInterval(function () {
-  emitter.emit('message');
+  emitter.emit("message");
 }, heartbeatTimeout / 2);
 
 function onTest(response, lastEventId, test, cookies) {
@@ -34,7 +32,7 @@ function onTest(response, lastEventId, test, cookies) {
       response.write("event: pong\ndata: " + x + "\n\n");
     };
     emitter.addListener("ping", onPing);
-    response.connection.once('close', function () {
+    response.connection.once("close", function () {
       emitter.removeListener("ping", onPing);
     });
   }
@@ -118,135 +116,123 @@ function onTest(response, lastEventId, test, cookies) {
 }
 
 function eventStream(request, response) {
-  var lastEventId = '';
-  var test = Number(URL.parse(request.url, true).query.test);
+  var lastEventId = "";
+  var parsedURL = url.parse(request.url, true);
+  var test = Number(parsedURL.query.test);
   var cookies = {};
-  var u = URL.parse(request.url, true);
 
-  (request.headers.cookie || '').split(';').forEach(function (cookie) {
-    cookie = cookie.split('=');
-    cookies[decodeURIComponent(cookie[0].trim())] = decodeURIComponent((cookie[1] || '').trim());
+  (request.headers.cookie || "").split(";").forEach(function (cookie) {
+    cookie = cookie.split("=");
+    cookies[decodeURIComponent(cookie[0].trim())] = decodeURIComponent((cookie[1] || "").trim());
   });
 
   function sendMessages() {
     lastEventId = Math.max(lastEventId, firstId);
     while (lastEventId - firstId < history.length) {
-      response.write('id: ' + (lastEventId + 1) + '\n' + 'data: ' + (history[lastEventId - firstId]).replace(/[\r\n\x00]/g, "\ndata: ") + '\n\n');
+      response.write("id: " + (lastEventId + 1) + "\n" + "data: " + (history[lastEventId - firstId]).replace(/[\r\n\x00]/g, "\ndata: ") + "\n\n");
       lastEventId += 1;
     }
-    response.write(':\n');
+    response.write(":\n");
   }
 
-  response.socket.on('close', function () {
-    emitter.removeListener('message', sendMessages);
+  response.on("close", function () {
+    emitter.removeListener("message", sendMessages);
     response.end();
   });
 
   response.socket.setTimeout(0); // see http://contourline.wordpress.com/2011/03/30/preventing-server-timeout-in-node-js/
 
   var headers = {
-    'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache',
-    'Access-Control-Allow-Origin': '*'
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    "Access-Control-Allow-Origin": "*"
   };
   if (test === 9) {
-    headers['Access-Control-Allow-Credentials'] = 'true';
+    headers["Access-Control-Allow-Credentials"] = "true";
   }
   if (test === 16) {
-    headers['Cache-Control'] = 'max-age=3600';
-    headers['Expires'] = new Date(Date.now() + 3600000).toUTCString();
+    headers["Cache-Control"] = "max-age=3600";
+    headers["Expires"] = new Date(Date.now() + 3600000).toUTCString();
     response.writeHead(200, headers);
-    response.write('retry:1000\ndata:' + Math.random() + '\n\n');
+    response.write("retry:1000\ndata:" + Math.random() + "\n\n");
     response.end();
     return;
   }
 
   response.writeHead(200, headers);
-  lastEventId = +request.headers['last-event-id'] || +u.query.lastEventId || 0;
+  lastEventId = Number(request.headers["last-event-id"]) || Number(parsedURL.query.lastEventId) || 0;
 
-  // 2 kb comment message for XDomainRequest (IE8, IE9)
-  response.write(':' + Array(2049).join(' ') + '\n');
-  response.write('retry: 1000\n');
-  response.write('retryLimit: 60000\n');
-  response.write('heartbeatTimeout: ' + heartbeatTimeout + '\n');//!
+  response.write(":" + Array(2049).join(" ") + "\n"); // 2kB padding for IE
+  response.write("retry: 1000\n");
+  response.write("retryLimit: 60000\n");
+  response.write("heartbeatTimeout: " + heartbeatTimeout + "\n");//!
 
   if (!isNaN(test)) {
     onTest(response, lastEventId, test, cookies);
   } else {
-    emitter.addListener('message', sendMessages);
+    emitter.addListener("message", sendMessages);
     emitter.setMaxListeners(0);
     sendMessages();
   }
 }
 
 function onRequest(request, response) {
-  var url = request.url;
-  var u = URL.parse(url, true);
-  var query = u.query;
-  var path = u.pathname;
-  var time = '';
-  var data = '';
+  var parsedURL = url.parse(request.url, true);
+  var query = parsedURL.query;
+  var pathname = parsedURL.pathname;
+  var time = "";
+  var data = "";
 
   if (query.message) {
     time = new Date();
-    data = '[' + time.toISOString() + '][IP: ' + request.connection.remoteAddress + '] ' + query.message;
+    data = "[" + time.toISOString() + "][IP: " + request.connection.remoteAddress + "] " + query.message;
     response.writeHead(200, {
-      'Content-Type': 'text/plain'
+      "Content-Type": "text/plain"
     });
     response.end(String(history.push(data)));
-    emitter.emit('message');
+    emitter.emit("message");
     return;
   }
 
   if (query.ping) {
     response.writeHead(200, {
-      'Content-Type': 'text/plain'
+      "Content-Type": "text/plain"
     });
     response.end("ok");
     emitter.emit("ping", query.ping);
     return;
   }
 
-  if (path === '/events') {
-    if (request.method === "OPTIONS") {
-      response.writeHead(200, {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET",
-        "Access-Control-Allow-Headers": "Last-Event-ID, Cache-Control",
-        "Access-Control-Max-Age": "86400"
-      });
-      response.end();
-      return;
-    }
+  if (pathname === "/events") {
     eventStream(request, response);
   } else {
     var files = [
-      '/example.html',
-      '/nodechat.css',
-      '/eventsource.js',
-      '/nodechat.js',
-      '/tests.html',
-      '/qunit.css',
-      '/qunit.js',
-      '/tests.js'
+      "/example.html",
+      "/nodechat.css",
+      "/eventsource.js",
+      "/nodechat.js",
+      "/tests.html",
+      "/qunit.css",
+      "/qunit.js",
+      "/tests.js"
     ];
-    if (files.indexOf(path) === -1) {
-      path = files[0];
+    if (files.indexOf(pathname) === -1) {
+      pathname = files[0];
     }
-    fs.stat(__dirname + path, function (err, stats) {
-      if (err) {
+    fs.stat(__dirname + pathname, function (error, stats) {
+      if (error) {
         response.writeHead(404);
         response.end();
       } else {
-        var mtime = Date.parse(request.headers['if-modified-since']) || 0;
+        var mtime = Date.parse(request.headers["if-modified-since"]) || 0;
         if (stats.mtime <= mtime) {
           response.writeHead(304);
           response.end();
         } else {
-          var raw = fs.createReadStream(__dirname + path);
+          var raw = fs.createReadStream(__dirname + pathname);
           response.writeHead(200, {
-            'Content-Type': (path.indexOf('.js') !== -1 ? 'text/javascript' : (path.indexOf('.css') !== -1 ? 'text/css' : 'text/html')),
-            'Last-Modified': stats.mtime
+            "Content-Type": (pathname.indexOf(".js") !== -1 ? "text/javascript" : (pathname.indexOf(".css") !== -1 ? "text/css" : "text/html")),
+            "Last-Modified": stats.mtime
           });
           raw.pipe(response);
         }

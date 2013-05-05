@@ -6,20 +6,16 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <script src="../eventsource.js"></script>
     <script>
-      var es = new EventSource('events.php');
-      es.addEventListener('open', function (event) {
-        var div = document.createElement('div');
-        div.innerHTML = 'opened: ' + es.url;
+      var es = new EventSource("events.php");
+      var listener = function (event) {
+        var div = document.createElement("div");
+        var type = event.type;
+        div.appendChild(document.createTextNode(type + ": " + (type === "message" ? event.data : es.url)));
         document.body.appendChild(div);
-      });
-      es.addEventListener('message', function (event) {
-        document.body.appendChild(document.createTextNode(event.data));
-      });
-      es.addEventListener('error', function (event) {
-        var div = document.createElement('div');
-        div.innerHTML = 'closed';
-        document.body.appendChild(div);
-      });
+      };
+      es.addEventListener("open", listener);
+      es.addEventListener("message", listener);
+      es.addEventListener("error", listener);
     </script>
 </head>
 <body>
