@@ -122,10 +122,10 @@
     return (n < 1 ? 1 : (n > 18000000 ? 18000000 : n)) || def;
   }
 
-  function fire(that, property, event) {
+  function fire(f, event) {
     try {
-      if (typeof that[property] === "function") {
-        that[property](event);
+      if (typeof f === "function") {
+        f(event);
       }
     } catch (e) {
       throwError(e);
@@ -185,7 +185,7 @@
           that.readyState = OPEN;
           event = new Event("open");
           that.dispatchEvent(event);
-          fire(that, "onopen", event);
+          fire(that.onopen, event);
           if (currentState === CLOSED) {
             return;
           }
@@ -258,7 +258,7 @@
                 });
                 that.dispatchEvent(event);
                 if (type === "message") {
-                  fire(that, "onmessage", event);
+                  fire(that.onmessage, event);
                 }
                 if (currentState === CLOSED) {
                   return;
@@ -299,7 +299,7 @@
         that.readyState = CONNECTING;
         event = new Event("error");
         that.dispatchEvent(event);
-        fire(that, "onerror", event);
+        fire(that.onerror, event);
       } else {
         if (timeout === 0) {
           wasActivity = false;
@@ -386,6 +386,10 @@
     this.url = url;
     this.readyState = CONNECTING;
     this.withCredentials = withCredentials;
+
+    this.onopen = null;
+    this.onmessage = null;
+    this.onerror = null;
 
     onTimeout();
   }
