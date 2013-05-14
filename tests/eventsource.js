@@ -10,6 +10,8 @@
 (function (global) {
   "use strict";
 
+  if ("EventSource" in global) return;
+
   function Map() {
     this.data = {};
   }

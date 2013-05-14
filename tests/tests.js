@@ -1,17 +1,20 @@
 /*jslint indent: 2, vars: true, plusplus: true */
 /*global setTimeout, clearTimeout, navigator, window, location, asyncTest, EventSource, ok, strictEqual, start, XMLHttpRequest */
 
-var NativeEventSource = this.EventSource;
-
 window.onload = function () {
   "use strict";
 
-  if (location.hash === "#native") {
-    window.EventSource = NativeEventSource;
-  }
-
+  var nativeSupport = "EventSource" in window;
   var url = "/events";
   var url4CORS = "http://" + location.hostname + ":" + (String(location.port) === "8004" ? "8003" : "8004") + "/events";
+
+  if (nativeSupport) {
+    test("Native EventSource support", function () {
+      ok(nativeSupport);
+    });
+  }
+
+  if (nativeSupport) return;
 
   asyncTest("Cache-Control: no-cache", function () {
     var es = new EventSource(url + "?test=16");
@@ -45,7 +48,7 @@ window.onload = function () {
     start();
   });
 
-  // Opera bug with "XMLHttpRequest#onprogress" 
+  // Opera bug with "XMLHttpRequest#onprogress"
   asyncTest("EventSource 3 messages with small delay", function () {
     var es = new EventSource(url + "?test=4");
     var n = 0;
