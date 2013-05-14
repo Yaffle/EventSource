@@ -1,20 +1,13 @@
 /*jslint indent: 2, vars: true, plusplus: true */
 /*global setTimeout, clearTimeout, navigator, window, location, asyncTest, EventSource, ok, strictEqual, start, XMLHttpRequest */
 
+this.EventSource = undefined;
+
 window.onload = function () {
   "use strict";
 
-  var nativeSupport = "EventSource" in window;
   var url = "/events";
   var url4CORS = "http://" + location.hostname + ":" + (String(location.port) === "8004" ? "8003" : "8004") + "/events";
-
-  if (nativeSupport) {
-    test("Native EventSource support", function () {
-      ok(nativeSupport);
-    });
-  }
-
-  if (nativeSupport) return;
 
   asyncTest("Cache-Control: no-cache", function () {
     var es = new EventSource(url + "?test=16");

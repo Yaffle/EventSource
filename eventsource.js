@@ -10,7 +10,7 @@
 (function (global) {
   "use strict";
 
-  if ("EventSource" in global) return;
+  if (typeof global.EventSource !== 'undefined') return;
 
   function Map() {
     this.data = {};
