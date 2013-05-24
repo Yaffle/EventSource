@@ -361,7 +361,13 @@
       responseBuffer.length = 0;
       wasCR = false;
 
-      xhr.open("GET", url + ((url.indexOf("?", 0) === -1 ? "?" : "&") + "lastEventId=" + encodeURIComponent(lastEventId) + "&r=" + String(Math.random() + 1).slice(2)), true);
+      var s = url.slice(0, 5);
+      if (s !== "data:" && s !== "blob:") {
+        s = url + ((url.indexOf("?", 0) === -1 ? "?" : "&") + "lastEventId=" + encodeURIComponent(lastEventId) + "&r=" + String(Math.random() + 1).slice(2));
+      } else {
+        s = url;
+      }
+      xhr.open("GET", s, true);
 
       // withCredentials should be setted after "open" for Safari and Chrome (< 19 ?)
       xhr.withCredentials = withCredentials;
