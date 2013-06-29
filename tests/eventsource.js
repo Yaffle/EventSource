@@ -124,9 +124,11 @@
   var contentTypeRegExp = /^text\/event\-stream;?(\s*charset\=utf\-8)?$/i;
   var webkitBefore535 = /AppleWebKit\/5([0-2][0-9]|3[0-4])[\.\s\w]/.test(navigator.userAgent);
 
+  var MINIMUM_DURATION = 80; // Opera issue
+
   function getDuration(value, def) {
     var n = Number(value) || def;
-    return (n < 1 ? 1 : (n > 18000000 ? 18000000 : n));
+    return (n < MINIMUM_DURATION ? MINIMUM_DURATION : (n > 18000000 ? 18000000 : n));
   }
 
   function fire(f, event) {
@@ -206,7 +208,7 @@
           if (timeout !== 0) {
             clearTimeout(timeout);
           }
-          timeout = setTimeout(onTimeout, 80);
+          timeout = setTimeout(onTimeout, MINIMUM_DURATION);
           // }
           wasActivity = true;
         }
