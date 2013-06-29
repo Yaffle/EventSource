@@ -113,6 +113,11 @@ function onTest(response, lastEventId, test, cookies) {
     response.write("data: b\n\n");
     response.end();
   }
+  if (test === 13) {
+    var message = "data:\\0\ndata:  2\rData:1\ndata\\0:2\ndata:1\r\\0data:4\nda-ta:3\rdata_5\ndata:3\rdata:\r\n data:32\ndata:4\n\n";
+    response.write(message);
+    response.end();  
+  }
 }
 
 function eventStream(request, response) {

@@ -128,6 +128,15 @@ window.onload = function () {
     };
   });
 
+  asyncTest("event-stream parsing", function () {
+    var source = new EventSource(url + "?test=13");
+    source.onmessage = function (event) {
+      strictEqual(event.data, "\\0\n 2\n1\n3\n\n4");
+      source.close();
+      start();
+    };
+  });
+
   // native EventSource is buggy in Opera, FF < 11, Chrome < ?
   asyncTest("EventSource test next", function () {
     var es = new EventSource(url + "?test=1");
@@ -173,6 +182,11 @@ window.onload = function () {
   });
 
 /*
+// Chrome: 0
+// Opera, Firefox: 03
+// IE 9-10: 023
+// EventEmitter node.js: 023
+
   asyncTest("EventTarget addEventListener/removeEventListener", function () {
     var es = new EventSource(url + "?test=1");
     var s = "";

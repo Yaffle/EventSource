@@ -46,8 +46,9 @@
       }
       var length = typeListeners.length;
       var i = -1;
+      var listener = null;
       while (++i < length) {
-        var listener = typeListeners[i];
+        listener = typeListeners[i];
         try {
           listener.call(this, event);
         } catch (e) {
@@ -60,7 +61,8 @@
       var listeners = this.listeners;
       var typeListeners = listeners.get(type);
       if (!typeListeners) {
-        listeners.set(type, typeListeners = []);
+        typeListeners = [];
+        listeners.set(type, typeListeners);
       }
       var i = typeListeners.length;
       while (--i >= 0) {
@@ -114,12 +116,17 @@
   var CONNECTING = 0;
   var OPEN = 1;
   var CLOSED = 2;
+  var AFTER_CR = 3;
+  var FIELD_START = 4;
+  var FIELD = 5;
+  var VALUE_START = 6;
+  var VALUE = 7;
   var contentTypeRegExp = /^text\/event\-stream;?(\s*charset\=utf\-8)?$/i;
-  var webkitBefore535 = /AppleWebKit\/5([0-2][0-9]|3[0-4])[^\d]/.test(navigator.userAgent);
+  var webkitBefore535 = /AppleWebKit\/5([0-2][0-9]|3[0-4])[\.\s\w]/.test(navigator.userAgent);
 
   function getDuration(value, def) {
-    var n = Number(value);
-    return (n < 1 ? 1 : (n > 18000000 ? 18000000 : n)) || def;
+    var n = Number(value) || def;
+    return (n < 1 ? 1 : (n > 18000000 ? 18000000 : n));
   }
 
   function fire(f, event) {
@@ -150,10 +157,11 @@
     var dataBuffer = [];
     var lastEventIdBuffer = "";
     var eventTypeBuffer = "";
-    var responseBuffer = [];
-    var wasCR = false;
-    var progressTimeout = 0;
-    var wasAct = false;
+    var onTimeout = null;
+
+    var state = FIELD_START;
+    var field = "";
+    var value = "";
 
     options = null;
 
@@ -177,8 +185,8 @@
       if (currentState === CONNECTING) {
         // invalid state error when xhr.getResponseHeader called after xhr.abort or before readyState === 2 in Chrome 18
         var contentType = isXHR ? (responseText !== "" ? xhr.getResponseHeader("Content-Type") : "") : xhr.contentType;
-        //var status = isXHR ? (responseText !== "" ? xhr.status : 0) : 200;
-        if (contentType && contentTypeRegExp.test(contentType)) {
+        var status = isXHR ? (responseText !== "" ? xhr.status : 0) : 200;
+        if (status === 200 && contentType && contentTypeRegExp.test(contentType)) {
           currentState = OPEN;
           wasActivity = true;
           retry = initialRetry;
@@ -194,37 +202,25 @@
 
       if (currentState === OPEN) {
         if (responseText.length > charOffset) {
-          wasAct = true;
+          // workaround for Opera issue: {
+          if (timeout !== 0) {
+            clearTimeout(timeout);
+          }
+          timeout = setTimeout(onTimeout, 80);
+          // }
           wasActivity = true;
         }
-        var i = 0;
-        var i1 = responseText.indexOf("\r", charOffset);
-        var i2 = responseText.indexOf("\n", charOffset);
-        while (i1 !== -1 || i2 !== -1) {
-          if (i1 === -1 || (i2 !== -1 && i2 < i1)) {
-            i = i2;
-            i2 = responseText.indexOf("\n", i + 1);
+        var i = charOffset - 1;
+        var length = responseText.length;
+        while (++i < length) {
+          var c = responseText[i];
+          if (state === AFTER_CR && c === "\n") {
+            state = FIELD_START;
           } else {
-            i = i1;
-            i1 = responseText.indexOf("\r", i + 1);
-          }
-          var line = responseText.slice(charOffset, i);
-          var oldWasCR = wasCR;
-          wasCR = responseText.slice(i, i + 1) === "\r";
-          charOffset = i + 1;
-          if (!oldWasCR || line.length !== 0 || wasCR) {
-            responseBuffer.push(line);
-            var field = responseBuffer.join("");
-            responseBuffer.length = 0;
-
-            if (field !== "") {
-              var value = "";
-              var j = field.indexOf(":", 0);
-              if (j !== -1) {
-                value = field.slice(j + (field.slice(j + 1, j + 2) === " " ? 2 : 1));
-                field = field.slice(0, j);
-              }
-
+            if (state === AFTER_CR) {
+              state = FIELD_START;
+            }
+            if (c === "\r" || c === "\n") {
               if (field === "data") {
                 dataBuffer.push(value);
               } else if (field === "id") {
@@ -246,40 +242,52 @@
                   timeout = setTimeout(onTimeout, heartbeatTimeout);
                 }
               }
-
-            } else {
-              // dispatch the event
-              if (dataBuffer.length !== 0) {
-                lastEventId = lastEventIdBuffer;
-                var type = eventTypeBuffer || "message";
-                event = new MessageEvent(type, {
-                  data: dataBuffer.join("\n"),
-                  lastEventId: lastEventIdBuffer
-                });
-                that.dispatchEvent(event);
-                if (type === "message") {
-                  fire(that.onmessage, event);
+              value = "";
+              field = "";
+              if (state === FIELD_START) {
+                if (dataBuffer.length !== 0) {
+                  lastEventId = lastEventIdBuffer;
+                  if (eventTypeBuffer === "") {
+                    eventTypeBuffer = "message";
+                  }
+                  event = new MessageEvent(eventTypeBuffer, {
+                    data: dataBuffer.join("\n"),
+                    lastEventId: lastEventIdBuffer
+                  });
+                  that.dispatchEvent(event);
+                  if (eventTypeBuffer === "message") {
+                    fire(that.onmessage, event);
+                  }
+                  if (currentState === CLOSED) {
+                    return;
+                  }
                 }
-                if (currentState === CLOSED) {
-                  return;
-                }
+                dataBuffer.length = 0;
+                eventTypeBuffer = "";
               }
-              // Set the data buffer and the event name buffer to the empty string.
-              dataBuffer.length = 0;
-              eventTypeBuffer = "";
+              state = c === "\r" ? AFTER_CR : FIELD_START;
+            } else {
+              if (state === FIELD_START) {
+                state = FIELD;
+              }
+              if (state === FIELD) {
+                if (c === ":") {
+                  state = VALUE_START;
+                } else {
+                  field += c;
+                }
+              } else if (state === VALUE_START) {
+                if (c !== " ") {
+                  value += c;
+                }
+                state = VALUE;
+              } else if (state === VALUE) {
+                value += c;
+              }
             }
           }
         }
-        if (charOffset !== responseText.length) {
-          responseBuffer.push(responseText.slice(charOffset));
-          charOffset = responseText.length;
-        }
-      }
-
-      // workaround for Opera issue
-      if (wasAct && progressTimeout === 0) {
-        wasAct = false;
-        progressTimeout = setTimeout(p, 80);
+        charOffset = length;
       }
 
       if ((currentState === OPEN || currentState === CONNECTING) &&
@@ -308,11 +316,6 @@
       }
     }
 
-    function p() {
-      progressTimeout = 0;
-      onProgress(false);
-    }
-
     function onProgress2() {
       onProgress(false);
     }
@@ -321,7 +324,7 @@
       onProgress(true);
     }
 
-    function onTimeout() {
+    onTimeout = function () {
       timeout = 0;
       if (currentState !== WAITING) {
         onProgress(false);
@@ -341,8 +344,6 @@
 
       xhr.onload = xhr.onerror = onLoadEnd;
 
-      // onprogress fires multiple times while readyState === 3
-      // onprogress should be setted before calling "open" for Firefox 3.6
       if (xhr.mozAnon === undefined) {// Firefox shows loading indicator
         xhr.onprogress = onProgress2;
       } else {
@@ -357,9 +358,10 @@
       currentState = CONNECTING;
       dataBuffer.length = 0;
       eventTypeBuffer = "";
-      lastEventIdBuffer = lastEventId;//resets to last successful
-      responseBuffer.length = 0;
-      wasCR = false;
+      lastEventIdBuffer = lastEventId;
+      value = "";
+      field = "";
+      state = FIELD_START;
 
       var s = url.slice(0, 5);
       if (s !== "data:" && s !== "blob:") {
@@ -369,7 +371,7 @@
       }
       xhr.open("GET", s, true);
 
-      // withCredentials should be setted after "open" for Safari and Chrome (< 19 ?)
+      // withCredentials should be set after "open" for Safari and Chrome (< 19 ?)
       xhr.withCredentials = withCredentials;
 
       xhr.responseType = "text";
@@ -385,7 +387,7 @@
       }
 
       xhr.send(null);
-    }
+    };
 
     EventTarget.call(this);
     this.close = close;
