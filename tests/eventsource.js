@@ -131,10 +131,10 @@
     return (n < MINIMUM_DURATION ? MINIMUM_DURATION : (n > 18000000 ? 18000000 : n));
   }
 
-  function fire(f, event) {
+  function fire(that, f, event) {
     try {
       if (typeof f === "function") {
-        f(event);
+        f.call(that, event);
       }
     } catch (e) {
       throwError(e);
@@ -195,7 +195,7 @@
           that.readyState = OPEN;
           event = new Event("open");
           that.dispatchEvent(event);
-          fire(that.onopen, event);
+          fire(that, that.onopen, event);
           if (currentState === CLOSED) {
             return;
           }
@@ -258,7 +258,7 @@
                   });
                   that.dispatchEvent(event);
                   if (eventTypeBuffer === "message") {
-                    fire(that.onmessage, event);
+                    fire(that, that.onmessage, event);
                   }
                   if (currentState === CLOSED) {
                     return;
@@ -309,7 +309,7 @@
         that.readyState = CONNECTING;
         event = new Event("error");
         that.dispatchEvent(event);
-        fire(that.onerror, event);
+        fire(that, that.onerror, event);
       } else {
         if (timeout === 0) {
           wasActivity = false;
@@ -345,6 +345,10 @@
       // XDomainRequest#abort removes onprogress, onerror, onload
 
       xhr.onload = xhr.onerror = onLoadEnd;
+
+      // improper fix to match Firefox behaviour, but it is better than just ignore abort
+      // see https://bugzilla.mozilla.org/show_bug.cgi?id=768596
+      xhr.onabort = onLoadEnd;
 
       if (xhr.mozAnon === undefined) {// Firefox shows loading indicator
         xhr.onprogress = onProgress2;
