@@ -125,10 +125,11 @@
   var webkitBefore535 = /AppleWebKit\/5([0-2][0-9]|3[0-4])[\.\s\w]/.test(navigator.userAgent);
 
   var MINIMUM_DURATION = 80; // Opera issue
+  var MAXIMUM_DURATION = 18000000;
 
   function getDuration(value, def) {
     var n = Number(value) || def;
-    return (n < MINIMUM_DURATION ? MINIMUM_DURATION : (n > 18000000 ? 18000000 : n));
+    return (n < MINIMUM_DURATION ? MINIMUM_DURATION : (n > MAXIMUM_DURATION ? MAXIMUM_DURATION : n));
   }
 
   function fire(that, f, event) {
@@ -348,6 +349,8 @@
 
       // improper fix to match Firefox behaviour, but it is better than just ignore abort
       // see https://bugzilla.mozilla.org/show_bug.cgi?id=768596
+      // https://bugzilla.mozilla.org/show_bug.cgi?id=880200
+      // https://code.google.com/p/chromium/issues/detail?id=153570
       xhr.onabort = onLoadEnd;
 
       if (xhr.mozAnon === undefined) {// Firefox shows loading indicator
@@ -419,6 +422,12 @@
   F.call(EventSource);
 
   if (Transport) {
+    // Why replace a native EventSource ?
+    // https://bugzilla.mozilla.org/show_bug.cgi?id=444328
+    // https://bugzilla.mozilla.org/show_bug.cgi?id=831392
+    // https://code.google.com/p/chromium/issues/detail?id=260144
+    // https://code.google.com/p/chromium/issues/detail?id=225654
+    // ...
     global.EventSource = EventSource;
   }
 

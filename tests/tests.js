@@ -33,6 +33,35 @@ window.onload = function () {
     };
   });
 
+  asyncTest("EventSource + window.stop", function () {
+    var es = new EventSource(url + "?test=-1&delay=500&stream=" + encodeURIComponent("retry:1000\ndata:abc\n\n"));
+    var stopped = false;
+    var openAfterStop = false;
+    var errorAfterStop = false;
+    es.onopen = function (e) {
+      if (stopped) {
+        openAfterStop = true;
+      }
+    };
+    es.onerror = function (e) {
+      if (stopped) {
+        errorAfterStop = true;
+      }
+    };
+    setTimeout(function () {
+      stopped = true;
+      Window.prototype.stop.call(window);
+    }, 100);
+    setTimeout(function () {
+      if (es.readyState === 2) {
+        ok(!openAfterStop && errorAfterStop, " ");
+      } else {
+        ok(openAfterStop, " ");
+      }
+      start();
+    }, 2000);
+  });
+
   asyncTest("EventSource constructor", function () {
     var es = new EventSource(url + "?test=0");
     ok(es instanceof EventSource, "failed");

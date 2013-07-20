@@ -167,13 +167,22 @@ function eventStream(request, response) {
   response.writeHead(200, headers);
   lastEventId = Number(request.headers["last-event-id"]) || Number(parsedURL.query.lastEventId) || 0;
 
-  response.write(":" + Array(2049).join(" ") + "\n"); // 2kB padding for IE
-  response.write("retry: 1000\n");
-  response.write("retryLimit: 60000\n");
-  response.write("heartbeatTimeout: " + heartbeatTimeout + "\n");//!
+  if (test !== -1) {
+    response.write(":" + Array(2049).join(" ") + "\n"); // 2kB padding for IE
+    response.write("retry: 1000\n");
+    response.write("retryLimit: 60000\n");
+    response.write("heartbeatTimeout: " + heartbeatTimeout + "\n");//!
+  }
 
   if (!isNaN(test)) {
-    onTest(response, lastEventId, test, cookies);
+    if (test === -1) {
+      response.write(parsedURL.query.stream);
+      setTimeout(function () {
+        response.end();
+      }, Number(parsedURL.query.delay) || 0);
+    } else {
+      onTest(response, lastEventId, test, cookies);
+    }
   } else {
     emitter.addListener("message", sendMessages);
     emitter.setMaxListeners(0);
