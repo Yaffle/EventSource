@@ -50,7 +50,9 @@ window.onload = function () {
     };
     setTimeout(function () {
       stopped = true;
-      Window.prototype.stop.call(window);
+      if (window.Window) {// Opera < 12 has no Window
+        window.Window.prototype.stop.call(window);
+      }
     }, 100);
     setTimeout(function () {
       if (es.readyState === 2) {
@@ -114,6 +116,13 @@ window.onload = function () {
 
     es.onopen = ping;
 
+    function onError() {
+      es.close();
+      clearTimeout(timer);
+      strictEqual(n, 3, "test 0, duration: " + (+new Date() - timeStamp));
+      start();
+    }
+
     es.addEventListener("pong", function (event) {
       if (event.data === x) {
         ++n;
@@ -122,30 +131,30 @@ window.onload = function () {
         if (n < 3) {
           ping();
         } else {
-          es.onerror();
+          onError();
         }
       }
     });
 
-    es.onerror = function () {
-      es.close();
-      clearTimeout(timer);
-      strictEqual(n, 3, "test 0, duration: " + (+new Date() - timeStamp));
-      start();
-    };
+    es.onerror = onError;
   });
 
   asyncTest("EventSource 1; 2; 3; 4; 5;", function () {
     var es = new EventSource(url + "?test=10");
     var s = "";
+    var timer = 0;
+    var timer0 = 0;
 
     function onTimeout() {
+      clearTimeout(timer);
+      clearTimeout(timer0);
       strictEqual(s, " 1; 2; 3; 4; 5;", "test 10");
       es.close();
       start();
     }
 
-    var timer = setTimeout(onTimeout, 2000);
+    timer = setTimeout(onTimeout, 2000);
+    timer0 = setTimeout(onTimeout, 10000);
 
     es.onmessage = function (event) {
       s += " " + event.data;
@@ -338,7 +347,7 @@ window.onload = function () {
         ok = true;
       }
     });
-    es.onerror = function (event) {
+    es.onerror = function (e) {
       es.close();
       strictEqual(true, ok);
       start();

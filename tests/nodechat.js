@@ -1,22 +1,7 @@
 /*jslint vars: true, indent: 2 */
-/*global navigator, location, window, document, setTimeout, XMLHttpRequest, Image, EventSource */
+/*global window, document, XMLHttpRequest, EventSource */
 
 "use strict";
-
-this.onerror = (function () {
-  var sent = {};
-  return function (message, url, lineNumber) {
-    var x = JSON.stringify({
-      message: String(message || ''),
-      url: String(url || ''),
-      lineNumber: String(lineNumber || '')
-    });
-    if (!sent[x]) {
-      sent[x] = true;
-      (new Image()).src = 'http://matrixcalc.org/jserrors.php' + '?error=' + encodeURIComponent(x) + '&nc=' + encodeURIComponent(Math.random());
-    }
-  };
-}());
 
 function now() {
   var performance = window.performance;
@@ -27,8 +12,8 @@ function now() {
 }
 
 var lastSendedMessageId = Infinity;
-var lastEventId = null;
-var lastSendedTime = null;
+var lastEventId = -Infinity;
+var lastSendedTime = -Infinity;
 var msgs = document.createDocumentFragment();
 var es = new EventSource('events');
 
@@ -37,13 +22,13 @@ function checkId() {
     lastSendedMessageId = Infinity;
     var div = document.createElement('div');
     div.className = 'ping';
-    div.innerHTML = ' (ping: ' + (now() - lastSendedTime).toFixed(0) + 'ms) ';
+    div.innerHTML = ' (ping: ' + (now() - lastSendedTime).toFixed() + 'ms) ';
     msgs.insertBefore(div, msgs.firstChild);
   }
 }
 
 es.addEventListener('message', function (event) {
-  lastEventId = +event.lastEventId;
+  lastEventId = Number(event.lastEventId);
   var div = document.createElement('div');
   var text = document.createTextNode(event.data);
   div.appendChild(text);
@@ -72,7 +57,7 @@ function post() {
   xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
   xhr.onreadystatechange = function () {
     if (xhr.readyState === 4) {
-      lastSendedMessageId = +xhr.responseText || Infinity;
+      lastSendedMessageId = Number(xhr.responseText) || Infinity;
       checkId();
     }
   };

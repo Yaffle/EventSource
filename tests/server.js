@@ -203,7 +203,7 @@ function onRequest(request, response) {
     response.writeHead(200, {
       "Content-Type": "text/plain"
     });
-    response.end(String(history.push(data)));
+    response.end(String(firstId + history.push(data)));
     emitter.emit("message");
     return;
   }
