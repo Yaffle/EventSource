@@ -123,6 +123,7 @@
   var VALUE = 7;
   var contentTypeRegExp = /^text\/event\-stream;?(\s*charset\=utf\-8)?$/i;
   var webkitBefore535 = /AppleWebKit\/5([0-2][0-9]|3[0-4])[\.\s\w]/.test(navigator.userAgent);
+  var isGecko = Boolean(XHR && ((new XHR()).sendAsBinary !== undefined));
 
   var MINIMUM_DURATION = 80; // Opera issue
   var MAXIMUM_DURATION = 18000000;
@@ -353,11 +354,12 @@
       // https://code.google.com/p/chromium/issues/detail?id=153570
       xhr.onabort = onLoadEnd;
 
-      if (xhr.mozAnon === undefined) {// Firefox shows loading indicator
-        xhr.onprogress = onProgress2;
-      } else {
-        // Firefox 3.6
+      if (isGecko) {// Firefox (any version) shows loading indicator
+        // Firefox 3.5 - 3.6 - ? < 9.0
+        // onprogress is not fired sometimes or delayed
         xhr.onreadystatechange = onProgress2;
+      } else {
+        xhr.onprogress = onProgress2;
       }
 
       wasActivity = false;
