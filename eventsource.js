@@ -124,8 +124,9 @@
   var contentTypeRegExp = /^text\/event\-stream;?(\s*charset\=utf\-8)?$/i;
   var webkitBefore535 = /AppleWebKit\/5([0-2][0-9]|3[0-4])[\.\s\w]/.test(navigator.userAgent);
   var isGecko = Boolean(XHR && ((new XHR()).sendAsBinary !== undefined));
+  var isPresto = Object.prototype.toString.call(global.opera) === "[object Opera]";
 
-  var MINIMUM_DURATION = 80; // Opera issue
+  var MINIMUM_DURATION = 1;
   var MAXIMUM_DURATION = 18000000;
 
   function getDuration(value, def) {
@@ -156,6 +157,7 @@
     var wasActivity = false;
     var xhr = new Transport();
     var timeout = 0;
+    var timeout0 = 0;
     var charOffset = 0;
     var currentState = WAITING;
     var dataBuffer = [];
@@ -178,6 +180,10 @@
       if (timeout !== 0) {
         clearTimeout(timeout);
         timeout = 0;
+      }
+      if (timeout0 !== 0) {
+        clearTimeout(timeout0);
+        timeout0 = 0;
       }
       that.readyState = CLOSED;
     }
@@ -206,12 +212,6 @@
 
       if (currentState === OPEN) {
         if (responseText.length > charOffset) {
-          // workaround for Opera issue: {
-          if (timeout !== 0) {
-            clearTimeout(timeout);
-          }
-          timeout = setTimeout(onTimeout, MINIMUM_DURATION);
-          // }
           wasActivity = true;
         }
         var i = charOffset - 1;
@@ -328,6 +328,16 @@
       onProgress(true);
     }
 
+    if (isPresto) {
+      // workaround for Opera issue with "progress" events
+      timeout0 = setTimeout(function f() {
+        if (xhr.readyState === 3) {
+          onProgress2();
+        }
+        timeout0 = setTimeout(f, 500);
+      }, 0);
+    }
+
     onTimeout = function () {
       timeout = 0;
       if (currentState !== WAITING) {
@@ -336,6 +346,7 @@
       }
       if (navigator.onLine === false) {
         // "online" event is not supported under Web Workers
+        // https://bugs.webkit.org/show_bug.cgi?id=118832
         timeout = setTimeout(onTimeout, 500);
         return;
       }
