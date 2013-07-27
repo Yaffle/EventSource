@@ -109,9 +109,9 @@
 
   var XHR = global.XMLHttpRequest;
   var XDR = global.XDomainRequest;
-  var xhr2 = Boolean(XHR && ((new XHR()).withCredentials !== undefined));
-  var isXHR = xhr2;
-  var Transport = xhr2 ? XHR : XDR;
+  var isCORSSupported = Boolean(XHR && ((new XHR()).withCredentials !== undefined));
+  var isXHR = isCORSSupported;
+  var Transport = isCORSSupported ? XHR : XDR;
   var WAITING = -1;
   var CONNECTING = 0;
   var OPEN = 1;
@@ -122,7 +122,7 @@
   var VALUE_START = 6;
   var VALUE = 7;
   var contentTypeRegExp = /^text\/event\-stream;?(\s*charset\=utf\-8)?$/i;
-  var webkitBefore535 = /AppleWebKit\/5([0-2][0-9]|3[0-4])[\.\s\w]/.test(navigator.userAgent);
+  var isWebKitBefore535 = /AppleWebKit\/5([0-2][0-9]|3[0-4])[\.\s\w]/.test(navigator.userAgent);
   var isGecko = Boolean(XHR && ((new XHR()).sendAsBinary !== undefined));
   var isPresto = Object.prototype.toString.call(global.opera) === "[object Opera]";
 
@@ -147,7 +147,7 @@
   function EventSource(url, options) {
     url = String(url);
 
-    var withCredentials = Boolean(xhr2 && options && options.withCredentials);
+    var withCredentials = Boolean(isCORSSupported && options && options.withCredentials);
     var initialRetry = getDuration(options ? options.retry : NaN, 1000);
     var retryLimit = getDuration(options ? options.retryLimit : NaN, 300000);
     var heartbeatTimeout = getDuration(options ? options.heartbeatTimeout : NaN, 45000);
@@ -351,7 +351,7 @@
         return;
       }
       // loading indicator in Safari, Chrome < 14
-      if (webkitBefore535 && global.document && (global.document.readyState === "loading" || global.document.readyState === "interactive")) {
+      if (isWebKitBefore535 && global.document && global.document.readyState !== "complete") {
         timeout = setTimeout(onTimeout, 100);
         return;
       }
@@ -365,11 +365,13 @@
       // https://code.google.com/p/chromium/issues/detail?id=153570
       xhr.onabort = onLoadEnd;
 
-      if (isGecko) {// Firefox (any version) shows loading indicator
+      if (isXHR) {
         // Firefox 3.5 - 3.6 - ? < 9.0
         // onprogress is not fired sometimes or delayed
         xhr.onreadystatechange = onProgress2;
-      } else {
+      }
+
+      if (!isGecko) {// Firefox (any version) shows loading indicator
         xhr.onprogress = onProgress2;
       }
 

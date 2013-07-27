@@ -4,9 +4,9 @@ EventSource polyfill - http://www.w3.org/TR/eventsource/
 Browser support:
 ----------------
 
-* IE 8+, Firefox 3.5+, Chrome 6+, Safari 5+, Opera 12+
+* IE 8+, Firefox 3.5+, Chrome 3+, Safari 4+, Opera 12+
 * It works on Mobile Safari, Opera Mobile, Chrome for Android, Firefox for Android
-* It does not work on: Android Browser(requires 4kb padding), Opera Mini
+* It does not work on: Android Browser(requires 4 KB padding), Opera Mini
 
 Advantages:
 -----------
@@ -18,7 +18,7 @@ Server-side requirements:
 -------------------------
 
 * "Last-Event-ID" is sent in a query string (CORS + "Last-Event-ID" header is not supported by all browsers)
-* It is required to send two kilobyte padding for IE at the top of the response stream
+* It is required to send 2 KB padding for IE < 10 and Chrome < 13 at the top of the response stream
 * You need to send "comment" messages each 15-30 seconds, this messages will be used as heartbeat to detect disconnects - see https://bugzilla.mozilla.org/show_bug.cgi?id=444328
 
 Specification:
