@@ -193,10 +193,22 @@
       var event = null;
 
       if (currentState === CONNECTING) {
-        // invalid state error when xhr.getResponseHeader called after xhr.abort or before readyState === 2 in Chrome 18
-        var contentType = isXHR ? (responseText !== "" ? xhr.getResponseHeader("Content-Type") : "") : xhr.contentType;
-        var status = isXHR ? (responseText !== "" ? xhr.status : 0) : 200;
-        if (status === 200 && contentType && contentTypeRegExp.test(contentType)) {
+        var status = 0;
+        var contentType = "";
+        if (isXHR) {
+          try {
+            status = Number(xhr.status || 0);
+            contentType = String(xhr.getResponseHeader("Content-Type") || "");
+          } catch (error) {
+            // FF < 14, WebKit
+            // https://bugs.webkit.org/show_bug.cgi?id=29658
+            // https://bugs.webkit.org/show_bug.cgi?id=77854
+          }
+        } else {
+          status = 200;
+          contentType = xhr.contentType;
+        }
+        if (status === 200 && contentTypeRegExp.test(contentType)) {
           currentState = OPEN;
           wasActivity = true;
           retry = initialRetry;
