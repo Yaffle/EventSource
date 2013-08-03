@@ -1,5 +1,5 @@
 /*jslint indent: 2, vars: true, plusplus: true */
-/*global setTimeout, clearTimeout, navigator, window, location, asyncTest, EventSource, ok, strictEqual, start, XMLHttpRequest */
+/*global setTimeout, clearTimeout, window, location, asyncTest, EventSource, ok, strictEqual, start */
 
 var NativeEventSource = this.EventSource;
 
@@ -12,9 +12,12 @@ window.onload = function () {
 
   var url = "/events";
   var url4CORS = "http://" + location.hostname + ":" + (String(location.port) === "8004" ? "8003" : "8004") + "/events";
+  var commonHeaders = "Access-Control-Allow-Origin: *\n" + 
+                      "Content-Type: text/event-stream\n" +
+                      "Cache-Control: no-cache\n";
 
   asyncTest("Cache-Control: no-cache", function () {
-    var es = new EventSource(url + "?test=16");
+    var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "Cache-Control: max-age=3600\nExpires: " + new Date(new Date().getTime() + 3600000).toUTCString() + "\n\n" + "retry:1000\ndata:<random()>\n\n"));
     var data = "";
     var f = true;
     var counter = 0;
@@ -34,16 +37,16 @@ window.onload = function () {
   });
 
   asyncTest("EventSource + window.stop", function () {
-    var es = new EventSource(url + "?test=-1&delay=500&stream=" + encodeURIComponent("retry:1000\ndata:abc\n\n"));
+    var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + "retry:1000\ndata:abc\n\n<delay(500)>"));
     var stopped = false;
     var openAfterStop = false;
     var errorAfterStop = false;
-    es.onopen = function (e) {
+    es.onopen = function () {
       if (stopped) {
         openAfterStop = true;
       }
     };
-    es.onerror = function (e) {
+    es.onerror = function () {
       if (stopped) {
         errorAfterStop = true;
       }
@@ -65,7 +68,8 @@ window.onload = function () {
   });
 
   asyncTest("EventSource constructor", function () {
-    var es = new EventSource(url + "?test=0");
+    var body = "";
+    var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));
     ok(es instanceof EventSource, "failed");
     es.close();
     start();
@@ -78,7 +82,8 @@ window.onload = function () {
 
   // Opera bug with "XMLHttpRequest#onprogress" 
   asyncTest("EventSource 3 messages with small delay", function () {
-    var es = new EventSource(url + "?test=4");
+    var body = "data\n\n<delay(25)>data\n\n<delay(25)>data\n\n<delay(10000)>";
+    var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));    
     var n = 0;
     es.onmessage = function () {
       n++;
@@ -94,90 +99,83 @@ window.onload = function () {
   });
 
   asyncTest("EventSource ping-pong", function () {
-    var es = new EventSource(url + "?test=0");
     var n = 0;
-    var x = "";
     var timeStamp = +new Date();
-
-    function onTimeout() {
+    var es = null;
+    var timer = 0;
+    var onTimeout = null;
+    var body = "retry: 500\n" +
+               "data: " + Math.random() + "\n\n" +
+               "<delay(1500)>" +
+               "data: " + Math.random() + "\n\n" +
+               "<delay(1500)>" +
+               "data: " + Math.random() + "\n\n" +
+               "<delay(10000)>";
+    es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));
+    es.onmessage = function () {
+      ++n;
+      clearTimeout(timer);
+      if (n === 3) {
+        strictEqual(n, 3, "test 0, duration: " + (+new Date() - timeStamp));
+        start();        
+      } else {
+        timer = setTimeout(onTimeout, 2000);
+      }
+    };
+    onTimeout = function () {
       es.close();
       ok(false, "failed, n = " + n);
       start();
-    }
-
-    var timer = setTimeout(onTimeout, 2000);
-
-    function ping() {
-      x = String(Math.random());
-      var xhr = new XMLHttpRequest();
-      xhr.open("POST", url + "?ping=" + x, true);
-      xhr.send(null);
-    }
-
-    es.onopen = ping;
-
-    function onError() {
-      es.close();
-      clearTimeout(timer);
-      strictEqual(n, 3, "test 0, duration: " + (+new Date() - timeStamp));
-      start();
-    }
-
-    es.addEventListener("pong", function (event) {
-      if (event.data === x) {
-        ++n;
-        clearTimeout(timer);
-        timer = setTimeout(onTimeout, 2000);
-        if (n < 3) {
-          ping();
-        } else {
-          onError();
-        }
-      }
-    });
-
-    es.onerror = onError;
+    };
+    timer = setTimeout(onTimeout, 1000);
   });
 
   asyncTest("EventSource 1; 2; 3; 4; 5;", function () {
-    var es = new EventSource(url + "?test=10");
+    var body = "retry: 500\n" +
+               "id: <lastEventId(1)>\n" +
+               "data: <lastEventId(1)>;\n\n" +
+               "id: <lastEventId(2)>\n" +
+               "data: <lastEventId(2)>;\n\n" +
+               "id: <lastEventId(3)>\n" +
+               "data: <lastEventId(3)>;\n\n";
+    var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));
     var s = "";
     var timer = 0;
-    var timer0 = 0;
 
     function onTimeout() {
       clearTimeout(timer);
-      clearTimeout(timer0);
-      strictEqual(s, " 1; 2; 3; 4; 5;", "test 10");
+      var z = " 1; 2; 3; 4; 5;";
+      strictEqual(s.slice(0, z.length), z, "test 10");
       es.close();
       start();
     }
 
     timer = setTimeout(onTimeout, 2000);
-    timer0 = setTimeout(onTimeout, 10000);
 
     es.onmessage = function (event) {
       s += " " + event.data;
     };
-    es.onerror = function () {
-      es.onerror = null;
-      clearTimeout(timer);
-      timer = setTimeout(onTimeout, 4000);
-    };
   });
 
   asyncTest("event-stream parsing", function () {
-    var source = new EventSource(url + "?test=13");
-    source.onmessage = function (event) {
+    var body = "data:\\0\ndata:  2\rData:1\ndata\\0:2\ndata:1\r\\0data:4\nda-ta:3\rdata_5\ndata:3\rdata:\r\n data:32\ndata:4\n\n";
+    var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));
+    es.onmessage = function (event) {
       strictEqual(event.data, "\\0\n 2\n1\n3\n\n4");
-      source.close();
+      es.close();
       start();
     };
   });
 
   // native EventSource is buggy in Opera, FF < 11, Chrome < ?
   asyncTest("EventSource test next", function () {
-    var es = new EventSource(url + "?test=1");
+    var body = "retry: 500\n" +
+               "data: -1\n\n" +
+               "id: 1\n" +
+               "data: 1\n\n" +
+               "id: 2\n" +
+               "drop connection test";
+    var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));
     var closeCount = 0;
 
     es.onmessage = function (event) {
@@ -201,7 +199,8 @@ window.onload = function () {
 
 
   asyncTest("EventTarget exceptions throwed from listeners should not stop dispathing", function () {
-    var es = new EventSource(url + "?test=1");
+    var body = "data: test\n\n";
+    var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));
 
     var s = "";
     es.addEventListener("message", function () {
@@ -226,7 +225,8 @@ window.onload = function () {
 // EventEmitter node.js: 023
 
   asyncTest("EventTarget addEventListener/removeEventListener", function () {
-    var es = new EventSource(url + "?test=1");
+    var body = "data: test\n\n";
+    var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));
     var s = "";
     var listeners = {};
     function a(n) {
@@ -256,7 +256,8 @@ window.onload = function () {
   // optional useCapture
 
   asyncTest("EventSource test 3", function () {
-    var es = new EventSource(url + "?test=3");
+    var body = "data: data0";
+    var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));
     var s = "";
     var f = function () {
       es.onerror = es.onmessage = null;
@@ -274,7 +275,8 @@ window.onload = function () {
   });
 
   asyncTest("EventSource#close()", function () {
-    var es = new EventSource(url + "?test=2");
+    var body = "data: data0;\n\ndata: data1;\n\ndata: data2;\n\n";
+    var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));
     var s = "";
     es.onmessage = function () {
       if (s === "") {
@@ -290,7 +292,8 @@ window.onload = function () {
   });
 
   asyncTest("EventSource#close()", function () {
-    var es = new EventSource(url + "?test=7");
+    var body = "";
+    var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));
     es.onopen = function () {
       strictEqual(es.readyState, 1);
       start();
@@ -300,10 +303,12 @@ window.onload = function () {
 
   // Native EventSource + CORS: Opera 12, Firefox 11, Chrome 26 (WebKit 537.27)
   asyncTest("EventSource CORS", function () {
-    var es = new EventSource(url4CORS + "?test=8");
+    var body = "id: <lastEventId(100)>\n" +
+               "data: 0\n\n";
+    var es = new EventSource(url4CORS + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));
 
     es.onmessage = function (event) {
-      if (event.data === "ok") {
+      if (event.lastEventId === "200") {
         ok(true, "ok");
         start();
         es.close();
@@ -320,7 +325,13 @@ window.onload = function () {
 
   // buggy with native EventSource in Opera - DSK-362337
   asyncTest("event-stream with \"message\", \"error\", \"open\" events", function () {
-    var es = new EventSource(url + "?test=11");
+    var body = "data: a\n\n" +
+               "event: open\ndata: b\n\n" +
+               "event: message\ndata: c\n\n" +
+               "event: error\ndata: d\n\n" +
+               "event:\ndata: e\n\n" +
+               "event: end\ndata: f\n\n";
+    var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));
     var s = "";
     function handler(event) {
       s += event.data || "";
@@ -340,14 +351,17 @@ window.onload = function () {
 
   //IE 8 - 9 issue, Native EventSource in Opera 12
   asyncTest("event-stream null character", function () {
-    var es = new EventSource(url + "?test=12");
+    var body = "data: a\n\n" +
+               "data: \x00\n\n" +
+               "data: b\n\n";
+    var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));
     var ok = false;
     es.addEventListener("message", function (event) {
       if (event.data === "\x00") {
         ok = true;
       }
     });
-    es.onerror = function (e) {
+    es.onerror = function () {
       es.close();
       strictEqual(true, ok);
       start();
@@ -355,7 +369,8 @@ window.onload = function () {
   });
 
   asyncTest("EventSource retry delay - see http://code.google.com/p/chromium/issues/detail?id=86230", function () {
-    var es = new EventSource(url + "?test=800");
+    var body = "retry: 800\n\n";
+    var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));
     var s = 0;
     es.onopen = function () {
       if (!s) {

@@ -13,7 +13,8 @@ util.puts("Starting server at http://localhost:" + PORT1);
 process.on("uncaughtException", function (e) {
   try {
     util.puts("Caught exception: " + e + " " + (typeof(e) === "object" ? e.stack : ""));
-  } catch (e0) {}
+  } catch (e0) {
+  }
 });
 
 var emitter = new EventEmitter();
@@ -25,111 +26,9 @@ setInterval(function () {
   emitter.emit("message");
 }, heartbeatTimeout / 2);
 
-function onTest(response, lastEventId, test, cookies) {
-  var i = lastEventId + 1;
-  if (test === 0) {
-    var onPing = function (x) {
-      response.write("event: pong\ndata: " + x + "\n\n");
-    };
-    emitter.addListener("ping", onPing);
-    response.connection.once("close", function () {
-      emitter.removeListener("ping", onPing);
-    });
-  }
-  if (test === 1) {
-    if (lastEventId === 0) {
-      response.write("id: 1\n");
-      response.write("data: data0;\n\n");
-      response.write("id: 2\n");
-      response.write("drop connection test");
-      response.end();
-    } else {
-      response.write("data: xxx\n\n");
-      response.end();
-    }
-  }
-  if (test === 2) {
-    response.write("data: data0;\n\ndata: data1;\n\ndata: data2;\n\n");
-    response.end();
-  }
-  if (test === 3) {
-    response.write("data: data0");
-    response.end();
-  }
-  if (test === 4) {
-    response.write("data\n\n");
-    setTimeout(function () {
-      response.write("data\n\n");
-      setTimeout(function () {
-        response.write("data\n\n");
-      }, 25);
-    }, 25);
-    setTimeout(function () {
-      response.end();
-    }, 10000);
-  }
-  if (test === 8) {
-    if (lastEventId === 100) {
-      response.write("data: ok\n\n");
-    } else {
-      response.write("id: 100\n");
-      response.write("data: data0;\n\n");
-    }
-    response.end();
-  }
-  if (test === 9) {
-    response.write("data: x" + cookies.testCookie + "\n\n");
-    response.end();
-  }
-  if (test === 10) {
-    while (i < 6) {
-      response.write("retry: 500\n");
-      response.write("id: " + i + "\n");
-      response.write("data: " + i + ";\n\n");
-      if (i === 3) {
-        response.end();
-        return;
-      }
-      i += 1;
-    }
-    response.end();
-  }
-  if (test === 11) {
-    response.write("data: a\n\n");
-    response.write("event: open\ndata: b\n\n");
-    response.write("event: message\ndata: c\n\n");
-    response.write("event: error\ndata: d\n\n");
-    response.write("event:\ndata: e\n\n");
-    response.write("event: end\ndata: f\n\n");
-    response.end();
-  }
-  if (test === 800) {
-    response.write("retry: 800\n\n");
-    response.end();
-  }
-  if (test === 12) {
-    response.write("data: a\n\n");
-    response.write("data: \x00\n\n");
-    response.write("data: b\n\n");
-    response.end();
-  }
-  if (test === 13) {
-    var message = "data:\\0\ndata:  2\rData:1\ndata\\0:2\ndata:1\r\\0data:4\nda-ta:3\rdata_5\ndata:3\rdata:\r\n data:32\ndata:4\n\n";
-    response.write(message);
-    response.end();  
-  }
-}
-
 function eventStream(request, response) {
-  var lastEventId = "";
   var parsedURL = url.parse(request.url, true);
-  var test = Number(parsedURL.query.test);
-  var cookies = {};
-
-  (request.headers.cookie || "").split(";").forEach(function (cookie) {
-    cookie = cookie.split("=");
-    cookies[decodeURIComponent(cookie[0].trim())] = decodeURIComponent((cookie[1] || "").trim());
-  });
+  var lastEventId = Number(request.headers["last-event-id"]) || Number(parsedURL.query.lastEventId) || 0;
 
   function sendMessages() {
     lastEventId = Math.max(lastEventId, firstId);
@@ -147,47 +46,52 @@ function eventStream(request, response) {
 
   response.socket.setTimeout(0); // see http://contourline.wordpress.com/2011/03/30/preventing-server-timeout-in-node-js/
 
-  var headers = {
-    "Content-Type": "text/event-stream",
-    "Cache-Control": "no-cache",
-    "Access-Control-Allow-Origin": "*"
-  };
-  if (test === 9) {
-    headers["Access-Control-Allow-Credentials"] = "true";
-  }
-  if (test === 16) {
-    headers["Cache-Control"] = "max-age=3600";
-    headers["Expires"] = new Date(Date.now() + 3600000).toUTCString();
-    response.writeHead(200, headers);
-    response.write("retry:1000\ndata:" + Math.random() + "\n\n");
-    response.end();
+  var estest = parsedURL.query.estest;
+  if (estest) {
+    var i = estest.indexOf("\n\n");
+    var headers = {};
+    response.writeHead(200, estest.slice(0, i).replace(/[^\n]*/, function (line) {
+      var header = line.split(":");
+      headers[header[0].trim()] = header.slice(1).join(":").trim();
+    }));
+    var body = estest.slice(i + 2);
+    body = body.replace(/<random\(\)>/g, function () {
+      return Math.random();
+    });
+    body = body.replace(/<lastEventId\((\d+)\)>/g, function (p, increment) {
+      return lastEventId + Number(increment);
+    });
+    body = body.split(/<delay\((\d+)\)>/);
+    i = -1;
+    var next = function () {
+      ++i;
+      if (body[i] !== "") {
+        response.write(body[i]);
+      }
+      if (++i < body.length) {
+        setTimeout(next, Number(body[i]));
+      } else {
+        response.end();
+      }
+    };
+    next();
     return;
   }
 
-  response.writeHead(200, headers);
-  lastEventId = Number(request.headers["last-event-id"]) || Number(parsedURL.query.lastEventId) || 0;
+  response.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    "Access-Control-Allow-Origin": "*"
+  });
 
-  if (test !== -1) {
-    response.write(":" + Array(2049).join(" ") + "\n"); // 2kB padding for IE
-    response.write("retry: 1000\n");
-    response.write("retryLimit: 60000\n");
-    response.write("heartbeatTimeout: " + heartbeatTimeout + "\n");//!
-  }
+  response.write(":" + Array(2049).join(" ") + "\n"); // 2kB padding for IE
+  response.write("retry: 1000\n");
+  response.write("retryLimit: 60000\n");
+  response.write("heartbeatTimeout: " + heartbeatTimeout + "\n");//!
 
-  if (!isNaN(test)) {
-    if (test === -1) {
-      response.write(parsedURL.query.stream);
-      setTimeout(function () {
-        response.end();
-      }, Number(parsedURL.query.delay) || 0);
-    } else {
-      onTest(response, lastEventId, test, cookies);
-    }
-  } else {
-    emitter.addListener("message", sendMessages);
-    emitter.setMaxListeners(0);
-    sendMessages();
-  }
+  emitter.addListener("message", sendMessages);
+  emitter.setMaxListeners(0);
+  sendMessages();
 }
 
 function onRequest(request, response) {
@@ -205,15 +109,6 @@ function onRequest(request, response) {
     });
     response.end(String(firstId + history.push(data)));
     emitter.emit("message");
-    return;
-  }
-
-  if (query.ping) {
-    response.writeHead(200, {
-      "Content-Type": "text/plain"
-    });
-    response.end("ok");
-    emitter.emit("ping", query.ping);
     return;
   }
 
