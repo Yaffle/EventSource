@@ -50,10 +50,13 @@ function eventStream(request, response) {
   if (estest) {
     var i = estest.indexOf("\n\n");
     var headers = {};
-    response.writeHead(200, estest.slice(0, i).replace(/[^\n]*/, function (line) {
+    estest.slice(0, i).replace(/[^\n]*/g, function (line) {
       var header = line.split(":");
-      headers[header[0].trim()] = header.slice(1).join(":").trim();
-    }));
+      if (header[0].trim() !== "") {
+        headers[header[0].trim()] = header.slice(1).join(":").trim();
+      }
+    });
+    response.writeHead(200, headers);
     var body = estest.slice(i + 2);
     body = body.replace(/<random\(\)>/g, function () {
       return Math.random();
@@ -86,7 +89,6 @@ function eventStream(request, response) {
 
   response.write(":" + Array(2049).join(" ") + "\n"); // 2kB padding for IE
   response.write("retry: 1000\n");
-  response.write("retryLimit: 60000\n");
   response.write("heartbeatTimeout: " + heartbeatTimeout + "\n");//!
 
   emitter.addListener("message", sendMessages);

@@ -1,5 +1,5 @@
 /*jslint indent: 2, vars: true, plusplus: true */
-/*global setTimeout, clearTimeout, window, location, asyncTest, EventSource, ok, strictEqual, start */
+/*global setTimeout, clearTimeout, window, location, EventSource, asyncTest, ok, strictEqual, start */
 
 var NativeEventSource = this.EventSource;
 
@@ -116,8 +116,9 @@ window.onload = function () {
       ++n;
       clearTimeout(timer);
       if (n === 3) {
-        strictEqual(n, 3, "test 0, duration: " + (+new Date() - timeStamp));
-        start();        
+        es.close();
+        ok(true, "test 0, duration: " + (+new Date() - timeStamp));
+        start();
       } else {
         timer = setTimeout(onTimeout, 2000);
       }

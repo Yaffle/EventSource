@@ -124,7 +124,6 @@
   var contentTypeRegExp = /^text\/event\-stream;?(\s*charset\=utf\-8)?$/i;
   var isWebKitBefore535 = /AppleWebKit\/5([0-2][0-9]|3[0-4])[\.\s\w]/.test(navigator.userAgent);
   var isGecko = Boolean(XHR && ((new XHR()).sendAsBinary !== undefined));
-  var isPresto = Object.prototype.toString.call(global.opera) === "[object Opera]";
 
   var MINIMUM_DURATION = 1;
   var MAXIMUM_DURATION = 18000000;
@@ -149,7 +148,6 @@
 
     var withCredentials = Boolean(isCORSSupported && options && options.withCredentials);
     var initialRetry = getDuration(options ? options.retry : NaN, 1000);
-    var retryLimit = getDuration(options ? options.retryLimit : NaN, 300000);
     var heartbeatTimeout = getDuration(options ? options.heartbeatTimeout : NaN, 45000);
     var lastEventId = (options && options.lastEventId && String(options.lastEventId)) || "";
     var that = this;
@@ -246,11 +244,6 @@
               } else if (field === "retry") {
                 initialRetry = getDuration(value, initialRetry);
                 retry = initialRetry;
-                if (retryLimit < initialRetry) {
-                  retryLimit = initialRetry;
-                }
-              } else if (field === "retryLimit") {//!
-                retryLimit = getDuration(value, retryLimit);
               } else if (field === "heartbeatTimeout") {//!
                 heartbeatTimeout = getDuration(value, heartbeatTimeout);
                 if (timeout !== 0) {
@@ -314,8 +307,11 @@
           clearTimeout(timeout);
           timeout = 0;
         }
-        if (retry > retryLimit) {
-          retry = retryLimit;
+        if (retry > initialRetry * 64) {
+          retry = initialRetry * 64;
+        }
+        if (retry > MAXIMUM_DURATION) {
+          retry = MAXIMUM_DURATION;
         }
         timeout = setTimeout(onTimeout, retry);
         retry = retry * 2 + 1;
@@ -340,7 +336,7 @@
       onProgress(true);
     }
 
-    if (isPresto) {
+    if (!isGecko) {
       // workaround for Opera issue with "progress" events
       timeout0 = setTimeout(function f() {
         if (xhr.readyState === 3) {
