@@ -125,7 +125,7 @@
   var isWebKitBefore535 = /AppleWebKit\/5([0-2][0-9]|3[0-4])[\.\s\w]/.test(navigator.userAgent);
   var isGecko = Boolean(XHR && ((new XHR()).sendAsBinary !== undefined));
 
-  var MINIMUM_DURATION = 1;
+  var MINIMUM_DURATION = 1000;
   var MAXIMUM_DURATION = 18000000;
 
   function getDuration(value, def) {
@@ -197,7 +197,7 @@
           try {
             status = Number(xhr.status || 0);
             contentType = String(xhr.getResponseHeader("Content-Type") || "");
-          } catch (error) {
+          } catch (ignore) {
             // FF < 14, WebKit
             // https://bugs.webkit.org/show_bug.cgi?id=29658
             // https://bugs.webkit.org/show_bug.cgi?id=77854
@@ -307,8 +307,8 @@
           clearTimeout(timeout);
           timeout = 0;
         }
-        if (retry > initialRetry * 64) {
-          retry = initialRetry * 64;
+        if (retry > initialRetry * 16) {
+          retry = initialRetry * 16;
         }
         if (retry > MAXIMUM_DURATION) {
           retry = MAXIMUM_DURATION;
@@ -336,7 +336,7 @@
       onProgress(true);
     }
 
-    if (!isGecko) {
+    if (!isGecko && isXHR) {
       // workaround for Opera issue with "progress" events
       timeout0 = setTimeout(function f() {
         if (xhr.readyState === 3) {
@@ -352,12 +352,6 @@
         onProgress(false);
         return;
       }
-      if (navigator.onLine === false) {
-        // "online" event is not supported under Web Workers
-        // https://bugs.webkit.org/show_bug.cgi?id=118832
-        timeout = setTimeout(onTimeout, 500);
-        return;
-      }
       // loading indicator in Safari, Chrome < 14
       if (isWebKitBefore535 && global.document && global.document.readyState !== "complete") {
         timeout = setTimeout(onTimeout, 100);
@@ -367,13 +361,13 @@
 
       xhr.onload = xhr.onerror = onLoadEnd;
 
-      // improper fix to match Firefox behaviour, but it is better than just ignore abort
-      // see https://bugzilla.mozilla.org/show_bug.cgi?id=768596
-      // https://bugzilla.mozilla.org/show_bug.cgi?id=880200
-      // https://code.google.com/p/chromium/issues/detail?id=153570
-      xhr.onabort = onLoadEnd;
-
       if (isXHR) {
+        // improper fix to match Firefox behaviour, but it is better than just ignore abort
+        // see https://bugzilla.mozilla.org/show_bug.cgi?id=768596
+        // https://bugzilla.mozilla.org/show_bug.cgi?id=880200
+        // https://code.google.com/p/chromium/issues/detail?id=153570
+        xhr.onabort = onLoadEnd;
+
         // Firefox 3.5 - 3.6 - ? < 9.0
         // onprogress is not fired sometimes or delayed
         xhr.onreadystatechange = onProgress2;
@@ -403,12 +397,12 @@
       }
       xhr.open("GET", s, true);
 
-      // withCredentials should be set after "open" for Safari and Chrome (< 19 ?)
-      xhr.withCredentials = withCredentials;
-
-      xhr.responseType = "text";
-
       if (isXHR) {
+        // withCredentials should be set after "open" for Safari and Chrome (< 19 ?)
+        xhr.withCredentials = withCredentials;
+
+        xhr.responseType = "text";
+
         // Request header field Cache-Control is not allowed by Access-Control-Allow-Headers.
         // "Cache-control: no-cache" are not honored in Chrome and Firefox
         // https://bugzilla.mozilla.org/show_bug.cgi?id=428916

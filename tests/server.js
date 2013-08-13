@@ -12,8 +12,8 @@ util.puts("Starting server at http://localhost:" + PORT1);
 
 process.on("uncaughtException", function (e) {
   try {
-    util.puts("Caught exception: " + e + " " + (typeof(e) === "object" ? e.stack : ""));
-  } catch (e0) {
+    util.puts("Caught exception: " + e + " " + (typeof e === "object" ? e.stack : ""));
+  } catch (ignore) {
   }
 });
 
