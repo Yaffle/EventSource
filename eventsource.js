@@ -189,13 +189,16 @@
     function onProgress(isLoadEnd) {
       var responseText = currentState === OPEN || currentState === CONNECTING ? xhr.responseText || "" : "";
       var event = null;
+      var isWrongStatusCodeOrContentType = false;
 
       if (currentState === CONNECTING) {
         var status = 0;
+        var statusText = "";
         var contentType = "";
         if (isXHR) {
           try {
             status = Number(xhr.status || 0);
+            statusText = String(xhr.statusText || "");
             contentType = String(xhr.getResponseHeader("Content-Type") || "");
           } catch (ignore) {
             // FF < 14, WebKit
@@ -216,6 +219,19 @@
           fire(that, that.onopen, event);
           if (currentState === CLOSED) {
             return;
+          }
+        } else {
+          if (status !== 0) {
+            var message = "";
+            if (status !== 200) {
+              message = "EventSource's response has a status " + status + " " + statusText.replace(/\s+/g, " ") + " that is not 200. Aborting the connection.";
+            } else {
+              message = "EventSource's response has a Content-Type specifying an unsupported type: " + contentType.replace(/\s+/g, " ") + ". Aborting the connection.";
+            }
+            setTimeout(function () {
+              throw new Error(message);
+            });
+            isWrongStatusCodeOrContentType = true;
           }
         }
       }
@@ -300,7 +316,7 @@
       }
 
       if ((currentState === OPEN || currentState === CONNECTING) &&
-          (isLoadEnd || (charOffset > 1024 * 1024) || (timeout === 0 && !wasActivity))) {
+          (isLoadEnd || isWrongStatusCodeOrContentType || (charOffset > 1024 * 1024) || (timeout === 0 && !wasActivity))) {
         currentState = WAITING;
         xhr.abort();
         if (timeout !== 0) {
