@@ -1,14 +1,10 @@
 /*jslint indent: 2, vars: true, plusplus: true */
 /*global setTimeout, clearTimeout, window, location, EventSource, asyncTest, ok, strictEqual, start */
 
-var NativeEventSource = this.EventSource;
+this.EventSource = undefined;
 
 window.onload = function () {
   "use strict";
-
-  if (location.hash === "#native") {
-    window.EventSource = NativeEventSource;
-  }
 
   var url = "/events";
   var url4CORS = "http://" + location.hostname + ":" + (String(location.port) === "8004" ? "8003" : "8004") + "/events";
@@ -80,7 +76,7 @@ window.onload = function () {
     start();
   });
 
-  // Opera bug with "XMLHttpRequest#onprogress" 
+  // Opera bug with "XMLHttpRequest#onprogress"
   asyncTest("EventSource 3 messages with small delay", function () {
     var body = "data\n\n<delay(25)>data\n\n<delay(25)>data\n\n<delay(10000)>";
     var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));    
