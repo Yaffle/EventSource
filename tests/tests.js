@@ -1,17 +1,18 @@
 /*jslint indent: 2, vars: true, plusplus: true */
 /*global setTimeout, clearTimeout, window, location, EventSource, asyncTest, ok, strictEqual, start */
 
-var NativeEventSource = this.EventSource;
-
-window.onload = function () {
+(function (global) {
   "use strict";
 
+  var EventSource = global.EventSource;
+
   if (location.hash === "#native") {
-    window.EventSource = NativeEventSource;
+    global.EventSource = global.NativeEventSource || global.EventSource;
   }
 
   var url = "/events";
   var url4CORS = "http://" + location.hostname + ":" + (String(location.port) === "8004" ? "8003" : "8004") + "/events";
+
   var commonHeaders = "Access-Control-Allow-Origin: *\n" + 
                       "Content-Type: text/event-stream\n" +
                       "Cache-Control: no-cache\n";
@@ -66,7 +67,21 @@ window.onload = function () {
       start();
     }, 2000);
   });
-
+/*
+  asyncTest("EventSource + file download", function () {
+    var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + "data:1\n<delay(500)>"));
+    var a = document.createElement("a");
+    a.href = url + "?estest=" + encodeURIComponent(commonHeaders + "Content-Disposition: attachment; filename=\"test.txt\"" + "\n\n" + "test");
+    document.documentElement.appendChild(a);
+    setTimeout(function () {
+      a.click();
+    }, 200);
+    setTimeout(function () {
+      ok(es.readyState !== 2, es.readyState);
+      start();
+    }, 2000);
+  });
+*/
   asyncTest("EventSource constructor", function () {
     var body = "";
     var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));
@@ -111,6 +126,9 @@ window.onload = function () {
                "<delay(1500)>" +
                "data: " + Math.random() + "\n\n" +
                "<delay(10000)>";
+    if (global.XDomainRequest) {
+      body = new Array(2048).join(" ") + body;
+    }
     es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));
     es.onmessage = function () {
       ++n;
@@ -404,4 +422,4 @@ window.onload = function () {
     };
   });
 
-};
+}(this));

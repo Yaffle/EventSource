@@ -5,7 +5,7 @@
  */
 
 /*jslint indent: 2, vars: true, plusplus: true */
-/*global setTimeout, clearTimeout, navigator */
+/*global setTimeout, clearTimeout */
 
 (function (global) {
   "use strict";
@@ -122,8 +122,6 @@
   var VALUE_START = 6;
   var VALUE = 7;
   var contentTypeRegExp = /^text\/event\-stream;?(\s*charset\=utf\-8)?$/i;
-  var isWebKitBefore535 = /AppleWebKit\/5([0-2][0-9]|3[0-4])[\.\s\w]/.test(navigator.userAgent);
-  var isGecko = Boolean(XHR && ((new XHR()).sendAsBinary !== undefined));
 
   var MINIMUM_DURATION = 1000;
   var MAXIMUM_DURATION = 18000000;
@@ -352,7 +350,7 @@
       onProgress(true);
     }
 
-    if (!isGecko && isXHR) {
+    if (isXHR) {
       // workaround for Opera issue with "progress" events
       timeout0 = setTimeout(function f() {
         if (xhr.readyState === 3) {
@@ -368,9 +366,10 @@
         onProgress(false);
         return;
       }
-      // loading indicator in Safari, Chrome < 14
-      if (isWebKitBefore535 && global.document && global.document.readyState !== "complete") {
-        timeout = setTimeout(onTimeout, 100);
+      // loading indicator in Safari, Chrome < 14, Firefox
+      // https://bugzilla.mozilla.org/show_bug.cgi?id=736723
+      if (isXHR && (xhr.sendAsBinary !== undefined || xhr.onloadend === undefined) && global.document && global.document.readyState && global.document.readyState !== "complete") {
+        timeout = setTimeout(onTimeout, 4);
         return;
       }
       // XDomainRequest#abort removes onprogress, onerror, onload
@@ -389,9 +388,7 @@
         xhr.onreadystatechange = onProgress2;
       }
 
-      if (!isGecko) {// Firefox (any version) shows loading indicator
-        xhr.onprogress = onProgress2;
-      }
+      xhr.onprogress = onProgress2;
 
       wasActivity = false;
       timeout = setTimeout(onTimeout, heartbeatTimeout);
@@ -461,6 +458,7 @@
     // https://code.google.com/p/chromium/issues/detail?id=260144
     // https://code.google.com/p/chromium/issues/detail?id=225654
     // ...
+    global.NativeEventSource = global.EventSource;
     global.EventSource = EventSource;
   }
 
