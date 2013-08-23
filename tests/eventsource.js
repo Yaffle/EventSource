@@ -199,6 +199,8 @@
             statusText = String(xhr.statusText || "");
             contentType = String(xhr.getResponseHeader("Content-Type") || "");
           } catch (ignore) {
+            // https://bugs.webkit.org/show_bug.cgi?id=29121
+            status = 0;
             // FF < 14, WebKit
             // https://bugs.webkit.org/show_bug.cgi?id=29658
             // https://bugs.webkit.org/show_bug.cgi?id=77854

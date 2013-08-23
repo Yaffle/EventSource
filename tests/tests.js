@@ -59,7 +59,7 @@
       }
     }, 100);
     setTimeout(function () {
-      if (es.readyState === 2) {
+      if (es.readyState === EventSource.CLOSED) {
         ok(!openAfterStop && errorAfterStop, " ");
       } else {
         ok(openAfterStop, " ");
@@ -77,7 +77,7 @@
       a.click();
     }, 200);
     setTimeout(function () {
-      ok(es.readyState !== 2, es.readyState);
+      ok(es.readyState !== EventSource.CLOSED, es.readyState);
       start();
     }, 2000);
   });
@@ -314,7 +314,7 @@
     var body = "";
     var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));
     es.onopen = function () {
-      strictEqual(es.readyState, 1);
+      strictEqual(es.readyState, EventSource.OPEN);
       start();
       es.close();
     };
@@ -334,7 +334,7 @@
       }
     };
     es.onerror = function () {
-      if (es.readyState === es.CLOSED) {
+      if (es.readyState === EventSource.CLOSED) {
         ok(false, "not ok");
         start();
         es.close();
@@ -408,7 +408,7 @@
     var n = 0;
     es.onerror = function () {
       ++n;
-      if (es.readyState === 2) {
+      if (es.readyState === EventSource.CLOSED) {
         es.close();
         ok(false, "!");
         start();
