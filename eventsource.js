@@ -38,6 +38,7 @@
 
   EventTarget.prototype = {
     dispatchEvent: function (event) {
+      event.target = this;
       var type = String(event.type);
       var listeners = this.listeners;
       var typeListeners = listeners.get(type);
@@ -97,6 +98,7 @@
 
   function Event(type) {
     this.type = type;
+    this.target = null;
   }
 
   function MessageEvent(type, options) {
@@ -198,7 +200,7 @@
             status = Number(xhr.status || 0);
             statusText = String(xhr.statusText || "");
             contentType = String(xhr.getResponseHeader("Content-Type") || "");
-          } catch (ignore) {
+          } catch (error) {
             // https://bugs.webkit.org/show_bug.cgi?id=29121
             status = 0;
             // FF < 14, WebKit
@@ -242,8 +244,9 @@
         }
         var i = charOffset - 1;
         var length = responseText.length;
+        var c = "\n";
         while (++i < length) {
-          var c = responseText[i];
+          c = responseText[i];
           if (state === AFTER_CR && c === "\n") {
             state = FIELD_START;
           } else {
