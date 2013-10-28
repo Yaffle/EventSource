@@ -154,6 +154,8 @@
     var retry = initialRetry;
     var wasActivity = false;
     var xhr = new Transport();
+    // FIXME: temporary code for Cobit authentication
+    var header = options ? options.header ? options.header : {} : {};
     var timeout = 0;
     var timeout0 = 0;
     var charOffset = 0;
@@ -428,6 +430,11 @@
         xhr.setRequestHeader("Accept", "text/event-stream");
         // Request header field Last-Event-ID is not allowed by Access-Control-Allow-Headers.
         //xhr.setRequestHeader("Last-Event-ID", lastEventId);
+
+        // FIXME: temporary code for Cobit authentication
+        Object.keys(header).forEach(function (key) {
+            xhr.setRequestHeader(key, header[key]);
+        });
       }
 
       xhr.send(null);
