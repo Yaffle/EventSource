@@ -1,0 +1,17 @@
+{
+  "name": "eventsource",
+  "main": "eventsource.js",
+  "version": "1.0.0",
+  "homepage": "https://github.com/Yaffle/EventSource",
+  "authors": [
+    "Viktor"
+  ],
+  "description": "A polyfill for EventSource",
+  "keywords": [
+    "eventsource",
+    "server-sent",
+    "events",
+    "polyfill"
+  ],
+  "license": "MIT"
+}
