@@ -224,16 +224,19 @@
           }
         } else {
           if (status !== 0) {
-            var message = "";
-            if (status !== 200) {
-              message = "EventSource's response has a status " + status + " " + statusText.replace(/\s+/g, " ") + " that is not 200. Aborting the connection.";
-            } else {
-              message = "EventSource's response has a Content-Type specifying an unsupported type: " + contentType.replace(/\s+/g, " ") + ". Aborting the connection.";
+            var message = "EventSource's response has a status " + status + " " + statusText.replace(/\s+/g, "") + ". Reconnecting.";
+            //http://www.w3.org/TR/eventsource/#processing-model
+            if ([305, 401, 407, 302, 303, 307, 500, 502, 503, 504].indexOf(xhr.status) === -1) {
+              if (status !== 200) {
+                message = "EventSource's response has a status " + status + " " + statusText.replace(/\s+/g, " ") + " that is not 200. Aborting the connection.";
+              } else {
+                message = "EventSource's response has a Content-Type specifying an unsupported type: " + contentType.replace(/\s+/g, " ") + ". Aborting the connection.";
+              }
+              isWrongStatusCodeOrContentType = true;
             }
             setTimeout(function () {
               throw new Error(message);
             });
-            isWrongStatusCodeOrContentType = true;
           }
         }
       }
@@ -332,7 +335,11 @@
         if (retry > MAXIMUM_DURATION) {
           retry = MAXIMUM_DURATION;
         }
-        timeout = setTimeout(onTimeout, retry);
+        if (isWrongStatusCodeOrContentType) {
+          close();
+        } else {
+          timeout = setTimeout(onTimeout, retry);
+        }
         retry = retry * 2 + 1;
 
         that.readyState = CONNECTING;
