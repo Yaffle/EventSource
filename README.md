@@ -1,6 +1,18 @@
 EventSource polyfill - http://www.w3.org/TR/eventsource/
 ========================================================
 
+Installing:
+-----------
+
+You can get the code from npm:
+
+```
+npm install event-source-polyfill
+```
+
+Just include `eventsource.js` in your page to use the polyfill.
+
+
 Browser support:
 ----------------
 
