@@ -14,7 +14,7 @@ npm install event-source-polyfill
 bower install event-source-polyfill
 ```
 
-Just include `eventsource.js` in your page to use the polyfill.
+Just include `eventsource.js` or `eventsource.min.js` in your page to use the polyfill.
 
 
 Browser support:
