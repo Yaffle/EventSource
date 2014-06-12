@@ -22,5 +22,9 @@
   "bugs": {
     "url": "https://github.com/Yaffle/EventSource/issues"
   },
-  "homepage": "https://github.com/Yaffle/EventSource"
+  "homepage": "https://github.com/Yaffle/EventSource",
+  "devDependencies": {
+    "grunt": "^0.4.4",
+    "grunt-contrib-uglify": "~0.2.4"
+  }
 }

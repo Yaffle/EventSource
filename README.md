@@ -4,13 +4,17 @@ EventSource polyfill - http://www.w3.org/TR/eventsource/
 Installing:
 -----------
 
-You can get the code from npm:
+You can get the code from npm or bower:
 
 ```
 npm install event-source-polyfill
 ```
 
-Just include `eventsource.js` in your page to use the polyfill.
+```
+bower install event-source-polyfill
+```
+
+Just include `eventsource.js` or `eventsource.min.js` in your page to use the polyfill.
 
 
 Browser support:
@@ -37,6 +41,11 @@ Specification:
 --------------
 
 * http://www.w3.org/TR/eventsource/
+
+Build
+-----
+
+To build EventSource, just install grunt and this project devDependencies and run it. It should generate a new version of eventsource.min.js.
 
 Other EventSource polyfills:
 ----------------------------
