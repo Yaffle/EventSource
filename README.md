@@ -42,10 +42,14 @@ Specification:
 
 * http://www.w3.org/TR/eventsource/
 
-Build
------
+Build:
+------
 
-To build EventSource, just install grunt and this project devDependencies and run it. It should generate a new version of eventsource.min.js.
+* To build EventSource, just install grunt and this project devDependencies and run it. It should generate a new version of eventsource.min.js.
+
+Notes:
+-----
+ * If you are using HTTP Basic Authentication, you can embed credentials into the URL - `http://username:password@github.com`.
 
 Other EventSource polyfills:
 ----------------------------
