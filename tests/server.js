@@ -29,6 +29,16 @@ setInterval(function () {
 function eventStream(request, response) {
   var parsedURL = url.parse(request.url, true);
   var lastEventId = Number(request.headers["last-event-id"]) || Number(parsedURL.query.lastEventId) || 0;
+  var authorization = request.headers["authorization"];
+
+  if (parsedURL.query.authorization !== undefined && !authorization) {
+    response.writeHead(401, {
+      "WWW-Authenticate": "Basic realm=\"EventSource" + (1 + Math.random()).toString().slice(2) + "\"",
+      "Access-Control-Allow-Origin": "*"
+    });
+    response.end("");
+    return;
+  }
 
   function sendMessages() {
     lastEventId = Math.max(lastEventId, firstId);
@@ -47,7 +57,7 @@ function eventStream(request, response) {
   response.socket.setTimeout(0); // see http://contourline.wordpress.com/2011/03/30/preventing-server-timeout-in-node-js/
 
   var estest = parsedURL.query.estest;
-  if (estest) {
+  if (estest !== undefined) {
     var i = estest.indexOf("\n\n");
     var headers = {};
     estest.slice(0, i).replace(/[^\n]*/g, function (line) {
@@ -63,6 +73,9 @@ function eventStream(request, response) {
     });
     body = body.replace(/<lastEventId\((\d+)\)>/g, function (p, increment) {
       return lastEventId + Number(increment);
+    });
+    body = body.replace(/<authorization>/g, function () {
+      return authorization;
     });
     body = body.split(/<delay\((\d+)\)>/);
     i = -1;

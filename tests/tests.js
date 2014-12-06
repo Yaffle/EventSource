@@ -1,21 +1,39 @@
 /*jslint indent: 2, vars: true, plusplus: true */
-/*global setTimeout, clearTimeout, window, location, EventSource, asyncTest, ok, strictEqual, start */
+/*global setTimeout, clearTimeout, location, EventSource, asyncTest, ok, strictEqual, start */
 
 (function (global) {
   "use strict";
 
   var EventSource = global.EventSource;
+  var stop = function () {};//global.stop;
 
   if (location.hash === "#native") {
-    global.EventSource = global.NativeEventSource || global.EventSource;
+    EventSource = global.NativeEventSource || global.EventSource;
   }
 
-  var url = "/events";
+  var url = "http://" + location.hostname + ":" + String(location.port) + "/events";
   var url4CORS = "http://" + location.hostname + ":" + (String(location.port) === "8004" ? "8003" : "8004") + "/events";
+  var urlWithAuthorization = "http://" + "user012:pass012@" + location.hostname + ":" + String(location.port) + "/events";
 
-  var commonHeaders = "Access-Control-Allow-Origin: *\n" + 
+  var commonHeaders = "Access-Control-Allow-Origin: *\n" +
                       "Content-Type: text/event-stream\n" +
                       "Cache-Control: no-cache\n";
+
+  // try with native EventSource in Opera 12
+  asyncTest("URL with username and password for Basic Authorization", function () {
+    var es = new EventSource(urlWithAuthorization + "?authorization=true&estest=" + encodeURIComponent(commonHeaders + "\n\n" + "\ndata:<authorization>\n\n"));
+    es.onmessage = function (event) {
+      var data = event.data;
+      ok(data === "Basic dXNlcjAxMjpwYXNzMDEy", data); // window.btoa("user012:pass012")
+      es.close();
+      start();
+    };
+    es.onerror = function (event) {
+      ok(false, "failed");
+      es.close();
+      start();
+    };
+  });
 
   asyncTest("Cache-Control: no-cache", function () {
     var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "Cache-Control: max-age=3600\nExpires: " + new Date(new Date().getTime() + 3600000).toUTCString() + "\n\n" + "retry:1000\ndata:<random()>\n\n"));
@@ -38,44 +56,31 @@
   });
 
   asyncTest("EventSource + window.stop", function () {
-    var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + "retry:1000\ndata:abc\n\n<delay(500)>"));
-    var stopped = false;
-    var openAfterStop = false;
-    var errorAfterStop = false;
-    es.onopen = function () {
-      if (stopped) {
-        openAfterStop = true;
-      }
-    };
-    es.onerror = function () {
-      if (stopped) {
-        errorAfterStop = true;
-      }
+    var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + "retry:1000\ndata:abc\n\n<delay(1000)>"));
+    var lastEventTime = 0;
+    var lastEventType = "";
+    var readyStateAtLastEvent = -1;
+    es.onmessage =
+    es.onerror =
+    es.onopen = function (event) {
+      lastEventTime = new Date().getTime();
+      lastEventType = event.type;
+      readyStateAtLastEvent = es.readyState;
     };
     setTimeout(function () {
-      stopped = true;
-      if (window.Window) {// Opera < 12 has no Window
-        window.Window.prototype.stop.call(window);
-      }
+      stop();
     }, 100);
     setTimeout(function () {
-      if (es.readyState === EventSource.CLOSED) {
-        ok(!openAfterStop && errorAfterStop, " ");
-      } else {
-        ok(openAfterStop, " ");
-      }
+      var isActive = (new Date().getTime() - lastEventTime) < 2500;
+      ok(es.readyState === EventSource.CLOSED ? !isActive && lastEventType === "error" && readyStateAtLastEvent === EventSource.CLOSED : isActive, "");
+      es.close();
       start();
-    }, 2000);
+    }, 4000);
   });
 /*
   asyncTest("EventSource + file download", function () {
     var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + "data:1\n<delay(500)>"));
-    var a = document.createElement("a");
-    a.href = url + "?estest=" + encodeURIComponent(commonHeaders + "Content-Disposition: attachment; filename=\"test.txt\"" + "\n\n" + "test");
-    document.documentElement.appendChild(a);
-    setTimeout(function () {
-      a.click();
-    }, 200);
+    location.href = url + "?estest=" + encodeURIComponent(commonHeaders + "Content-Disposition: attachment; filename=\"test.txt\"" + "\n\n" + "test");
     setTimeout(function () {
       ok(es.readyState !== EventSource.CLOSED, es.readyState);
       start();
@@ -95,16 +100,16 @@
     start();
   });
 
-  // Opera bug with "XMLHttpRequest#onprogress" 
+  // Opera bug with "XMLHttpRequest#onprogress"
   asyncTest("EventSource 3 messages with small delay", function () {
     var body = "data\n\n<delay(25)>data\n\n<delay(25)>data\n\n<delay(10000)>";
-    var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));    
+    var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));
     var n = 0;
     es.onmessage = function () {
       n++;
     };
     es.onerror = es.onopen = function () {
-      es.onerror = es.onopen = null;
+      es.onerror = es.onopen = undefined;
       setTimeout(function () {
         es.close();
         ok(n === 3, "failed, n = " + n);
@@ -115,10 +120,10 @@
 
   asyncTest("EventSource ping-pong", function () {
     var n = 0;
-    var timeStamp = +new Date();
-    var es = null;
+    var timeStamp = new Date().getTime();
+    var es = undefined;
     var timer = 0;
-    var onTimeout = null;
+    var onTimeout = undefined;
     var body = "retry: 500\n" +
                "data: " + Math.random() + "\n\n" +
                "<delay(1500)>" +
@@ -135,7 +140,7 @@
       clearTimeout(timer);
       if (n === 3) {
         es.close();
-        ok(true, "test 0, duration: " + (+new Date() - timeStamp));
+        ok(true, "test 0, duration: " + (new Date().getTime() - timeStamp));
         start();
       } else {
         timer = setTimeout(onTimeout, 2000);
@@ -198,7 +203,7 @@
     var closeCount = 0;
 
     es.onmessage = function (event) {
-      if (+event.lastEventId === 2) {
+      if (Number(event.lastEventId) === 2) {
         closeCount = 1000;
         es.close();
         ok(false, "lastEventId should not be set when connection dropped without data dispatch (see http://www.w3.org/Bugs/Public/show_bug.cgi?id=13761 )");
@@ -214,27 +219,6 @@
         start();
       }
     };
-  });
-
-
-  asyncTest("EventTarget exceptions throwed from listeners should not stop dispathing", function () {
-    var body = "data: test\n\n";
-    var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));
-
-    var s = "";
-    es.addEventListener("message", function () {
-      s += "1";
-      throw new Error("test");
-    });
-    es.addEventListener("message", function () {
-      s += "2";
-    });
-    es.onerror = function () {
-      es.close();
-      strictEqual(s, "12", "!");
-      start();
-    };
-
   });
 
 /*
@@ -279,7 +263,7 @@
     var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));
     var s = "";
     var f = function () {
-      es.onerror = es.onmessage = null;
+      es.onerror = es.onmessage = undefined;
       es.close();
       strictEqual(s, "", "Once the end of the file is reached, any pending data must be discarded. (If the file ends in the middle of an event, before the final empty line, the incomplete event is not dispatched.)");
       start();
@@ -393,10 +377,10 @@
     var s = 0;
     es.onopen = function () {
       if (!s) {
-        s = +new Date();
+        s = new Date().getTime();
       } else {
         es.close();
-        s = +new Date() - s;
+        s = new Date().getTime() - s;
         ok(s >= 750, "!" + s);
         start();
       }
