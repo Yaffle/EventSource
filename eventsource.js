@@ -467,7 +467,21 @@
   EventSource.prototype = new F();
   F.call(EventSource);
 
-  if (Transport !== undefined) {
+  var isEventSourceSupported = function () {
+    if (global.EventSource !== undefined) {
+      try {
+        var es = new global.EventSource("data:text/event-stream;charset=utf-8,");
+        es.close();
+        return es.withCredentials === false &&
+               es.url !== ""; // to filter out Opera 12 implementation
+      } catch (error) {
+        throwError(error);
+      }
+    }
+    return false;
+  };
+
+  if (Transport !== undefined && !isEventSourceSupported()) {
     // Why replace a native EventSource ?
     // https://bugzilla.mozilla.org/show_bug.cgi?id=444328
     // https://bugzilla.mozilla.org/show_bug.cgi?id=831392
