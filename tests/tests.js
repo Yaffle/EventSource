@@ -5,7 +5,7 @@
   "use strict";
 
   var EventSource = global.EventSource;
-  var stop = function () {};//global.stop;
+  var stop = global.windowStop;
 
   if (location.hash === "#native") {
     EventSource = global.NativeEventSource || global.EventSource;
@@ -30,6 +30,34 @@
     };
     es.onerror = function (event) {
       ok(false, "failed");
+      es.close();
+      start();
+    };
+  });
+
+  asyncTest("blob: URL", function () {
+    var es = new EventSource(global.URL.createObjectURL(new global.Blob(["retry:1000\ndata:1\n\n"], {
+      type: "text/event-stream;charset=utf-8"
+    })));
+    var message = "";
+    es.onmessage = function (event) {
+      message = event.data;
+    };
+    es.onerror = function (event) {
+      ok(message === "1" && es.readyState === EventSource.CONNECTING, "failed");
+      es.close();
+      start();
+    };
+  });
+
+  asyncTest("data: URL", function () {
+    var es = new EventSource("data:text/event-stream;charset=utf-8," + encodeURIComponent("retry:1000\ndata:1\n\n"));
+    var message = "";
+    es.onmessage = function (event) {
+      message = event.data;
+    };
+    es.onerror = function (event) {
+      ok(message === "1" && es.readyState === EventSource.CONNECTING, "failed");
       es.close();
       start();
     };
@@ -68,7 +96,9 @@
       readyStateAtLastEvent = es.readyState;
     };
     setTimeout(function () {
-      stop();
+      if (stop !== undefined && stop !== null) {
+        stop();
+      }
     }, 100);
     setTimeout(function () {
       var isActive = (new Date().getTime() - lastEventTime) < 2500;

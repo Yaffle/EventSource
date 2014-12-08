@@ -196,7 +196,7 @@
       if (currentState === CONNECTING) {
         var status = 0;
         var statusText = "";
-        var contentType = "";
+        var contentType = undefined;
         if (isXHR) {
           try {
             status = xhr.status;
@@ -205,13 +205,29 @@
           } catch (error) {
             // https://bugs.webkit.org/show_bug.cgi?id=29121
             status = 0;
+            statusText = "";
+            contentType = undefined;
             // FF < 14, WebKit
             // https://bugs.webkit.org/show_bug.cgi?id=29658
             // https://bugs.webkit.org/show_bug.cgi?id=77854
           }
         } else if (type !== "" && type !== "error") {
           status = 200;
+          statusText = "OK";
           contentType = xhr.contentType;
+        }
+        if (contentType === undefined || contentType === null) {
+          contentType = "";
+        }
+        if (status === 0 && statusText === "" && type === "load" && responseText !== "") {
+          status = 200;
+          statusText = "OK";
+          if (contentType === "") { // Opera 12
+            var tmp = (/^data\:([^,]*?)(?:;base64)?,[\S]*$/).exec(url);
+            if (tmp !== undefined && tmp !== null) {
+              contentType = tmp[1];
+            }
+          }
         }
         if (status === 200 && contentTypeRegExp.test(contentType)) {
           currentState = OPEN;

@@ -138,7 +138,8 @@ function onRequest(request, response) {
       "/tests.html",
       "/qunit.css",
       "/qunit.js",
-      "/tests.js"
+      "/tests.js",
+      "/stop.js"
     ];
     if (files.indexOf(pathname) === -1) {
       pathname = files[0];
