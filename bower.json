@@ -1,5 +1,5 @@
 {
   "name": "event-source-polyfill",
-  "version": "0.0.3",
-  "main": ["eventsource.js", "eventsource.min.js", "README.md"]
+  "version": "0.0.4",
+  "main": "eventsource.js"
 }
