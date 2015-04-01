@@ -56,6 +56,7 @@ Other EventSource polyfills:
 
 * https://github.com/remy/polyfills/blob/master/EventSource.js by Remy Sharp
 * https://github.com/rwldrn/jquery.eventsource by rick waldron
+* https://github.com/amvtek/EventSource
 
 EXAMPLE
 -------
