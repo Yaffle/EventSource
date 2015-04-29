@@ -491,7 +491,7 @@
         return es.withCredentials === false &&
                es.url !== ""; // to filter out Opera 12 implementation
       } catch (error) {
-        throwError(error);
+        return false;
       }
     }
     return false;
