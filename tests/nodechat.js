@@ -5,7 +5,7 @@
 
 function now() {
   var performance = window.performance;
-  if (performance && performance.now) {
+  if (performance != undefined && performance.now != undefined) {
     return performance.now();
   }
   return new Date().getTime();
@@ -44,7 +44,7 @@ function showReadyState(event) {
 
 function post() {
   var message = document.getElementById("message").value;
-  if (!message) {
+  if (message === "") {
     return false;
   }
   document.getElementById("message").value = "";
@@ -61,7 +61,7 @@ function post() {
       checkId();
     }
   };
-  xhr.send(null);
+  xhr.send(undefined);
 
   return false;
 }
@@ -69,7 +69,7 @@ function post() {
 window.onload = function () {
   es.addEventListener("open", showReadyState);
   es.addEventListener("error", showReadyState);
-  showReadyState(null);
+  showReadyState(undefined);
   var m = document.getElementById("msgs");
   m.appendChild(msgs);
   msgs = m;

@@ -96,7 +96,7 @@
       readyStateAtLastEvent = es.readyState;
     };
     setTimeout(function () {
-      if (stop !== undefined && stop !== null) {
+      if (stop != undefined) {
         stop();
       }
     }, 100);
@@ -161,7 +161,7 @@
                "<delay(1500)>" +
                "data: " + Math.random() + "\n\n" +
                "<delay(10000)>";
-    if (global.XDomainRequest) {
+    if (global.XDomainRequest != undefined) {
       body = new Array(2048).join(" ") + body;
     }
     es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));
@@ -374,7 +374,7 @@
     es.addEventListener("error", handler);
     es.addEventListener("end", handler);
     es.onerror = function (event) {
-      if (!event.data) {// !(event instanceof MessageEvent)
+      if (event.data == undefined) { // !(event instanceof MessageEvent)
         strictEqual(s, "abcdef");
         start();
         es.close();
@@ -406,7 +406,7 @@
     var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));
     var s = 0;
     es.onopen = function () {
-      if (!s) {
+      if (s === 0) {
         s = new Date().getTime();
       } else {
         es.close();

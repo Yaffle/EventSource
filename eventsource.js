@@ -14,16 +14,14 @@
     this.data = {};
   }
 
-  Map.prototype = {
-    get: function (key) {
-      return this.data[key + "~"];
-    },
-    set: function (key, value) {
-      this.data[key + "~"] = value;
-    },
-    "delete": function (key) {
-      delete this.data[key + "~"];
-    }
+  Map.prototype.get = function (key) {
+    return this.data[key + "~"];
+  };
+  Map.prototype.set = function (key, value) {
+    this.data[key + "~"] = value;
+  };
+  Map.prototype["delete"] = function (key) {
+    delete this.data[key + "~"];
   };
 
   function EventTarget() {
@@ -36,63 +34,61 @@
     }, 0);
   }
 
-  EventTarget.prototype = {
-    dispatchEvent: function (event) {
-      event.target = this;
-      var type = event.type.toString();
-      var listeners = this.listeners;
-      var typeListeners = listeners.get(type);
-      if (typeListeners === undefined) {
+  EventTarget.prototype.dispatchEvent = function (event) {
+    event.target = this;
+    var type = event.type.toString();
+    var listeners = this.listeners;
+    var typeListeners = listeners.get(type);
+    if (typeListeners == undefined) {
+      return;
+    }
+    var length = typeListeners.length;
+    var i = -1;
+    var listener = undefined;
+    while (++i < length) {
+      listener = typeListeners[i];
+      try {
+        listener.call(this, event);
+      } catch (e) {
+        throwError(e);
+      }
+    }
+  };
+  EventTarget.prototype.addEventListener = function (type, callback) {
+    type = type.toString();
+    var listeners = this.listeners;
+    var typeListeners = listeners.get(type);
+    if (typeListeners == undefined) {
+      typeListeners = [];
+      listeners.set(type, typeListeners);
+    }
+    var i = typeListeners.length;
+    while (--i >= 0) {
+      if (typeListeners[i] === callback) {
         return;
       }
-      var length = typeListeners.length;
-      var i = -1;
-      var listener = undefined;
-      while (++i < length) {
-        listener = typeListeners[i];
-        try {
-          listener.call(this, event);
-        } catch (e) {
-          throwError(e);
-        }
+    }
+    typeListeners.push(callback);
+  };
+  EventTarget.prototype.removeEventListener = function (type, callback) {
+    type = type.toString();
+    var listeners = this.listeners;
+    var typeListeners = listeners.get(type);
+    if (typeListeners == undefined) {
+      return;
+    }
+    var length = typeListeners.length;
+    var filtered = [];
+    var i = -1;
+    while (++i < length) {
+      if (typeListeners[i] !== callback) {
+        filtered.push(typeListeners[i]);
       }
-    },
-    addEventListener: function (type, callback) {
-      type = type.toString();
-      var listeners = this.listeners;
-      var typeListeners = listeners.get(type);
-      if (typeListeners === undefined) {
-        typeListeners = [];
-        listeners.set(type, typeListeners);
-      }
-      var i = typeListeners.length;
-      while (--i >= 0) {
-        if (typeListeners[i] === callback) {
-          return;
-        }
-      }
-      typeListeners.push(callback);
-    },
-    removeEventListener: function (type, callback) {
-      type = type.toString();
-      var listeners = this.listeners;
-      var typeListeners = listeners.get(type);
-      if (typeListeners === undefined) {
-        return;
-      }
-      var length = typeListeners.length;
-      var filtered = [];
-      var i = -1;
-      while (++i < length) {
-        if (typeListeners[i] !== callback) {
-          filtered.push(typeListeners[i]);
-        }
-      }
-      if (filtered.length === 0) {
-        listeners["delete"](type);
-      } else {
-        listeners.set(type, filtered);
-      }
+    }
+    if (filtered.length === 0) {
+      listeners["delete"](type);
+    } else {
+      listeners.set(type, filtered);
     }
   };
 
@@ -111,9 +107,9 @@
 
   var XHR = global.XMLHttpRequest;
   var XDR = global.XDomainRequest;
-  var isCORSSupported = XHR !== undefined && (new XHR()).withCredentials !== undefined;
+  var isCORSSupported = XHR != undefined && (new XHR()).withCredentials != undefined;
   var isXHR = isCORSSupported;
-  var Transport = isCORSSupported ? XHR : (XDR !== undefined ? XDR : undefined);
+  var Transport = isCORSSupported ? XHR : (XDR != undefined ? XDR : undefined);
   var WAITING = -1;
   var CONNECTING = 0;
   var OPEN = 1;
@@ -149,7 +145,7 @@
   function EventSource(url, options) {
     url = url.toString();
 
-    var withCredentials = isCORSSupported && options !== undefined && Boolean(options.withCredentials);
+    var withCredentials = isCORSSupported && options != undefined && Boolean(options.withCredentials);
     var initialRetry = getDuration(1000, 0);
     var heartbeatTimeout = getDuration(45000, 0);
 
@@ -157,7 +153,7 @@
     var that = this;
     var retry = initialRetry;
     var wasActivity = false;
-    var xhr = new Transport();
+    var xhr = options != undefined && options.Transport != undefined ? new options.Transport() : new Transport();
     var timeout = 0;
     var timeout0 = 0;
     var charOffset = 0;
@@ -173,7 +169,7 @@
 
     function close() {
       currentState = CLOSED;
-      if (xhr !== undefined) {
+      if (xhr != undefined) {
         xhr.abort();
         xhr = undefined;
       }
@@ -216,7 +212,7 @@
           statusText = "OK";
           contentType = xhr.contentType;
         }
-        if (contentType === undefined || contentType === null) {
+        if (contentType == undefined) {
           contentType = "";
         }
         if (status === 0 && statusText === "" && type === "load" && responseText !== "") {
@@ -224,7 +220,7 @@
           statusText = "OK";
           if (contentType === "") { // Opera 12
             var tmp = (/^data\:([^,]*?)(?:;base64)?,[\S]*$/).exec(url);
-            if (tmp !== undefined && tmp !== null) {
+            if (tmp != undefined) {
               contentType = tmp[1];
             }
           }
@@ -241,7 +237,8 @@
             return;
           }
         } else {
-          if (status !== 0) {
+          // Opera 12
+          if (status !== 0 && (status !== 200 || contentType !== "")) {
             var message = "";
             if (status !== 200) {
               message = "EventSource's response has a status " + status + " " + statusText.replace(/\s+/g, " ") + " that is not 200. Aborting the connection.";
@@ -341,6 +338,11 @@
         if (isWrongStatusCodeOrContentType) {
           close();
         } else {
+          if (type === "" && timeout === 0 && !wasActivity) {
+            setTimeout(function () {
+              throw new Error("No activity within " + heartbeatTimeout + " milliseconds. Reconnecting.");
+            }, 0);
+          }
           currentState = WAITING;
           xhr.abort();
           if (timeout !== 0) {
@@ -381,7 +383,7 @@
       onEvent("error");
     }
 
-    if (isXHR) {
+    if (isXHR && global.opera != undefined) {
       // workaround for Opera issue with "progress" events
       timeout0 = setTimeout(function f() {
         if (xhr.readyState === 3) {
@@ -397,14 +399,14 @@
         onEvent("");
         return;
       }
-      // loading indicator in Safari, Chrome < 14, Firefox
-      // https://bugzilla.mozilla.org/show_bug.cgi?id=736723
-      if (isXHR && (xhr.sendAsBinary !== undefined || xhr.onloadend === undefined) && global.document !== undefined && global.document.readyState !== undefined && global.document.readyState !== "complete") {
+
+      // loading indicator in Safari, Chrome < 14
+      if (isXHR && !("onloadend" in xhr) && global.document != undefined && global.document.readyState != undefined && global.document.readyState !== "complete") {
         timeout = setTimeout(onTimeout, 4);
         return;
       }
-      // XDomainRequest#abort removes onprogress, onerror, onload
 
+      // XDomainRequest#abort removes onprogress, onerror, onload
       xhr.onload = onLoad;
       xhr.onerror = onError;
 
@@ -420,7 +422,11 @@
         xhr.onreadystatechange = onProgress;
       }
 
-      xhr.onprogress = onProgress;
+      // loading indicator in Firefox
+      // https://bugzilla.mozilla.org/show_bug.cgi?id=736723
+      if (xhr.sendAsBinary == undefined) {
+        xhr.onprogress = onProgress;
+      }
 
       wasActivity = false;
       timeout = setTimeout(onTimeout, heartbeatTimeout);
@@ -484,7 +490,7 @@
   F.call(EventSource);
 
   var isEventSourceSupported = function () {
-    if (global.EventSource !== undefined) {
+    if (global.EventSource != undefined) {
       try {
         var es = new global.EventSource("data:text/event-stream;charset=utf-8,");
         es.close();
@@ -497,7 +503,7 @@
     return false;
   };
 
-  if (Transport !== undefined && !isEventSourceSupported()) {
+  if (Transport != undefined && !isEventSourceSupported()) {
     // Why replace a native EventSource ?
     // https://bugzilla.mozilla.org/show_bug.cgi?id=444328
     // https://bugzilla.mozilla.org/show_bug.cgi?id=831392
