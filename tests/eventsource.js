@@ -490,17 +490,8 @@
   F.call(EventSource);
 
   var isEventSourceSupported = function () {
-    if (global.EventSource != undefined) {
-      try {
-        var es = new global.EventSource("data:text/event-stream;charset=utf-8,");
-        es.close();
-        return es.withCredentials === false &&
-               es.url !== ""; // to filter out Opera 12 implementation
-      } catch (error) {
-        return false;
-      }
-    }
-    return false;
+    // Opera 12 fails this test, but this is fine.
+    return global.EventSource != undefined && ("withCredentials" in global.EventSource.prototype);
   };
 
   if (Transport != undefined && !isEventSourceSupported()) {
