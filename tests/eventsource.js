@@ -108,8 +108,9 @@
   var XHR = global.XMLHttpRequest;
   var XDR = global.XDomainRequest;
   var isCORSSupported = XHR != undefined && (new XHR()).withCredentials != undefined;
-  var isXHR = isCORSSupported;
-  var Transport = isCORSSupported ? XHR : (XDR != undefined ? XDR : undefined);
+  var isXHR = isCORSSupported || (XHR != undefined && XDR == undefined);
+  var Transport = isXHR ? XHR : XDR;
+
   var WAITING = -1;
   var CONNECTING = 0;
   var OPEN = 1;
@@ -488,13 +489,16 @@
 
   EventSource.prototype = new F();
   F.call(EventSource);
+  if (isCORSSupported) {
+    EventSource.prototype.withCredentials = undefined;
+  }
 
   var isEventSourceSupported = function () {
     // Opera 12 fails this test, but this is fine.
     return global.EventSource != undefined && ("withCredentials" in global.EventSource.prototype);
   };
 
-  if (Transport != undefined && !isEventSourceSupported()) {
+  if (Transport != undefined && (global.EventSource == undefined || (isCORSSupported && !isEventSourceSupported()))) {
     // Why replace a native EventSource ?
     // https://bugzilla.mozilla.org/show_bug.cgi?id=444328
     // https://bugzilla.mozilla.org/show_bug.cgi?id=831392
