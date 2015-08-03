@@ -10,6 +10,9 @@
 (function (global) {
   "use strict";
 
+  var setTimeout = global.setTimeout;
+  var clearTimeout = global.clearTimeout;
+    
   function Map() {
     this.data = {};
   }
