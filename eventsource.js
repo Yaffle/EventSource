@@ -32,7 +32,7 @@
   }
 
   function throwError(e) {
-    global.setTimeout(function () {
+    setTimeout(function () {
       throw e;
     }, 0);
   }
@@ -178,11 +178,11 @@
         xhr = undefined;
       }
       if (timeout !== 0) {
-        global.clearTimeout(timeout);
+        clearTimeout(timeout);
         timeout = 0;
       }
       if (timeout0 !== 0) {
-        global.clearTimeout(timeout0);
+        clearTimeout(timeout0);
         timeout0 = 0;
       }
       that.readyState = CLOSED;
@@ -249,7 +249,7 @@
             } else {
               message = "EventSource's response has a Content-Type specifying an unsupported type: " + contentType.replace(/\s+/g, " ") + ". Aborting the connection.";
             }
-            global.setTimeout(function () {
+            setTimeout(function () {
               throw new Error(message);
             }, 0);
             isWrongStatusCodeOrContentType = true;
@@ -285,8 +285,8 @@
               } else if (field === "heartbeatTimeout") {
                 heartbeatTimeout = getDuration(Number(value), heartbeatTimeout);
                 if (timeout !== 0) {
-                  global.clearTimeout(timeout);
-                  timeout = global.setTimeout(onTimeout, heartbeatTimeout);
+                  clearTimeout(timeout);
+                  timeout = setTimeout(onTimeout, heartbeatTimeout);
                 }
               }
               value = "";
@@ -343,14 +343,14 @@
           close();
         } else {
           if (type === "" && timeout === 0 && !wasActivity) {
-            global.setTimeout(function () {
+            setTimeout(function () {
               throw new Error("No activity within " + heartbeatTimeout + " milliseconds. Reconnecting.");
             }, 0);
           }
           currentState = WAITING;
           xhr.abort();
           if (timeout !== 0) {
-            global.clearTimeout(timeout);
+            clearTimeout(timeout);
             timeout = 0;
           }
           if (retry > initialRetry * 16) {
@@ -359,7 +359,7 @@
           if (retry > MAXIMUM_DURATION) {
             retry = MAXIMUM_DURATION;
           }
-          timeout = global.setTimeout(onTimeout, retry);
+          timeout = setTimeout(onTimeout, retry);
           retry = retry * 2 + 1;
 
           that.readyState = CONNECTING;
@@ -370,7 +370,7 @@
       } else {
         if (timeout === 0) {
           wasActivity = false;
-          timeout = global.setTimeout(onTimeout, heartbeatTimeout);
+          timeout = setTimeout(onTimeout, heartbeatTimeout);
         }
       }
     }
@@ -389,11 +389,11 @@
 
     if (isXHR && global.opera != undefined) {
       // workaround for Opera issue with "progress" events
-      timeout0 = global.setTimeout(function f() {
+      timeout0 = setTimeout(function f() {
         if (xhr.readyState === 3) {
           onEvent("progress");
         }
-        timeout0 = global.setTimeout(f, 500);
+        timeout0 = setTimeout(f, 500);
       }, 0);
     }
 
@@ -406,7 +406,7 @@
 
       // loading indicator in Safari, Chrome < 14
       if (isXHR && !("onloadend" in xhr) && global.document != undefined && global.document.readyState != undefined && global.document.readyState !== "complete") {
-        timeout = global.setTimeout(onTimeout, 4);
+        timeout = setTimeout(onTimeout, 4);
         return;
       }
 
@@ -433,7 +433,7 @@
       }
 
       wasActivity = false;
-      timeout = global.setTimeout(onTimeout, heartbeatTimeout);
+      timeout = setTimeout(onTimeout, heartbeatTimeout);
 
       charOffset = 0;
       currentState = CONNECTING;
