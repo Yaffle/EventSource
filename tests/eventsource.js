@@ -108,8 +108,7 @@
   var XHR = global.XMLHttpRequest;
   var XDR = global.XDomainRequest;
   var isCORSSupported = XHR != undefined && (new XHR()).withCredentials != undefined;
-  var isXHR = isCORSSupported || (XHR != undefined && XDR == undefined);
-  var Transport = isXHR ? XHR : XDR;
+  var Transport = isCORSSupported || (XHR != undefined && XDR == undefined) ? XHR : XDR;
 
   var WAITING = -1;
   var CONNECTING = 0;
@@ -154,7 +153,9 @@
     var that = this;
     var retry = initialRetry;
     var wasActivity = false;
-    var xhr = options != undefined && options.Transport != undefined ? new options.Transport() : new Transport();
+    var CurrentTransport = options != undefined && options.Transport != undefined ? options.Transport : Transport;
+    var xhr = new CurrentTransport();
+    var isXHR = CurrentTransport !== XDR;
     var timeout = 0;
     var timeout0 = 0;
     var charOffset = 0;
@@ -186,7 +187,14 @@
     }
 
     function onEvent(type) {
-      var responseText = currentState === OPEN || currentState === CONNECTING ? xhr.responseText : "";
+      var responseText = "";
+      if (currentState === OPEN || currentState === CONNECTING) {
+        try {
+          responseText = xhr.responseText;
+        } catch (error) {
+          // IE 8 - 9 with XMLHttpRequest
+        }
+      }
       var event = undefined;
       var isWrongStatusCodeOrContentType = false;
 
@@ -384,6 +392,18 @@
       onEvent("error");
     }
 
+    function onReadyStateChange() {
+      if (xhr.readyState === 4) {
+        if (xhr.status === 0) {
+          onEvent("error");
+        } else {
+          onEvent("load");
+        }
+      } else {
+        onEvent("progress");
+      }
+    }
+
     if (isXHR && global.opera != undefined) {
       // workaround for Opera issue with "progress" events
       timeout0 = setTimeout(function f() {
@@ -417,10 +437,12 @@
         // https://bugzilla.mozilla.org/show_bug.cgi?id=880200
         // https://code.google.com/p/chromium/issues/detail?id=153570
         xhr.onabort = onError;
-
+      }
+      if (isXHR && !("ontimeout" in xhr) || !("onloadend" in xhr)) {
         // Firefox 3.5 - 3.6 - ? < 9.0
         // onprogress is not fired sometimes or delayed
-        xhr.onreadystatechange = onProgress;
+        // IE 8-9 (XMLHTTPRequest)
+        xhr.onreadystatechange = onReadyStateChange;
       }
 
       // loading indicator in Firefox
