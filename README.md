@@ -35,7 +35,7 @@ Server-side requirements:
 
 * "Last-Event-ID" is sent in a query string (CORS + "Last-Event-ID" header is not supported by all browsers)
 * It is required to send 2 KB padding for IE < 10 and Chrome < 13 at the top of the response stream
-* You need to send "comment" messages each 15-30 seconds, this messages will be used as heartbeat to detect disconnects - see https://bugzilla.mozilla.org/show_bug.cgi?id=444328
+* You need to send "comment" messages each 15-30 seconds, these messages will be used as heartbeat to detect disconnects - see https://bugzilla.mozilla.org/show_bug.cgi?id=444328
 
 Specification:
 --------------
