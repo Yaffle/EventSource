@@ -10,6 +10,9 @@
 (function (global) {
   "use strict";
 
+  var setTimeout = global.setTimeout;
+  var clearTimeout = global.clearTimeout;
+    
   function Map() {
     this.data = {};
   }
@@ -155,7 +158,6 @@
     var wasActivity = false;
     var CurrentTransport = options != undefined && options.Transport != undefined ? options.Transport : Transport;
     var xhr = new CurrentTransport();
-    var isXHR = CurrentTransport !== XDR;
     var timeout = 0;
     var timeout0 = 0;
     var charOffset = 0;
@@ -202,7 +204,7 @@
         var status = 0;
         var statusText = "";
         var contentType = undefined;
-        if (isXHR) {
+        if (!("contentType" in xhr)) {
           try {
             status = xhr.status;
             statusText = xhr.statusText;
@@ -404,7 +406,7 @@
       }
     }
 
-    if (isXHR && global.opera != undefined) {
+    if (("readyState" in xhr) && global.opera != undefined) {
       // workaround for Opera issue with "progress" events
       timeout0 = setTimeout(function f() {
         if (xhr.readyState === 3) {
@@ -422,7 +424,9 @@
       }
 
       // loading indicator in Safari, Chrome < 14
-      if (isXHR && !("onloadend" in xhr) && global.document != undefined && global.document.readyState != undefined && global.document.readyState !== "complete") {
+      // loading indicator in Firefox
+      // https://bugzilla.mozilla.org/show_bug.cgi?id=736723
+      if ((!("ontimeout" in xhr) || ("sendAsBinary" in xhr) || ("mozAnon" in xhr)) && global.document != undefined && global.document.readyState != undefined && global.document.readyState !== "complete") {
         timeout = setTimeout(onTimeout, 4);
         return;
       }
@@ -431,24 +435,22 @@
       xhr.onload = onLoad;
       xhr.onerror = onError;
 
-      if (isXHR) {
+      if ("onabort" in xhr) {
         // improper fix to match Firefox behaviour, but it is better than just ignore abort
         // see https://bugzilla.mozilla.org/show_bug.cgi?id=768596
         // https://bugzilla.mozilla.org/show_bug.cgi?id=880200
         // https://code.google.com/p/chromium/issues/detail?id=153570
         xhr.onabort = onError;
       }
-      if (isXHR && !("ontimeout" in xhr) || !("onloadend" in xhr)) {
-        // Firefox 3.5 - 3.6 - ? < 9.0
-        // onprogress is not fired sometimes or delayed
-        // IE 8-9 (XMLHTTPRequest)
-        xhr.onreadystatechange = onReadyStateChange;
-      }
 
-      // loading indicator in Firefox
-      // https://bugzilla.mozilla.org/show_bug.cgi?id=736723
-      if (xhr.sendAsBinary == undefined) {
+      if ("onprogress" in xhr) {
         xhr.onprogress = onProgress;
+      }
+      // IE 8-9 (XMLHTTPRequest)
+      // Firefox 3.5 - 3.6 - ? < 9.0
+      // onprogress is not fired sometimes or delayed
+      if (!("onprogress" in xhr) || !("ontimeout" in xhr)) {
+        xhr.onreadystatechange = onReadyStateChange;
       }
 
       wasActivity = false;
@@ -471,12 +473,16 @@
       }
       xhr.open("GET", s, true);
 
-      if (isXHR) {
+      if ("withCredentials" in xhr) {
         // withCredentials should be set after "open" for Safari and Chrome (< 19 ?)
         xhr.withCredentials = withCredentials;
+      }
 
+      if ("responseType" in xhr) {
         xhr.responseType = "text";
+      }
 
+      if ("setRequestHeader" in xhr) {
         // Request header field Cache-Control is not allowed by Access-Control-Allow-Headers.
         // "Cache-control: no-cache" are not honored in Chrome and Firefox
         // https://bugzilla.mozilla.org/show_bug.cgi?id=428916
