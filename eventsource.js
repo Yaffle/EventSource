@@ -449,7 +449,8 @@
       // IE 8-9 (XMLHTTPRequest)
       // Firefox 3.5 - 3.6 - ? < 9.0
       // onprogress is not fired sometimes or delayed
-      if (!("onprogress" in xhr) || !("ontimeout" in xhr)) {
+      // see also #64
+      if ("onreadystatechange" in xhr) {
         xhr.onreadystatechange = onReadyStateChange;
       }
 
