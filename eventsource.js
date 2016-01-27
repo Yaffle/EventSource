@@ -12,7 +12,7 @@
 
   var setTimeout = global.setTimeout;
   var clearTimeout = global.clearTimeout;
-    
+
   function Map() {
     this.data = {};
   }
@@ -538,4 +538,4 @@
     global.EventSource = EventSource;
   }
 
-}(this));
+}(typeof window !== 'undefined' ? window : this));
