@@ -45,7 +45,7 @@ Specification:
 Build:
 ------
 
-* To build EventSource, just install grunt and this project devDependencies and run it. It should generate a new version of eventsource.min.js.
+* To build EventSource, just install npm modules (`npm install`) and then run the build (`npm run build`). It should generate a new version of eventsource.min.js.
 
 Notes:
 -----
