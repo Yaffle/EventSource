@@ -153,6 +153,7 @@
     var heartbeatTimeout = getDuration(45000, 0);
 
     var lastEventId = "";
+    var headers = (options && options.headers) || {};
     var that = this;
     var retry = initialRetry;
     var wasActivity = false;
@@ -491,6 +492,12 @@
         xhr.setRequestHeader("Accept", "text/event-stream");
         // Request header field Last-Event-ID is not allowed by Access-Control-Allow-Headers.
         //xhr.setRequestHeader("Last-Event-ID", lastEventId);
+        
+        // Add the headers to the transport.
+        var headerKeys = Object.keys(headers);
+        for (var i = 0; i < headerKeys.length; i++) {
+         xhr.setRequestHeader(headerKeys[i], headers[headerKeys[i]]);
+        }
       }
 
       xhr.send(undefined);
