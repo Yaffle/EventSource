@@ -529,20 +529,6 @@
     EventSource.prototype.withCredentials = undefined;
   }
 
-  var isEventSourceSupported = function () {
-    // Opera 12 fails this test, but this is fine.
-    return global.EventSource != undefined && ("withCredentials" in global.EventSource.prototype);
-  };
-
-  if (Transport != undefined && (global.EventSource == undefined || (isCORSSupported && !isEventSourceSupported()))) {
-    // Why replace a native EventSource ?
-    // https://bugzilla.mozilla.org/show_bug.cgi?id=444328
-    // https://bugzilla.mozilla.org/show_bug.cgi?id=831392
-    // https://code.google.com/p/chromium/issues/detail?id=260144
-    // https://code.google.com/p/chromium/issues/detail?id=225654
-    // ...
-    global.NativeEventSource = global.EventSource;
-    global.EventSource = EventSource;
-  }
+  return EventSource;
 
 }(typeof window !== 'undefined' ? window : this));
