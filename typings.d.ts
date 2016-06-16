@@ -19,7 +19,7 @@ interface EventSource extends EventTarget {
 
 interface EventSourceInit {
   withCredentials?: boolean;
-  headers?: {[key: string]: string}
+  headers?: Object;
 }
 
 interface OnMessageEvent {
