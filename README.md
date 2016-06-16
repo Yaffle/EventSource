@@ -11,9 +11,10 @@ How to use:
 
 package.json
 ```
-"event-source": "git://github.com/AlexGalays/EventSource.git"
+"event-source": "git://github.com/AlexGalays/EventSource.git#923b9a0998fcfd7753040e09aa83764b3cc0230d"
 ```
 
+javascript
 ```javascript
 import EventSource from 'event-source'
 
@@ -24,8 +25,6 @@ const source = new EventSource('url', { headers: { Authorization: 'plz' } })
 EventSource polyfill - http://www.w3.org/TR/eventsource/
 
 
-
-
 Server-side requirements:
 -------------------------
 
@@ -33,21 +32,9 @@ Server-side requirements:
 * It is required to send 2 KB padding for IE < 10 and Chrome < 13 at the top of the response stream
 * You need to send "comment" messages each 15-30 seconds, these messages will be used as heartbeat to detect disconnects - see https://bugzilla.mozilla.org/show_bug.cgi?id=444328
 
-Build:
-------
-
-* To build EventSource, just install npm modules (`npm install`) and then run the build (`npm run build`). It should generate a new version of eventsource.min.js.
-
 Notes:
 -----
  * If you are using HTTP Basic Authentication, you can embed credentials into the URL - `http://username:password@github.com`.
-
-Other EventSource polyfills:
-----------------------------
-
-* https://github.com/remy/polyfills/blob/master/EventSource.js by Remy Sharp
-* https://github.com/rwldrn/jquery.eventsource by Rick Waldron
-* https://github.com/amvtek/EventSource by AmvTek
 
 License
 -------
