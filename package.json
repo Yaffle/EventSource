@@ -1,10 +1,8 @@
 {
   "name": "event-source",
-  "version": "0.0.7",
+  "version": "1.0.0",
   "main": "eventsource.js",
-  "scripts": {
-    "build": "grunt"
-  },
+  "typings": "typings.d.ts",
   "repository": {
     "type": "git",
     "url": "git://github.com/Yaffle/EventSource.git"
@@ -21,10 +19,5 @@
   "bugs": {
     "url": "https://github.com/Yaffle/EventSource/issues"
   },
-  "homepage": "https://github.com/Yaffle/EventSource",
-  "devDependencies": {
-    "grunt": "^0.4.4",
-    "grunt-cli": "^0.1.13",
-    "grunt-contrib-uglify": "~0.2.4"
-  }
+  "homepage": "https://github.com/Yaffle/EventSource"
 }

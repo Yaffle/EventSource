@@ -7,7 +7,7 @@
 /*jslint indent: 2, vars: true, plusplus: true */
 /*global setTimeout, clearTimeout */
 
-(function (global) {
+const EventSource = (function (global) {
   "use strict";
 
   var setTimeout = global.setTimeout;
@@ -492,7 +492,7 @@
         xhr.setRequestHeader("Accept", "text/event-stream");
         // Request header field Last-Event-ID is not allowed by Access-Control-Allow-Headers.
         //xhr.setRequestHeader("Last-Event-ID", lastEventId);
-        
+
         // Add the headers to the transport.
         var headerKeys = Object.keys(headers);
         for (var i = 0; i < headerKeys.length; i++) {
@@ -532,3 +532,5 @@
   return EventSource;
 
 }(typeof window !== 'undefined' ? window : this));
+
+module.exports = { 'default': EventSource };
