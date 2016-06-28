@@ -84,7 +84,8 @@ http.createServer(function (request, response) {
       "Access-Control-Allow-Origin": "*"
     });
 
-    response.write(":" + Array(2049).join(" ") + "\n"); // 2kB padding for IE
+    var padding = new Array(2049);
+    response.write(":" + padding.join(" ") + "\n"); // 2kB padding for IE
     response.write("retry: 2000\n");
 
     var lastEventId = Number(request.headers["last-event-id"]) || Number(parsedURL.query.lastEventId) || 0;
