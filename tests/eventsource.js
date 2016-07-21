@@ -12,7 +12,7 @@
 
   var setTimeout = global.setTimeout;
   var clearTimeout = global.clearTimeout;
-    
+
   function Map() {
     this.data = {};
   }
@@ -51,7 +51,11 @@
     while (++i < length) {
       listener = typeListeners[i];
       try {
-        listener.call(this, event);
+        if (typeof listener.handleEvent === "function") {
+          listener.handleEvent(event);
+        } else {
+          listener.call(this, event);
+        }
       } catch (e) {
         throwError(e);
       }
@@ -226,7 +230,7 @@
         if (contentType == undefined) {
           contentType = "";
         }
-        if (status === 0 && statusText === "" && type === "load" && responseText !== "") {
+        if (status === 0 && statusText === "" && (type === "load" || type === "error") && responseText !== "") {
           status = 200;
           statusText = "OK";
           if (contentType === "") { // Opera 12
@@ -344,40 +348,45 @@
         charOffset = length;
       }
 
-      if ((currentState === OPEN || currentState === CONNECTING) &&
-          (type === "load" || type === "error" || isWrongStatusCodeOrContentType || (charOffset > 1024 * 1024) || (timeout === 0 && !wasActivity))) {
-        if (isWrongStatusCodeOrContentType) {
-          close();
-        } else {
-          if (type === "" && timeout === 0 && !wasActivity) {
-            setTimeout(function () {
-              throw new Error("No activity within " + heartbeatTimeout + " milliseconds. Reconnecting.");
-            }, 0);
-          }
-          currentState = WAITING;
-          xhr.abort();
-          if (timeout !== 0) {
-            clearTimeout(timeout);
-            timeout = 0;
-          }
-          if (retry > initialRetry * 16) {
-            retry = initialRetry * 16;
-          }
-          if (retry > MAXIMUM_DURATION) {
-            retry = MAXIMUM_DURATION;
-          }
-          timeout = setTimeout(onTimeout, retry);
-          retry = retry * 2 + 1;
+      if (currentState === OPEN || currentState === CONNECTING) {
+        if (type === "load" ||
+            type === "error" ||
+            isWrongStatusCodeOrContentType ||
+            (charOffset > 1024 * 1024) ||
+            (timeout === 0 && !wasActivity)) {
+          if (isWrongStatusCodeOrContentType) {
+            close();
+          } else {
+            if (type === "" && timeout === 0 && !wasActivity) {
+              setTimeout(function () {
+                throw new Error("No activity within " + heartbeatTimeout + " milliseconds. Reconnecting.");
+              }, 0);
+            }
+            currentState = WAITING;
+            xhr.abort();
+            if (timeout !== 0) {
+              clearTimeout(timeout);
+              timeout = 0;
+            }
+            if (retry > initialRetry * 16) {
+              retry = initialRetry * 16;
+            }
+            if (retry > MAXIMUM_DURATION) {
+              retry = MAXIMUM_DURATION;
+            }
+            timeout = setTimeout(onTimeout, retry);
+            retry = retry * 2 + 1;
 
-          that.readyState = CONNECTING;
-        }
-        event = new Event("error");
-        that.dispatchEvent(event);
-        fire(that, that.onerror, event);
-      } else {
-        if (timeout === 0) {
-          wasActivity = false;
-          timeout = setTimeout(onTimeout, heartbeatTimeout);
+            that.readyState = CONNECTING;
+          }
+          event = new Event("error");
+          that.dispatchEvent(event);
+          fire(that, that.onerror, event);
+        } else {
+          if (timeout === 0) {
+            wasActivity = false;
+            timeout = setTimeout(onTimeout, heartbeatTimeout);
+          }
         }
       }
     }
@@ -395,14 +404,16 @@
     }
 
     function onReadyStateChange() {
-      if (xhr.readyState === 4) {
-        if (xhr.status === 0) {
-          onEvent("error");
+      if (xhr != undefined) { // Opera 12
+        if (xhr.readyState === 4) {
+          if (xhr.status === 0) {
+            onEvent("error");
+          } else {
+            onEvent("load");
+          }
         } else {
-          onEvent("load");
+          onEvent("progress");
         }
-      } else {
-        onEvent("progress");
       }
     }
 
@@ -538,4 +549,4 @@
     global.EventSource = EventSource;
   }
 
-}(this));
+}(typeof window !== 'undefined' ? window : this));
