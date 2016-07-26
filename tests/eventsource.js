@@ -483,7 +483,12 @@
       } else {
         s = url;
       }
-      xhr.open("GET", s, true);
+      try {
+        xhr.open("GET", s, true);
+      } catch (error0) {
+        close();
+        throw error0;
+      }
 
       if ("withCredentials" in xhr) {
         // withCredentials should be set after "open" for Safari and Chrome (< 19 ?)
@@ -504,7 +509,13 @@
         //xhr.setRequestHeader("Last-Event-ID", lastEventId);
       }
 
-      xhr.send(undefined);
+      try {
+        xhr.send(undefined);
+      } catch (error1) {
+        // Safari 5.1.7, Opera 12
+        close();
+        throw error1;
+      }
     };
 
     EventTarget.call(this);
