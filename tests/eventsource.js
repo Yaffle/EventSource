@@ -172,8 +172,8 @@
     var onTimeout = undefined;
 
     var state = FIELD_START;
-    var field = "";
-    var value = "";
+    var fieldStart = 0;
+    var valueStart = 0;
 
     function close() {
       currentState = CLOSED;
@@ -272,36 +272,40 @@
         if (responseText.length > charOffset) {
           wasActivity = true;
         }
-        var i = charOffset - 1;
+        var position = charOffset - 1;
         var length = responseText.length;
-        var c = "\n";
-        while (++i < length) {
-          c = responseText.charAt(i);
-          if (state === AFTER_CR && c === "\n") {
+        while (++position < length) {
+          var c = responseText.charCodeAt(position);
+          if (state === AFTER_CR && c === "\n".charCodeAt(0)) {
             state = FIELD_START;
           } else {
             if (state === AFTER_CR) {
               state = FIELD_START;
             }
-            if (c === "\r" || c === "\n") {
-              if (field === "data") {
-                dataBuffer.push(value);
-              } else if (field === "id") {
-                lastEventIdBuffer = value;
-              } else if (field === "event") {
-                eventTypeBuffer = value;
-              } else if (field === "retry") {
-                initialRetry = getDuration(Number(value), initialRetry);
-                retry = initialRetry;
-              } else if (field === "heartbeatTimeout") {
-                heartbeatTimeout = getDuration(Number(value), heartbeatTimeout);
-                if (timeout !== 0) {
-                  clearTimeout(timeout);
-                  timeout = setTimeout(onTimeout, heartbeatTimeout);
+            if (c === "\r".charCodeAt(0) || c === "\n".charCodeAt(0)) {
+              if (state !== FIELD_START) {
+                if (state === FIELD) {
+                  valueStart = position + 1;
+                }
+                var field = responseText.slice(fieldStart, valueStart - 1);
+                var value = responseText.slice(valueStart + (valueStart < position && responseText.charCodeAt(valueStart) === " ".charCodeAt(0) ? 1 : 0), position);
+                if (field === "data") {
+                  dataBuffer.push(value);
+                } else if (field === "id") {
+                  lastEventIdBuffer = value;
+                } else if (field === "event") {
+                  eventTypeBuffer = value;
+                } else if (field === "retry") {
+                  initialRetry = getDuration(Number(value), initialRetry);
+                  retry = initialRetry;
+                } else if (field === "heartbeatTimeout") {
+                  heartbeatTimeout = getDuration(Number(value), heartbeatTimeout);
+                  if (timeout !== 0) {
+                    clearTimeout(timeout);
+                    timeout = setTimeout(onTimeout, heartbeatTimeout);
+                  }
                 }
               }
-              value = "";
-              field = "";
               if (state === FIELD_START) {
                 if (dataBuffer.length !== 0) {
                   lastEventId = lastEventIdBuffer;
@@ -323,24 +327,19 @@
                 dataBuffer.length = 0;
                 eventTypeBuffer = "";
               }
-              state = c === "\r" ? AFTER_CR : FIELD_START;
+              state = c === "\r".charCodeAt(0) ? AFTER_CR : FIELD_START;
             } else {
               if (state === FIELD_START) {
+                fieldStart = position;
                 state = FIELD;
               }
               if (state === FIELD) {
-                if (c === ":") {
+                if (c === ":".charCodeAt(0)) {
+                  valueStart = position + 1;
                   state = VALUE_START;
-                } else {
-                  field += c;
                 }
               } else if (state === VALUE_START) {
-                if (c !== " ") {
-                  value += c;
-                }
                 state = VALUE;
-              } else if (state === VALUE) {
-                value += c;
               }
             }
           }
@@ -473,8 +472,8 @@
       dataBuffer.length = 0;
       eventTypeBuffer = "";
       lastEventIdBuffer = lastEventId;
-      value = "";
-      field = "";
+      fieldStart = 0;
+      valueStart = 0;
       state = FIELD_START;
 
       var s = url.slice(0, 5);
