@@ -446,6 +446,16 @@
     };
   });
 
+  asyncTest("`EventSource#close` in `EventSource#onmessage`", function () {
+    var body = "data\n\n<delay(1000)>data\n\n<delay(1000)>data\n\n<delay(10000)>";
+    var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));
+    es.onmessage = function () {
+      es.close();
+      ok(es.readyState === EventSource.CLOSED, "failed");
+      start();
+    };
+  });
+
   asyncTest("infinite reconnection", function () {
     var es = new EventSource("http://functionfunction" + Math.floor(Math.random() * 1e10) + ".org");
     var n = 0;
