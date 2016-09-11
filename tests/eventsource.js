@@ -469,7 +469,7 @@
         var event = new Event("open");
         this.es.dispatchEvent(event);
         fire(this.es, this.es.onopen, event);
-      } else {
+      } else if (status !== 0) {
         var message = "";
         if (status !== 200) {
           message = "EventSource's response has a status " + status + " " + statusText.replace(/\s+/g, " ") + " that is not 200. Aborting the connection.";
@@ -477,7 +477,7 @@
           message = "EventSource's response has a Content-Type specifying an unsupported type: " + contentType.replace(/\s+/g, " ") + ". Aborting the connection.";
         }
         throwError(new Error(message));
-        close();
+        this.close();
         var event = new Event("error");
         this.es.dispatchEvent(event);
         fire(this.es, this.es.onerror, event);
