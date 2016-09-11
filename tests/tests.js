@@ -456,6 +456,16 @@
     };
   });
 
+  asyncTest("chunks", function () {
+    var body = "data:1<delay(1000)>2<delay(1000)>\n\n";
+    var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));
+    es.onmessage = function (event) {
+      es.close();
+      ok(event.data === "12", "failed");
+      start();
+    };
+  });
+
   asyncTest("infinite reconnection", function () {
     var es = new EventSource("http://functionfunction" + Math.floor(Math.random() * 1e10) + ".org");
     var n = 0;
