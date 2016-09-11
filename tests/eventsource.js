@@ -36,6 +36,7 @@
     this.xhr = xhr;
     this.state = 0;
     this.charOffset = 0;
+    this.offset = 0;
     this.url = "";
     this.withCredentials = false;
     this.timeout = 0;
@@ -82,8 +83,16 @@
       } catch (error) {
         // IE 8 - 9 with XMLHttpRequest
       }
-      var chunk = responseText.slice(this.charOffset);
-      this.charOffset = responseText.length;
+      var chunkStart = this.charOffset;
+      var length = responseText.length;
+      for (var i = this.offset; i < length; i += 1) {
+        var c = responseText.charCodeAt(i);
+        if (c === "\n".charCodeAt(0) || c === "\r".charCodeAt(0)) {
+          this.charOffset = i + 1;
+        }
+      }
+      this.offset = length;
+      var chunk = responseText.slice(chunkStart, this.charOffset);
       this.onProgressCallback.call(this.thisArg, chunk);
     }
   };
@@ -175,6 +184,7 @@
 
     this.state = 1;
     this.charOffset = 0;
+    this.offset = 0;
 
     var that = this;
 
@@ -299,9 +309,8 @@
       return;
     }
     var length = typeListeners.length;
-    var i = -1;
     var listener = undefined;
-    while (++i < length) {
+    for (var i = 0; i < length; i += 1) {
       listener = typeListeners[i];
       try {
         if (typeof listener.handleEvent === "function") {
@@ -322,8 +331,7 @@
       typeListeners = [];
       listeners.set(type, typeListeners);
     }
-    var i = typeListeners.length;
-    while (--i >= 0) {
+    for (var i = typeListeners.length; i >= 0; i -= 1) {
       if (typeListeners[i] === callback) {
         return;
       }
@@ -339,8 +347,7 @@
     }
     var length = typeListeners.length;
     var filtered = [];
-    var i = -1;
-    while (++i < length) {
+    for (var i = 0; i < length; i += 1) {
       if (typeListeners[i] !== callback) {
         filtered.push(typeListeners[i]);
       }
@@ -484,8 +491,7 @@
       if (length !== 0) {
         this.wasActivity = true;
       }
-      var position = -1;
-      while (++position < length) {
+      for (var position = 0; position < length; position += 1) {
         var c = chunk.charCodeAt(position);
         if (this.state === AFTER_CR && c === "\n".charCodeAt(0)) {
           this.state = FIELD_START;
