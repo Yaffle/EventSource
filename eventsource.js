@@ -19,7 +19,7 @@
   function XHRTransport(xhr, onStartCallback, onProgressCallback, onFinishCallback, thisArg) {
     this._internal = new XHRTransportInternal(xhr, onStartCallback, onProgressCallback, onFinishCallback, thisArg);
   }
-  
+
   XHRTransport.prototype.open = function (url, withCredentials) {
     this._internal.open(url, withCredentials);
   };
@@ -34,8 +34,7 @@
     this.onFinishCallback = onFinishCallback;
     this.thisArg = thisArg;
     this.xhr = xhr;
-    this.wasStarted = false;
-    this.wasProgress = false;
+    this.state = 0;
     this.charOffset = 0;
     this.url = "";
     this.withCredentials = false;
@@ -43,80 +42,76 @@
   }
 
   XHRTransportInternal.prototype.onStart = function () {
-    this.wasStarted = true;
-    var status = 0;
-    var statusText = "";
-    var contentType = undefined;
-    if (!("contentType" in this.xhr)) {
-      try {
-        status = this.xhr.status;
-        statusText = this.xhr.statusText;
-        contentType = this.xhr.getResponseHeader("Content-Type");
-      } catch (error) {
-        // https://bugs.webkit.org/show_bug.cgi?id=29121
-        status = 0;
-        statusText = "";
-        contentType = undefined;
-        // FF < 14, WebKit
-        // https://bugs.webkit.org/show_bug.cgi?id=29658
-        // https://bugs.webkit.org/show_bug.cgi?id=77854
+    if (this.state === 1) {
+      this.state = 2;
+      var status = 0;
+      var statusText = "";
+      var contentType = undefined;
+      if (!("contentType" in this.xhr)) {
+        try {
+          status = this.xhr.status;
+          statusText = this.xhr.statusText;
+          contentType = this.xhr.getResponseHeader("Content-Type");
+        } catch (error) {
+          // https://bugs.webkit.org/show_bug.cgi?id=29121
+          status = 0;
+          statusText = "";
+          contentType = undefined;
+          // FF < 14, WebKit
+          // https://bugs.webkit.org/show_bug.cgi?id=29658
+          // https://bugs.webkit.org/show_bug.cgi?id=77854
+        }
+      } else {
+        status = 200;
+        statusText = "OK";
+        contentType = this.xhr.contentType;
       }
-    } else {
-      status = 200;
-      statusText = "OK";
-      contentType = this.xhr.contentType;
+      if (contentType == undefined) {
+        contentType = "";
+      }
+      this.onStartCallback.call(this.thisArg, status, statusText, contentType);
     }
-    if (contentType == undefined) {
-      contentType = "";
-    }
-    this.onStartCallback.call(this.thisArg, status, statusText, contentType);
   };
   XHRTransportInternal.prototype.onProgress = function () {
-    this.wasProgress = true;
-    if (!this.wasStarted) {
-      this.onStart();
+    this.onStart();
+    if (this.state === 2 || this.state === 3) {
+      this.state = 3;
+      var responseText = "";
+      try {
+        responseText = this.xhr.responseText;
+      } catch (error) {
+        // IE 8 - 9 with XMLHttpRequest
+      }
+      var chunk = responseText.slice(this.charOffset);
+      this.charOffset = responseText.length;
+      this.onProgressCallback.call(this.thisArg, chunk);
     }
-    var responseText = "";
-    try {
-      responseText = this.xhr.responseText;
-    } catch (error) {
-      // IE 8 - 9 with XMLHttpRequest
+  };
+  XHRTransportInternal.prototype.onFinish = function () {
+    // IE 8 fires "onload" without "onprogress
+    this.onProgress();
+    if (this.state === 3) {
+      this.state = 4;
+      if (this.timeout !== 0) {
+        clearTimeout(this.timeout);
+        this.timeout = 0;
+      }
+      this.onFinishCallback.call(this.thisArg);
     }
-    var chunk = responseText.slice(this.charOffset);
-    this.charOffset = responseText.length;
-    this.onProgressCallback.call(this.thisArg, chunk);
-  };
-  XHRTransportInternal.prototype.onLoad = function () {
-    if (!this.wasProgress) { // IE 8 fires "onload" without "onprogress
-      this.onProgress();
-    }
-    this.onFinishCallback.call(this.thisArg);
-  };
-  XHRTransportInternal.prototype.onError = function () {
-    this.onFinishCallback.call(this.thisArg);
-  };
-  XHRTransportInternal.prototype.onAbort = function () {
-    // improper fix to match Firefox behaviour, but it is better than just ignore abort
-    // see https://bugzilla.mozilla.org/show_bug.cgi?id=768596
-    // https://bugzilla.mozilla.org/show_bug.cgi?id=880200
-    // https://code.google.com/p/chromium/issues/detail?id=153570
-    this.onFinishCallback.call(this.thisArg);
   };
   XHRTransportInternal.prototype.onReadyStateChange = function () {
     if (this.xhr != undefined) { // Opera 12
       if (this.xhr.readyState === 4) {
         if (this.xhr.status === 0) {
-          this.onError();
+          this.onFinish();
         } else {
-          this.onLoad();
+          this.onFinish();
         }
       } else if (this.xhr.readyState === 3) {
         this.onProgress();
       } else if (this.xhr.readyState === 2) {
         // Opera 10.63 throws exception for `this.xhr.status`
-        //if (!this.wasStarted) {
-        //  this.onStart();
-        //}
+        // this.onStart();
       }
     }
   };
@@ -125,9 +120,18 @@
     var tmp = (/^data\:([^,]*?)(base64)?,([\S]*)$/).exec(this.url);
     var contentType = tmp[1];
     var data = tmp[2] === "base64" ? global.atob(tmp[3]) : decodeURIComponent(tmp[3]);
-    this.onStartCallback.call(this.thisArg, 200, "OK", contentType);
-    this.onProgressCallback.call(this.thisArg, data);
-    this.onFinishCallback.call(this.thisArg);
+    if (this.state === 1) {
+      this.state = 2;
+      this.onStartCallback.call(this.thisArg, 200, "OK", contentType);
+    }
+    if (this.state === 2 || this.state === 3) {
+      this.state = 3;
+      this.onProgressCallback.call(this.thisArg, data);
+    }
+    if (this.state === 3) {
+      this.state = 4;
+      this.onFinishCallback.call(this.thisArg);
+    }
   };
   XHRTransportInternal.prototype.onTimeout1 = function () {
     this.timeout = 0;
@@ -144,11 +148,16 @@
   };
   XHRTransportInternal.prototype.handleEvent = function (event) {
     if (event.type === "load") {
-      this.onLoad();
+      this.onFinish();
     } else if (event.type === "error") {
-      this.onError();
+      this.onFinish();
     } else if (event.type === "abort") {
-      this.onAbort();
+      // improper fix to match Firefox behaviour, but it is better than just ignore abort
+      // see https://bugzilla.mozilla.org/show_bug.cgi?id=768596
+      // https://bugzilla.mozilla.org/show_bug.cgi?id=880200
+      // https://code.google.com/p/chromium/issues/detail?id=153570
+      // IE 8 fires "onload" without "onprogress
+      this.onFinish();
     } else if (event.type === "progress") {
       this.onProgress();
     } else if (event.type === "readystatechange") {
@@ -163,6 +172,10 @@
 
     this.url = url;
     this.withCredentials = withCredentials;
+
+    this.state = 1;
+    this.charOffset = 0;
+
     var that = this;
 
     var tmp = (/^data\:([^,]*?)(?:;base64)?,[\S]*$/).exec(url);
@@ -182,17 +195,6 @@
       }, 4);
       return;
     }
-
-    if (("readyState" in this.xhr) && global.opera != undefined) {
-      // workaround for Opera issue with "progress" events
-      this.timeout = setTimeout(function () {
-        that.onTimeout0();
-      }, 0);
-    }
-
-    this.wasStarted = false;
-    this.wasProgress = false;
-    this.charOffset = 0;
 
     // XDomainRequest#abort removes onprogress, onerror, onload
     this.xhr.onload = function (event) {
@@ -238,19 +240,30 @@
       // Safari 5.1.7, Opera 12
       throw error1;
     }
+
+    if (("readyState" in this.xhr) && global.opera != undefined) {
+      // workaround for Opera issue with "progress" events
+      this.timeout = setTimeout(function () {
+        that.onTimeout0();
+      }, 0);
+    }
   };
   XHRTransportInternal.prototype.cancel = function () {
-    this.xhr.onload = k;
-    this.xhr.onerror = k;
-    this.xhr.onabort = k;
-    this.xhr.onprogress = k;
-    this.xhr.onreadystatechange = k;
-    this.xhr.abort();
-    if (this.timeout !== 0) {
-      clearTimeout(this.timeout);
-      this.timeout = 0;
+    if (this.state !== 0 && this.state !== 4) {
+      this.state = 4;
+      this.xhr.onload = k;
+      this.xhr.onerror = k;
+      this.xhr.onabort = k;
+      this.xhr.onprogress = k;
+      this.xhr.onreadystatechange = k;
+      this.xhr.abort();
+      if (this.timeout !== 0) {
+        clearTimeout(this.timeout);
+        this.timeout = 0;
+      }
+      this.onFinishCallback.call(this.thisArg);
     }
-    this.onFinishCallback.call(this.thisArg);
+    this.state = 0;
   };
 
   function Map() {
