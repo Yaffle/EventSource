@@ -446,12 +446,32 @@
     };
   });
 
+  asyncTest("format", function () {
+    var body = "data\n\n<delay(1000)>";
+    var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));
+    es.onmessage = function (event) {
+      es.close();
+      ok(event.data === "", "failed");
+      start();
+    };
+    es.onerror = function () {
+      es.close();
+      ok(false, "failed");
+      start();
+    };
+  });
+
   asyncTest("`EventSource#close` in `EventSource#onmessage`", function () {
-    var body = "data\n\n<delay(1000)>data\n\n<delay(1000)>data\n\n<delay(10000)>";
+    var body = "data:1\n\n<delay(1000)>";
     var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));
     es.onmessage = function () {
       es.close();
       ok(es.readyState === EventSource.CLOSED, "failed");
+      start();
+    };
+    es.onerror = function () {
+      es.close();
+      ok(false, "failed");
       start();
     };
   });
