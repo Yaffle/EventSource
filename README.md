@@ -20,7 +20,8 @@ Just include `eventsource.js` or `eventsource.min.js` in your page to use the po
 Browser support:
 ----------------
 
-* IE 8+, Firefox 3.5+, Chrome 3+, Safari 4+, Opera 12+
+* IE 10+, Firefox 3.5+, Chrome 3+, Safari 4+, Opera 12+
+* IE 8 - IE 9: XDomainRequest is used internally, which has some limitations (2KB padding is requried, no way to send cookies, no way to use client certificates)
 * It works on Mobile Safari, Opera Mobile, Chrome for Android, Firefox for Android
 * It does not work on: Android Browser(requires 4 KB padding), Opera Mini
 
@@ -28,7 +29,7 @@ Advantages:
 -----------
 
 * Simple server-side code
-* Cross-domain requests support ("withCredentials" is not supported in IE8-IE9)
+* Cross-domain requests support
 
 Server-side requirements:
 -------------------------
