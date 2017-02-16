@@ -13,8 +13,8 @@
   "dependencies": {},
   "development": {},
   "license": "MIT",
-  "main": "eventsource.js",
+  "main": "src/eventsource.js",
   "scripts": [
-    "eventsource.js"
+    "src/eventsource.js"
   ]
 }

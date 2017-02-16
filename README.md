@@ -14,7 +14,7 @@ npm install event-source-polyfill
 bower install event-source-polyfill
 ```
 
-Just include `eventsource.js` or `eventsource.min.js` in your page to use the polyfill.
+Just include `src/eventsource.js` or `src/eventsource.min.js` in your page to use the polyfill.
 
 
 Browser support:
@@ -46,7 +46,7 @@ Specification:
 Build:
 ------
 
-* To build EventSource, just install npm modules (`npm install`) and then run the build (`npm run build`). It should generate a new version of eventsource.min.js.
+* To build EventSource, just install npm modules (`npm install`) and then run the build (`npm run build`). It should generate a new version of `src/eventsource.min.js`.
 
 Notes:
 -----
@@ -114,7 +114,7 @@ http.createServer(function (request, response) {
     if (pathname === "/") {
       pathname = "/index.html";
     }
-    if (pathname === "/index.html" || pathname === "../eventsource.js") {
+    if (pathname === "/index.html" || pathname === "../src/eventsource.js") {
       response.writeHead(200, {
         "Content-Type": pathname === "/index.html" ? "text/html" : "text/javascript"
       });
@@ -165,7 +165,7 @@ index.html (php/index.html):
     <meta charset="utf-8" />
     <title>EventSource example</title>
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <script src="../eventsource.js"></script>
+    <script src="../src/eventsource.js"></script>
     <script>
       var es = new EventSource("events.php");
       var listener = function (event) {
