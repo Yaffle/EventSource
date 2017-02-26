@@ -10,8 +10,8 @@ module.exports = function(grunt) {
         }
       },
       build: {
-        src: 'eventsource.js',
-        dest: 'eventsource.min.js'
+        src: 'src/eventsource.js',
+        dest: 'src/eventsource.min.js'
       }
     }
   });

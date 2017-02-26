@@ -2,7 +2,7 @@
   "name": "event-source-polyfill",
   "version": "0.0.9",
   "description": "A polyfill for http://www.w3.org/TR/eventsource/ ",
-  "main": "eventsource.js",
+  "main": "src/eventsource.js",
   "scripts": {
     "build": "grunt"
   },
