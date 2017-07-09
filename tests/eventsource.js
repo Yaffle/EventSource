@@ -409,7 +409,7 @@
     }
   };
 
-  function EventSource(url, options) {
+  function EventSourcePolyfill(url, options) {
     EventTarget.call(this);
 
     this.onopen = undefined;
@@ -656,21 +656,23 @@
   }
   F.prototype = EventTarget.prototype;
 
-  EventSource.prototype = new F();
+  EventSourcePolyfill.prototype = new F();
 
-  EventSource.prototype.close = function () {
+  EventSourcePolyfill.prototype.close = function () {
     this._internal.close();
   };
 
-  F.call(EventSource);
+  F.call(EventSourcePolyfill);
   if (isCORSSupported) {
-    EventSource.prototype.withCredentials = undefined;
+    EventSourcePolyfill.prototype.withCredentials = undefined;
   }
 
   var isEventSourceSupported = function () {
     // Opera 12 fails this test, but this is fine.
     return global.EventSource != undefined && ("withCredentials" in global.EventSource.prototype);
   };
+
+  global.EventSourcePolyfill = EventSourcePolyfill;
 
   if (Transport != undefined && (global.EventSource == undefined || (isCORSSupported && !isEventSourceSupported()))) {
     // Why replace a native EventSource ?
@@ -680,7 +682,7 @@
     // https://code.google.com/p/chromium/issues/detail?id=225654
     // ...
     global.NativeEventSource = global.EventSource;
-    global.EventSource = EventSource;
+    global.EventSource = global.EventSourcePolyfill;
   }
 
 }(typeof window !== 'undefined' ? window : this));

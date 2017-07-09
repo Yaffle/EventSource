@@ -4,7 +4,7 @@
 (function (global) {
   "use strict";
 
-  var EventSource = global.EventSource;
+  var EventSource = global.EventSourcePolyfill;
   var stop = global.windowStop;
 
   if (location.hash === "#native") {
