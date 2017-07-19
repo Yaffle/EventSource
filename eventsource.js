@@ -7,7 +7,7 @@
 /*jslint indent: 2, vars: true, plusplus: true */
 /*global setTimeout, clearTimeout */
 
-const EventSource = (function (global) {
+const EventSourcePolyfill = (function (global) {
   "use strict";
 
   var setTimeout = global.setTimeout;
@@ -145,7 +145,7 @@ const EventSource = (function (global) {
     }
   }
 
-  function EventSource(url, options) {
+  function EventSourcePolyfill(url, options) {
     url = url.toString();
 
     var withCredentials = isCORSSupported && options != undefined && Boolean(options.withCredentials);
@@ -523,14 +523,12 @@ const EventSource = (function (global) {
   }
   F.prototype = EventTarget.prototype;
 
-  EventSource.prototype = new F();
-  F.call(EventSource);
+    EventSourcePolyfill.prototype = new F();
+  F.call(EventSourcePolyfill);
   if (isCORSSupported) {
-    EventSource.prototype.withCredentials = undefined;
+      EventSourcePolyfill.prototype.withCredentials = undefined;
   }
 
-  return EventSource;
+  return EventSourcePolyfill;
 
 }(typeof window !== 'undefined' ? window : this));
-
-module.exports = { 'default': EventSource };
