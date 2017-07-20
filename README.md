@@ -11,7 +11,10 @@ Forked from: https://github.com/AlexGalays/EventSource
 How to use with angular:
 -------------------------
 
-
+Install:
+```bash
+npm install ng-event-source
+```
 
 TypeScript
 ```typescript
