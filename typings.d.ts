@@ -1,14 +1,11 @@
-
 declare enum ReadyState {CONNECTING = 0, OPEN = 1, CLOSED = 2}
 
-interface EventSourceConstructor {
-  new(url: string, eventSourceInitDict?: EventSourceInit): EventSource;
+export class EventSourcePolyfill extends EventTarget {
   CONNECTING: ReadyState;
   OPEN: ReadyState;
   CLOSED: ReadyState;
-}
 
-interface EventSource extends EventTarget {
+  constructor(url: string, eventSourceInitDict?: EventSourceInit);
   url: string;
   readyState: ReadyState;
   onopen: Function;
@@ -25,7 +22,3 @@ interface EventSourceInit {
 interface OnMessageEvent {
   data: string;
 }
-
-declare var EventSource: EventSourceConstructor;
-
-export default EventSource;
