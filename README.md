@@ -4,37 +4,34 @@ This fork provide the following on top of the original:
 - The ability to provide custom HTTP headers in the options object (e.g Authorization)
 - The module returns the actual EventSource implementation, rather than sometimes polyfilling, sometimes not.
 - Typescript typings
+- Use SSE in your Angular project
 
+Forked from: https://github.com/AlexGalays/EventSource
 
-How to use:
+How to use with angular:
 -------------------------
 
-package.json
-```
-"event-source": "git://github.com/AlexGalays/EventSource.git#923b9a0998fcfd7753040e09aa83764b3cc0230d"
-```
 
-javascript
-```javascript
-import EventSource from 'event-source'
 
-const source = new EventSource('url', { headers: { Authorization: 'plz' } })
+TypeScript
+```typescript
+import {EventSourcePolyfill} from 'ng-event-source';
+
+let eventSource = new EventSourcePolyfill(environment.apiURL + '/mon/lastupdates/events', {headers: authHeader});
+eventSource.onmessage = (data => {
+    this.zone.run(() => {
+        // Do stuff here
+    });
+});
+eventSource.onopen = (a) => {
+    // Do stuff here
+};
+eventSource.onerror = (e) => {
+    // Do stuff here
+}
 ```
-
 
 EventSource polyfill - http://www.w3.org/TR/eventsource/
-
-
-Server-side requirements:
--------------------------
-
-* "Last-Event-ID" is sent in a query string (CORS + "Last-Event-ID" header is not supported by all browsers)
-* It is required to send 2 KB padding for IE < 10 and Chrome < 13 at the top of the response stream
-* You need to send "comment" messages each 15-30 seconds, these messages will be used as heartbeat to detect disconnects - see https://bugzilla.mozilla.org/show_bug.cgi?id=444328
-
-Notes:
------
- * If you are using HTTP Basic Authentication, you can embed credentials into the URL - `http://username:password@github.com`.
 
 License
 -------
