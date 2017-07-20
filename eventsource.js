@@ -311,7 +311,6 @@ const EventSourcePolyfill = (function (global) {
                                     });
                                     that.dispatchEvent(event);
                                     if (eventTypeBuffer === "message") {
-                                        console.log('New Message:',  event);
                                         fire(that, that.onmessage, event);
                                     }
                                     if (currentState === CLOSED) {
