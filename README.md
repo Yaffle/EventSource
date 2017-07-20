@@ -17,7 +17,7 @@ TypeScript
 ```typescript
 import {EventSourcePolyfill} from 'ng-event-source';
 
-let eventSource = new EventSourcePolyfill(environment.apiURL + '/mon/lastupdates/events', {headers: authHeader});
+let eventSource = new EventSourcePolyfill('http://my/url', {headers: { headerName: 'HeaderValue', header2: 'HeaderValue2' }});
 eventSource.onmessage = (data => {
     this.zone.run(() => {
         // Do stuff here
