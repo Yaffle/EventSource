@@ -167,6 +167,10 @@ const EventSourcePolyfill = (function (global) {
         var lastEventIdBuffer = "";
         var eventTypeBuffer = "";
         var onTimeout = undefined;
+        var errorOnTimeout = true;
+        if (options && options.errorOnTimeout !== undefined && options.errorOnTimeout !== null) {
+            errorOnTimeout = options.errorOnTimeout;
+        }
 
         var state = FIELD_START;
         var field = "";
@@ -352,7 +356,10 @@ const EventSourcePolyfill = (function (global) {
                 } else {
                     if (type === "" && timeout === 0 && !wasActivity) {
                         setTimeout(function () {
-                            throw new Error("No activity within " + heartbeatTimeout + " milliseconds. Reconnecting.");
+                            if (errorOnTimeout) {
+                                throw new Error("No activity within " + heartbeatTimeout + " milliseconds. Reconnecting.");
+                            }
+                            return;
                         }, 0);
                     }
                     currentState = WAITING;
