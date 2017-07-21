@@ -17,6 +17,7 @@ export class EventSourcePolyfill extends EventTarget {
 interface EventSourceInit {
   withCredentials?: boolean;
   headers?: Object;
+  errorOnTimeout?: boolean;
 }
 
 interface OnMessageEvent {
