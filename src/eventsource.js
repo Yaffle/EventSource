@@ -251,8 +251,9 @@
       throw error1;
     }
 
-    if (("readyState" in this.xhr) && global.opera != undefined) {
+    if ("readyState" in this.xhr) {
       // workaround for Opera issue with "progress" events
+      // #91
       this.timeout = setTimeout(function () {
         that.onTimeout0();
       }, 0);
