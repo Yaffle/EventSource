@@ -20,8 +20,8 @@
     this._internal = new XHRTransportInternal(xhr, onStartCallback, onProgressCallback, onFinishCallback, thisArg);
   }
 
-  XHRTransport.prototype.open = function (url, withCredentials) {
-    this._internal.open(url, withCredentials);
+  XHRTransport.prototype.open = function (url, withCredentials, headers) {
+    this._internal.open(url, withCredentials, headers);
   };
 
   XHRTransport.prototype.cancel = function () {
@@ -39,6 +39,7 @@
     this.offset = 0;
     this.url = "";
     this.withCredentials = false;
+    this.headers = undefined;
     this.timeout = 0;
   }
 
@@ -144,7 +145,7 @@
   };
   XHRTransportInternal.prototype.onTimeout1 = function () {
     this.timeout = 0;
-    this.open(this.url, this.withCredentials);
+    this.open(this.url, this.withCredentials, this.headers);
   };
   XHRTransportInternal.prototype.onTimeout0 = function () {
     var that = this;
@@ -173,7 +174,7 @@
       this.onReadyStateChange();
     }
   };
-  XHRTransportInternal.prototype.open = function (url, withCredentials) {
+  XHRTransportInternal.prototype.open = function (url, withCredentials, headers) {
     if (this.timeout !== 0) {
       clearTimeout(this.timeout);
       this.timeout = 0;
@@ -181,6 +182,7 @@
 
     this.url = url;
     this.withCredentials = withCredentials;
+    this.headers = headers;
 
     this.state = 1;
     this.charOffset = 0;
@@ -242,6 +244,12 @@
       this.xhr.setRequestHeader("Accept", "text/event-stream");
       // Request header field Last-Event-ID is not allowed by Access-Control-Allow-Headers.
       //this.xhr.setRequestHeader("Last-Event-ID", this.lastEventId);
+
+      if (headers != undefined) {
+        for (var name in headers) {
+          this.xhr.setRequestHeader(name, headers[name]);
+        }
+      }
     }
 
     try {
@@ -437,6 +445,7 @@
     this.retry = this.initialRetry;
     this.wasActivity = false;
     var CurrentTransport = options != undefined && options.Transport != undefined ? options.Transport : Transport;
+    this.headers = options != undefined && options.headers != undefined ? JSON.parse(JSON.stringify(options.headers)) : undefined;
     var xhr = new CurrentTransport();
     this.transport = new XHRTransport(xhr, this.onStart, this.onProgress, this.onFinish, this);
     this.timeout = 0;
@@ -632,7 +641,7 @@
       s = this.url;
     }
     try {
-      this.transport.open(s, this.withCredentials);
+      this.transport.open(s, this.withCredentials, this.headers);
     } catch (error) {
       this.close();
       throw error;
