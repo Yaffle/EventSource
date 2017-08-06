@@ -37,9 +37,6 @@
     this.state = 0;
     this.charOffset = 0;
     this.offset = 0;
-    this.url = "";
-    this.withCredentials = false;
-    this.headers = undefined;
     this.timeout = 0;
   }
 
@@ -67,9 +64,6 @@
         status = 200;
         statusText = "OK";
         contentType = this.xhr.contentType;
-      }
-      if (contentType == undefined) {
-        contentType = "";
       }
       this.onStartCallback.call(this.thisArg, status, statusText, contentType);
     }
@@ -112,11 +106,7 @@
   XHRTransportInternal.prototype.onReadyStateChange = function () {
     if (this.xhr != undefined) { // Opera 12
       if (this.xhr.readyState === 4) {
-        if (this.xhr.status === 0) {
-          this.onFinish();
-        } else {
-          this.onFinish();
-        }
+        this.onFinish();
       } else if (this.xhr.readyState === 3) {
         this.onProgress();
       } else if (this.xhr.readyState === 2) {
@@ -124,28 +114,6 @@
         // this.onStart();
       }
     }
-  };
-  XHRTransportInternal.prototype.onTimeout2 = function () {
-    this.timeout = 0;
-    var tmp = (/^data\:([^,]*?)(base64)?,([\S]*)$/).exec(this.url);
-    var contentType = tmp[1];
-    var data = tmp[2] === "base64" ? global.atob(tmp[3]) : decodeURIComponent(tmp[3]);
-    if (this.state === 1) {
-      this.state = 2;
-      this.onStartCallback.call(this.thisArg, 200, "OK", contentType);
-    }
-    if (this.state === 2 || this.state === 3) {
-      this.state = 3;
-      this.onProgressCallback.call(this.thisArg, data);
-    }
-    if (this.state === 3) {
-      this.state = 4;
-      this.onFinishCallback.call(this.thisArg);
-    }
-  };
-  XHRTransportInternal.prototype.onTimeout1 = function () {
-    this.timeout = 0;
-    this.open(this.url, this.withCredentials, this.headers);
   };
   XHRTransportInternal.prototype.onTimeout0 = function () {
     var that = this;
@@ -180,33 +148,11 @@
       this.timeout = 0;
     }
 
-    this.url = url;
-    this.withCredentials = withCredentials;
-    this.headers = headers;
-
     this.state = 1;
     this.charOffset = 0;
     this.offset = 0;
 
     var that = this;
-
-    var tmp = (/^data\:([^,]*?)(?:;base64)?,[\S]*$/).exec(url);
-    if (tmp != undefined) {
-      this.timeout = setTimeout(function () {
-        that.onTimeout2();
-      }, 0);
-      return;
-    }
-
-    // loading indicator in Safari, Chrome < 14
-    // loading indicator in Firefox
-    // https://bugzilla.mozilla.org/show_bug.cgi?id=736723
-    if ((!("ontimeout" in this.xhr) || ("sendAsBinary" in this.xhr) || ("mozAnon" in this.xhr)) && global.document != undefined && global.document.readyState != undefined && global.document.readyState !== "complete") {
-      this.timeout = setTimeout(function () {
-        that.onTimeout1();
-      }, 4);
-      return;
-    }
 
     // XDomainRequest#abort removes onprogress, onerror, onload
     this.xhr.onload = function (event) {
@@ -237,18 +183,8 @@
     this.xhr.responseType = "text";
 
     if ("setRequestHeader" in this.xhr) {
-      // Request header field Cache-Control is not allowed by Access-Control-Allow-Headers.
-      // "Cache-control: no-cache" are not honored in Chrome and Firefox
-      // https://bugzilla.mozilla.org/show_bug.cgi?id=428916
-      //this.xhr.setRequestHeader("Cache-Control", "no-cache");
-      this.xhr.setRequestHeader("Accept", "text/event-stream");
-      // Request header field Last-Event-ID is not allowed by Access-Control-Allow-Headers.
-      //this.xhr.setRequestHeader("Last-Event-ID", this.lastEventId);
-
-      if (headers != undefined) {
-        for (var name in headers) {
-          this.xhr.setRequestHeader(name, headers[name]);
-        }
+      for (var name in headers) {
+        this.xhr.setRequestHeader(name, headers[name]);
       }
     }
 
@@ -606,6 +542,23 @@
 
   EventSourceInternal.prototype.onTimeout = function () {
     this.timeout = 0;
+
+    if (this.currentState === WAITING) {
+      // loading indicator in Safari < ?, Chrome < 14, Firefox
+      // https://bugzilla.mozilla.org/show_bug.cgi?id=736723
+      if ((global.XMLHttpRequest != undefined &&
+           !("ontimeout" in global.XMLHttpRequest.prototype) || ("sendAsBinary" in global.XMLHttpRequest.prototype) || ("mozAnon" in global.XMLHttpRequest.prototype)) &&
+           global.document != undefined &&
+           global.document.readyState != undefined &&
+           global.document.readyState !== "complete") {
+        var that = this;
+        this.timeout = setTimeout(function () {
+          that.onTimeout();
+        }, 4);
+        return;
+      }
+    }
+
     if (this.currentState !== WAITING) {
       if (!this.wasActivity) {
         throwError(new Error("No activity within " + this.heartbeatTimeout + " milliseconds. Reconnecting."));
@@ -634,14 +587,24 @@
     this.valueStart = 0;
     this.state = FIELD_START;
 
-    var s = this.url.slice(0, 5);
-    if (s !== "data:" && s !== "blob:") {
-      s = this.url + ((this.url.indexOf("?", 0) === -1 ? "?" : "&") + "lastEventId=" + encodeURIComponent(this.lastEventId) + "&r=" + (Math.random() + 1).toString().slice(2));
-    } else {
-      s = this.url;
+    // Request header field Cache-Control is not allowed by Access-Control-Allow-Headers.
+    // "Cache-control: no-cache" are not honored in Chrome and Firefox
+    // https://bugzilla.mozilla.org/show_bug.cgi?id=428916
+    // Request header field Last-Event-ID is not allowed by Access-Control-Allow-Headers.
+    var url = this.url;
+    if (this.url.slice(0, 5) !== "data:" &&
+        this.url.slice(0, 5) !== "blob:") {
+      url = this.url + ((this.url.indexOf("?", 0) === -1 ? "?" : "&") + "lastEventId=" + encodeURIComponent(this.lastEventId) + "&r=" + (Math.random() + 1).toString().slice(2));
+    }
+    var headers = {};
+    headers["Accept"] = "text/event-stream";
+    if (this.headers != undefined) {
+      for (var name in this.headers) {
+        headers[name] = this.headers[name];
+      }
     }
     try {
-      this.transport.open(s, this.withCredentials, this.headers);
+      this.transport.open(url, this.withCredentials, headers);
     } catch (error) {
       this.close();
       throw error;
