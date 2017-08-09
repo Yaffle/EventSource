@@ -73,7 +73,7 @@ window.onload = function () {
   var m = document.getElementById("msgs");
   m.appendChild(msgs);
   msgs = m;
-  document.querySelector("form").onsubmit = function (event) {
+  document.getElementById("form").onsubmit = function (event) {
     post();
     return false;
   };
