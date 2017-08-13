@@ -12,6 +12,9 @@
 
   var setTimeout = global.setTimeout;
   var clearTimeout = global.clearTimeout;
+  var XMLHttpRequest = global.XMLHttpRequest;
+  var XDomainRequest = global.XDomainRequest;
+  var NativeEventSource = global.EventSource;
 
   var k = function () {
   };
@@ -26,17 +29,19 @@
 
     var xhr = this.xhr;
     var state = 1;
-    var charOffset = 0;
+    var offset = 0;
     var timeout = 0;
 
     this.abort = function (silent) {
-      if (state !== 0 && state !== 4) {
+      if (state === 1 || state === 2 || state === 3) {
         state = 4;
         xhr.onload = k;
         xhr.onerror = k;
         xhr.onabort = k;
         xhr.onprogress = k;
         xhr.onreadystatechange = k;
+        // IE 8 - 9: XDomainRequest#abort() does not fire any event
+        // Opera < 10: XMLHttpRequest#abort() does not fire any event
         xhr.abort();
         if (timeout !== 0) {
           clearTimeout(timeout);
@@ -67,7 +72,7 @@
             status = 0;
             statusText = "";
             contentType = undefined;
-            // FF < 14, WebKit
+            // Firefox < 14, Chrome ?, Safari ?
             // https://bugs.webkit.org/show_bug.cgi?id=29658
             // https://bugs.webkit.org/show_bug.cgi?id=77854
           }
@@ -92,9 +97,8 @@
         } catch (error) {
           // IE 8 - 9 with XMLHttpRequest
         }
-        var chunkStart = charOffset;
-        charOffset = responseText.length;
-        var chunk = responseText.slice(chunkStart, charOffset);
+        var chunk = responseText.slice(offset);
+        offset += chunk.length;
         onProgressCallback.call(thisArg, chunk);
       }
     };
@@ -102,7 +106,7 @@
       // Firefox 52 fires "readystatechange" (xhr.readyState === 4) without final "readystatechange" (xhr.readyState === 3)
       // IE 8 fires "onload" without "onprogress"
       onProgress();
-      if (state === 3) {
+      if (state === 1 || state === 2 || state === 3) {
         state = 4;
         if (timeout !== 0) {
           clearTimeout(timeout);
@@ -142,11 +146,11 @@
     xhr.onabort = onFinish;
 
     // https://bugzilla.mozilla.org/show_bug.cgi?id=736723    
-    if (!("sendAsBinary" in global.XMLHttpRequest.prototype) && !("mozAnon" in global.XMLHttpRequest.prototype)) {
+    if (XMLHttpRequest != undefined && !("sendAsBinary" in XMLHttpRequest.prototype) && !("mozAnon" in XMLHttpRequest.prototype)) {
       xhr.onprogress = onProgress;
     }
 
-    // IE 8-9 (XMLHTTPRequest)
+    // IE 8 - 9 (XMLHTTPRequest)
     // Firefox 3.5 - 3.6 - ? < 9.0
     // onprogress is not fired sometimes or delayed
     // see also #64
@@ -158,17 +162,20 @@
     xhr.responseType = "text";
     if ("setRequestHeader" in xhr) {
       for (var name in headers) {
-        xhr.setRequestHeader(name, headers[name]);
+        if (Object.prototype.hasOwnProperty.call(name, headers)) {
+          xhr.setRequestHeader(name, headers[name]);
+        }
       }
     }
     try {
+      // xhr.send(); throws "Not enough arguments" in Firefox 3.0
       xhr.send(undefined);
     } catch (error1) {
       // Safari 5.1.7, Opera 12
       throw error1;
     }
     if ("readyState" in xhr) {
-      // workaround for Opera issue with "progress" events
+      // workaround for Opera 12 issue with "progress" events
       // #91
       timeout = setTimeout(function () {
         onTimeout();
@@ -276,10 +283,8 @@
 
   MessageEvent.prototype = Event.prototype;
 
-  var XHR = global.XMLHttpRequest;
-  var XDR = global.XDomainRequest;
-  var isCORSSupported = XHR != undefined && (new XHR()).withCredentials != undefined;
-  var Transport = isCORSSupported || (XHR != undefined && XDR == undefined) ? XHR : XDR;
+  var isCORSSupported = XMLHttpRequest != undefined && (new XMLHttpRequest()).withCredentials != undefined;
+  var Transport = isCORSSupported || (XMLHttpRequest != undefined && XDomainRequest == undefined) ? XMLHttpRequest : XDomainRequest;
 
   var WAITING = -1;
   var CONNECTING = 0;
@@ -510,9 +515,9 @@
     this.timeout = 0;
 
     if (this.currentState === WAITING) {
-      // loading indicator in Safari < ?, Chrome < 14, Firefox
-      if (global.XMLHttpRequest != undefined &&
-          !("ontimeout" in global.XMLHttpRequest.prototype) &&
+      // loading indicator in Safari < ? (6), Chrome < 14, Firefox
+      if (XMLHttpRequest != undefined &&
+          !("ontimeout" in XMLHttpRequest.prototype) &&
           global.document != undefined &&
           global.document.readyState != undefined &&
           global.document.readyState !== "complete") {
@@ -566,7 +571,9 @@
     headers["Accept"] = "text/event-stream";
     if (this.headers != undefined) {
       for (var name in this.headers) {
-        headers[name] = this.headers[name];
+        if (Object.prototype.hasOwnProperty.call(this.headers, name)) {
+          headers[name] = this.headers[name];
+        }
       }
     }
     try {
@@ -608,20 +615,20 @@
 
   var isEventSourceSupported = function () {
     // Opera 12 fails this test, but this is fine.
-    return global.EventSource != undefined && ("withCredentials" in global.EventSource.prototype);
+    return NativeEventSource != undefined && ("withCredentials" in NativeEventSource.prototype);
   };
 
   global.EventSourcePolyfill = EventSourcePolyfill;
+  global.NativeEventSource = NativeEventSource;
 
-  if (Transport != undefined && (global.EventSource == undefined || (isCORSSupported && !isEventSourceSupported()))) {
+  if (Transport != undefined && (NativeEventSource == undefined || (isCORSSupported && !isEventSourceSupported()))) {
     // Why replace a native EventSource ?
     // https://bugzilla.mozilla.org/show_bug.cgi?id=444328
     // https://bugzilla.mozilla.org/show_bug.cgi?id=831392
     // https://code.google.com/p/chromium/issues/detail?id=260144
     // https://code.google.com/p/chromium/issues/detail?id=225654
     // ...
-    global.NativeEventSource = global.EventSource;
-    global.EventSource = global.EventSourcePolyfill;
+    global.EventSource = EventSourcePolyfill;
   }
 
 }(typeof window !== 'undefined' ? window : this));
