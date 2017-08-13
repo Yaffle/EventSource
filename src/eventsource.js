@@ -151,6 +151,8 @@
     }
 
     // IE 8 - 9 (XMLHTTPRequest)
+    // Opera < 12
+    // Firefox < 3.5
     // Firefox 3.5 - 3.6 - ? < 9.0
     // onprogress is not fired sometimes or delayed
     // see also #64
