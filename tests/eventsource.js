@@ -164,7 +164,7 @@
     xhr.responseType = "text";
     if ("setRequestHeader" in xhr) {
       for (var name in headers) {
-        if (Object.prototype.hasOwnProperty.call(name, headers)) {
+        if (Object.prototype.hasOwnProperty.call(headers, name)) {
           xhr.setRequestHeader(name, headers[name]);
         }
       }
