@@ -52,6 +52,16 @@ Notes:
 -----
  * If you are using HTTP Basic Authentication, you can embed credentials into the URL - `http://username:password@github.com`.
 
+Custom Headers:
+---------------
+```
+var es = new EventSourcePolyfill('/events', {
+  headers: {
+    'X-Custom-Header': 'value'
+  }
+});
+```
+
 Other EventSource polyfills:
 ----------------------------
 

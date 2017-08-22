@@ -12,269 +12,182 @@
 
   var setTimeout = global.setTimeout;
   var clearTimeout = global.clearTimeout;
+  var XMLHttpRequest = global.XMLHttpRequest;
+  var XDomainRequest = global.XDomainRequest;
+  var NativeEventSource = global.EventSource;
 
   var k = function () {
   };
 
-  function XHRTransport(xhr, onStartCallback, onProgressCallback, onFinishCallback, thisArg) {
-    this._internal = new XHRTransportInternal(xhr, onStartCallback, onProgressCallback, onFinishCallback, thisArg);
-  }
-
-  XHRTransport.prototype.open = function (url, withCredentials) {
-    this._internal.open(url, withCredentials);
-  };
-
-  XHRTransport.prototype.cancel = function () {
-    this._internal.cancel();
-  };
-
-  function XHRTransportInternal(xhr, onStartCallback, onProgressCallback, onFinishCallback, thisArg) {
-    this.onStartCallback = onStartCallback;
-    this.onProgressCallback = onProgressCallback;
-    this.onFinishCallback = onFinishCallback;
-    this.thisArg = thisArg;
+  function XHRTransport(xhr) {
     this.xhr = xhr;
-    this.state = 0;
-    this.charOffset = 0;
-    this.offset = 0;
-    this.url = "";
-    this.withCredentials = false;
-    this.timeout = 0;
+    this.abort = k;
   }
 
-  XHRTransportInternal.prototype.onStart = function () {
-    if (this.state === 1) {
-      this.state = 2;
-      var status = 0;
-      var statusText = "";
-      var contentType = undefined;
-      if (!("contentType" in this.xhr)) {
-        try {
-          status = this.xhr.status;
-          statusText = this.xhr.statusText;
-          contentType = this.xhr.getResponseHeader("Content-Type");
-        } catch (error) {
-          // https://bugs.webkit.org/show_bug.cgi?id=29121
-          status = 0;
-          statusText = "";
-          contentType = undefined;
-          // FF < 14, WebKit
-          // https://bugs.webkit.org/show_bug.cgi?id=29658
-          // https://bugs.webkit.org/show_bug.cgi?id=77854
+  XHRTransport.prototype.open = function (onStartCallback, onProgressCallback, onFinishCallback, thisArg, url, withCredentials, headers) {
+    this.abort(true);
+
+    var xhr = this.xhr;
+    var state = 1;
+    var offset = 0;
+    var timeout = 0;
+
+    this.abort = function (silent) {
+      if (state === 1 || state === 2 || state === 3) {
+        state = 4;
+        xhr.onload = k;
+        xhr.onerror = k;
+        xhr.onabort = k;
+        xhr.onprogress = k;
+        xhr.onreadystatechange = k;
+        // IE 8 - 9: XDomainRequest#abort() does not fire any event
+        // Opera < 10: XMLHttpRequest#abort() does not fire any event
+        xhr.abort();
+        if (timeout !== 0) {
+          clearTimeout(timeout);
+          timeout = 0;
         }
-      } else {
-        status = 200;
-        statusText = "OK";
-        contentType = this.xhr.contentType;
-      }
-      if (contentType == undefined) {
-        contentType = "";
-      }
-      this.onStartCallback.call(this.thisArg, status, statusText, contentType);
-    }
-  };
-  XHRTransportInternal.prototype.onProgress = function () {
-    this.onStart();
-    if (this.state === 2 || this.state === 3) {
-      this.state = 3;
-      var responseText = "";
-      try {
-        responseText = this.xhr.responseText;
-      } catch (error) {
-        // IE 8 - 9 with XMLHttpRequest
-      }
-      var chunkStart = this.charOffset;
-      var length = responseText.length;
-      for (var i = this.offset; i < length; i += 1) {
-        var c = responseText.charCodeAt(i);
-        if (c === "\n".charCodeAt(0) || c === "\r".charCodeAt(0)) {
-          this.charOffset = i + 1;
+        if (!silent) {
+          onFinishCallback.call(thisArg);
         }
       }
-      this.offset = length;
-      var chunk = responseText.slice(chunkStart, this.charOffset);
-      this.onProgressCallback.call(this.thisArg, chunk);
-    }
-  };
-  XHRTransportInternal.prototype.onFinish = function () {
-    // IE 8 fires "onload" without "onprogress
-    this.onProgress();
-    if (this.state === 3) {
-      this.state = 4;
-      if (this.timeout !== 0) {
-        clearTimeout(this.timeout);
-        this.timeout = 0;
-      }
-      this.onFinishCallback.call(this.thisArg);
-    }
-  };
-  XHRTransportInternal.prototype.onReadyStateChange = function () {
-    if (this.xhr != undefined) { // Opera 12
-      if (this.xhr.readyState === 4) {
-        if (this.xhr.status === 0) {
-          this.onFinish();
+      state = 0;
+    };
+
+    var onStart = function () {
+      if (state === 1) {
+        //state = 2;
+        var status = 0;
+        var statusText = "";
+        var contentType = undefined;
+        if (!("contentType" in xhr)) {
+          try {
+            status = xhr.status;
+            statusText = xhr.statusText;
+            contentType = xhr.getResponseHeader("Content-Type");
+          } catch (error) {
+            // IE < 10 throws exception for `xhr.status` when xhr.readyState === 2 || xhr.readyState === 3
+            // Opera < 11 throws exception for `xhr.status` when xhr.readyState === 2
+            // https://bugs.webkit.org/show_bug.cgi?id=29121
+            status = 0;
+            statusText = "";
+            contentType = undefined;
+            // Firefox < 14, Chrome ?, Safari ?
+            // https://bugs.webkit.org/show_bug.cgi?id=29658
+            // https://bugs.webkit.org/show_bug.cgi?id=77854
+          }
         } else {
-          this.onFinish();
+          status = 200;
+          statusText = "OK";
+          contentType = xhr.contentType;
         }
-      } else if (this.xhr.readyState === 3) {
-        this.onProgress();
-      } else if (this.xhr.readyState === 2) {
-        // Opera 10.63 throws exception for `this.xhr.status`
-        // this.onStart();
+        if (status !== 0) {
+          state = 2;
+          onStartCallback.call(thisArg, status, statusText, contentType);
+        }
       }
-    }
-  };
-  XHRTransportInternal.prototype.onTimeout2 = function () {
-    this.timeout = 0;
-    var tmp = (/^data\:([^,]*?)(base64)?,([\S]*)$/).exec(this.url);
-    var contentType = tmp[1];
-    var data = tmp[2] === "base64" ? global.atob(tmp[3]) : decodeURIComponent(tmp[3]);
-    if (this.state === 1) {
-      this.state = 2;
-      this.onStartCallback.call(this.thisArg, 200, "OK", contentType);
-    }
-    if (this.state === 2 || this.state === 3) {
-      this.state = 3;
-      this.onProgressCallback.call(this.thisArg, data);
-    }
-    if (this.state === 3) {
-      this.state = 4;
-      this.onFinishCallback.call(this.thisArg);
-    }
-  };
-  XHRTransportInternal.prototype.onTimeout1 = function () {
-    this.timeout = 0;
-    this.open(this.url, this.withCredentials);
-  };
-  XHRTransportInternal.prototype.onTimeout0 = function () {
-    var that = this;
-    this.timeout = setTimeout(function () {
-      that.onTimeout0();
-    }, 500);
-    if (this.xhr.readyState === 3) {
-      this.onProgress();
-    }
-  };
-  XHRTransportInternal.prototype.handleEvent = function (event) {
-    if (event.type === "load") {
-      this.onFinish();
-    } else if (event.type === "error") {
-      this.onFinish();
-    } else if (event.type === "abort") {
-      // improper fix to match Firefox behaviour, but it is better than just ignore abort
-      // see https://bugzilla.mozilla.org/show_bug.cgi?id=768596
-      // https://bugzilla.mozilla.org/show_bug.cgi?id=880200
-      // https://code.google.com/p/chromium/issues/detail?id=153570
-      // IE 8 fires "onload" without "onprogress
-      this.onFinish();
-    } else if (event.type === "progress") {
-      this.onProgress();
-    } else if (event.type === "readystatechange") {
-      this.onReadyStateChange();
-    }
-  };
-  XHRTransportInternal.prototype.open = function (url, withCredentials) {
-    if (this.timeout !== 0) {
-      clearTimeout(this.timeout);
-      this.timeout = 0;
-    }
-
-    this.url = url;
-    this.withCredentials = withCredentials;
-
-    this.state = 1;
-    this.charOffset = 0;
-    this.offset = 0;
-
-    var that = this;
-
-    var tmp = (/^data\:([^,]*?)(?:;base64)?,[\S]*$/).exec(url);
-    if (tmp != undefined) {
-      this.timeout = setTimeout(function () {
-        that.onTimeout2();
-      }, 0);
-      return;
-    }
-
-    // loading indicator in Safari, Chrome < 14
-    // loading indicator in Firefox
-    // https://bugzilla.mozilla.org/show_bug.cgi?id=736723
-    if ((!("ontimeout" in this.xhr) || ("sendAsBinary" in this.xhr) || ("mozAnon" in this.xhr)) && global.document != undefined && global.document.readyState != undefined && global.document.readyState !== "complete") {
-      this.timeout = setTimeout(function () {
-        that.onTimeout1();
-      }, 4);
-      return;
-    }
+    };
+    var onProgress = function () {
+      onStart();
+      if (state === 2 || state === 3) {
+        state = 3;
+        var responseText = "";
+        try {
+          responseText = xhr.responseText;
+        } catch (error) {
+          // IE 8 - 9 with XMLHttpRequest
+        }
+        var chunk = responseText.slice(offset);
+        offset += chunk.length;
+        onProgressCallback.call(thisArg, chunk);
+      }
+    };
+    var onFinish = function () {
+      // Firefox 52 fires "readystatechange" (xhr.readyState === 4) without final "readystatechange" (xhr.readyState === 3)
+      // IE 8 fires "onload" without "onprogress"
+      onProgress();
+      if (state === 1 || state === 2 || state === 3) {
+        state = 4;
+        if (timeout !== 0) {
+          clearTimeout(timeout);
+          timeout = 0;
+        }
+        onFinishCallback.call(thisArg);
+      }
+    };
+    var onReadyStateChange = function () {
+      if (xhr != undefined) { // Opera 12
+        if (xhr.readyState === 4) {
+          onFinish();
+        } else if (xhr.readyState === 3) {
+          onProgress();
+        } else if (xhr.readyState === 2) {
+          onStart();
+        }
+      }
+    };
+    var onTimeout = function () {
+      timeout = setTimeout(function () {
+        onTimeout();
+      }, 500);
+      if (xhr.readyState === 3) {
+        onProgress();
+      }
+    };
 
     // XDomainRequest#abort removes onprogress, onerror, onload
-    this.xhr.onload = function (event) {
-      that.handleEvent({type: "load"});
-    };
-    this.xhr.onerror = function () {
-      that.handleEvent({type: "error"});
-    };
-    this.xhr.onabort = function () {
-      that.handleEvent({type: "abort"});
-    };
-    this.xhr.onprogress = function () {
-      that.handleEvent({type: "progress"});
-    };
-    // IE 8-9 (XMLHTTPRequest)
+    xhr.onload = onFinish;
+    xhr.onerror = onFinish;
+    // improper fix to match Firefox behaviour, but it is better than just ignore abort
+    // see https://bugzilla.mozilla.org/show_bug.cgi?id=768596
+    // https://bugzilla.mozilla.org/show_bug.cgi?id=880200
+    // https://code.google.com/p/chromium/issues/detail?id=153570
+    // IE 8 fires "onload" without "onprogress
+    xhr.onabort = onFinish;
+
+    // https://bugzilla.mozilla.org/show_bug.cgi?id=736723    
+    if (XMLHttpRequest != undefined && !("sendAsBinary" in XMLHttpRequest.prototype) && !("mozAnon" in XMLHttpRequest.prototype)) {
+      xhr.onprogress = onProgress;
+    }
+
+    // IE 8 - 9 (XMLHTTPRequest)
+    // Opera < 12
+    // Firefox < 3.5
     // Firefox 3.5 - 3.6 - ? < 9.0
     // onprogress is not fired sometimes or delayed
     // see also #64
-    this.xhr.onreadystatechange = function () {
-      that.handleEvent({type: "readystatechange"});
-    };
+    xhr.onreadystatechange = onReadyStateChange;
 
-    this.xhr.open("GET", url, true);
-
+    xhr.open("GET", url, true);
     // withCredentials should be set after "open" for Safari and Chrome (< 19 ?)
-    this.xhr.withCredentials = withCredentials;
-
-    this.xhr.responseType = "text";
-
-    if ("setRequestHeader" in this.xhr) {
-      // Request header field Cache-Control is not allowed by Access-Control-Allow-Headers.
-      // "Cache-control: no-cache" are not honored in Chrome and Firefox
-      // https://bugzilla.mozilla.org/show_bug.cgi?id=428916
-      //this.xhr.setRequestHeader("Cache-Control", "no-cache");
-      this.xhr.setRequestHeader("Accept", "text/event-stream");
-      // Request header field Last-Event-ID is not allowed by Access-Control-Allow-Headers.
-      //this.xhr.setRequestHeader("Last-Event-ID", this.lastEventId);
+    xhr.withCredentials = withCredentials;
+    xhr.responseType = "text";
+    if ("setRequestHeader" in xhr) {
+      for (var name in headers) {
+        if (Object.prototype.hasOwnProperty.call(headers, name)) {
+          xhr.setRequestHeader(name, headers[name]);
+        }
+      }
     }
-
     try {
-      this.xhr.send(undefined);
+      // xhr.send(); throws "Not enough arguments" in Firefox 3.0
+      xhr.send(undefined);
     } catch (error1) {
       // Safari 5.1.7, Opera 12
       throw error1;
     }
-
-    if (("readyState" in this.xhr) && global.opera != undefined) {
-      // workaround for Opera issue with "progress" events
-      this.timeout = setTimeout(function () {
-        that.onTimeout0();
+    if ("readyState" in xhr) {
+      // workaround for Opera 12 issue with "progress" events
+      // #91
+      timeout = setTimeout(function () {
+        onTimeout();
       }, 0);
     }
   };
-  XHRTransportInternal.prototype.cancel = function () {
-    if (this.state !== 0 && this.state !== 4) {
-      this.state = 4;
-      this.xhr.onload = k;
-      this.xhr.onerror = k;
-      this.xhr.onabort = k;
-      this.xhr.onprogress = k;
-      this.xhr.onreadystatechange = k;
-      this.xhr.abort();
-      if (this.timeout !== 0) {
-        clearTimeout(this.timeout);
-        this.timeout = 0;
-      }
-      this.onFinishCallback.call(this.thisArg);
-    }
-    this.state = 0;
+  XHRTransport.prototype.cancel = function () {
+    this.abort(false);
   };
+
 
   function Map() {
     this._data = {};
@@ -372,10 +285,8 @@
 
   MessageEvent.prototype = Event.prototype;
 
-  var XHR = global.XMLHttpRequest;
-  var XDR = global.XDomainRequest;
-  var isCORSSupported = XHR != undefined && (new XHR()).withCredentials != undefined;
-  var Transport = isCORSSupported || (XHR != undefined && XDR == undefined) ? XHR : XDR;
+  var isCORSSupported = XMLHttpRequest != undefined && (new XMLHttpRequest()).withCredentials != undefined;
+  var Transport = isCORSSupported || (XMLHttpRequest != undefined && XDomainRequest == undefined) ? XMLHttpRequest : XDomainRequest;
 
   var WAITING = -1;
   var CONNECTING = 0;
@@ -436,14 +347,16 @@
     this.retry = this.initialRetry;
     this.wasActivity = false;
     var CurrentTransport = options != undefined && options.Transport != undefined ? options.Transport : Transport;
+    this.headers = options != undefined && options.headers != undefined ? JSON.parse(JSON.stringify(options.headers)) : undefined;
     var xhr = new CurrentTransport();
-    this.transport = new XHRTransport(xhr, this.onStart, this.onProgress, this.onFinish, this);
+    this.transport = new XHRTransport(xhr);
     this.timeout = 0;
     this.currentState = WAITING;
     this.dataBuffer = [];
     this.lastEventIdBuffer = "";
     this.eventTypeBuffer = "";
 
+    this.textBuffer = "";
     this.state = FIELD_START;
     this.fieldStart = 0;
     this.valueStart = 0;
@@ -457,10 +370,7 @@
 
   EventSourceInternal.prototype.onStart = function (status, statusText, contentType) {
     if (this.currentState === CONNECTING) {
-      if (contentType == undefined) {
-        contentType = "";
-      }
-      if (status === 200 && contentTypeRegExp.test(contentType)) {
+      if (status === 200 && contentType != undefined && contentTypeRegExp.test(contentType)) {
         this.currentState = OPEN;
         this.wasActivity = true;
         this.retry = this.initialRetry;
@@ -469,12 +379,12 @@
         var event = new Event("open");
         this.es.dispatchEvent(event);
         fire(this.es, this.es.onopen, event);
-      } else if (status !== 0) {
+      } else {
         var message = "";
         if (status !== 200) {
           message = "EventSource's response has a status " + status + " " + statusText.replace(/\s+/g, " ") + " that is not 200. Aborting the connection.";
         } else {
-          message = "EventSource's response has a Content-Type specifying an unsupported type: " + contentType.replace(/\s+/g, " ") + ". Aborting the connection.";
+          message = "EventSource's response has a Content-Type specifying an unsupported type: " + (contentType == undefined ? "-" : contentType.replace(/\s+/g, " ")) + ". Aborting the connection.";
         }
         throwError(new Error(message));
         this.close();
@@ -485,8 +395,17 @@
     }
   };
 
-  EventSourceInternal.prototype.onProgress = function (chunk) {
+  EventSourceInternal.prototype.onProgress = function (textChunk) {
     if (this.currentState === OPEN) {
+      var n = -1;
+      for (var i = 0; i < textChunk.length; i += 1) {
+        var c = textChunk.charCodeAt(i);
+        if (c === "\n".charCodeAt(0) || c === "\r".charCodeAt(0)) {
+          n = i;
+        }
+      }
+      var chunk = (n !== -1 ? this.textBuffer : "") + textChunk.slice(0, n + 1);
+      this.textBuffer = (n === -1 ? this.textBuffer : "") + textChunk.slice(n + 1);
       var length = chunk.length;
       if (length !== 0) {
         this.wasActivity = true;
@@ -596,6 +515,22 @@
 
   EventSourceInternal.prototype.onTimeout = function () {
     this.timeout = 0;
+
+    if (this.currentState === WAITING) {
+      // loading indicator in Safari < ? (6), Chrome < 14, Firefox
+      if (XMLHttpRequest != undefined &&
+          !("ontimeout" in XMLHttpRequest.prototype) &&
+          global.document != undefined &&
+          global.document.readyState != undefined &&
+          global.document.readyState !== "complete") {
+        var that = this;
+        this.timeout = setTimeout(function () {
+          that.onTimeout();
+        }, 4);
+        return;
+      }
+    }
+
     if (this.currentState !== WAITING) {
       if (!this.wasActivity) {
         throwError(new Error("No activity within " + this.heartbeatTimeout + " milliseconds. Reconnecting."));
@@ -620,18 +555,31 @@
     this.dataBuffer.length = 0;
     this.eventTypeBuffer = "";
     this.lastEventIdBuffer = this.lastEventId;
+    this.textBuffer = "";
     this.fieldStart = 0;
     this.valueStart = 0;
     this.state = FIELD_START;
 
-    var s = this.url.slice(0, 5);
-    if (s !== "data:" && s !== "blob:") {
-      s = this.url + ((this.url.indexOf("?", 0) === -1 ? "?" : "&") + "lastEventId=" + encodeURIComponent(this.lastEventId) + "&r=" + (Math.random() + 1).toString().slice(2));
-    } else {
-      s = this.url;
+    // Request header field Cache-Control is not allowed by Access-Control-Allow-Headers.
+    // "Cache-control: no-cache" are not honored in Chrome and Firefox
+    // https://bugzilla.mozilla.org/show_bug.cgi?id=428916
+    // Request header field Last-Event-ID is not allowed by Access-Control-Allow-Headers.
+    var url = this.url;
+    if (this.url.slice(0, 5) !== "data:" &&
+        this.url.slice(0, 5) !== "blob:") {
+      url = this.url + ((this.url.indexOf("?", 0) === -1 ? "?" : "&") + "lastEventId=" + encodeURIComponent(this.lastEventId) + "&r=" + (Math.random() + 1).toString().slice(2));
+    }
+    var headers = {};
+    headers["Accept"] = "text/event-stream";
+    if (this.headers != undefined) {
+      for (var name in this.headers) {
+        if (Object.prototype.hasOwnProperty.call(this.headers, name)) {
+          headers[name] = this.headers[name];
+        }
+      }
     }
     try {
-      this.transport.open(s, this.withCredentials);
+      this.transport.open(this.onStart, this.onProgress, this.onFinish, this, url, this.withCredentials, headers);
     } catch (error) {
       this.close();
       throw error;
@@ -669,20 +617,20 @@
 
   var isEventSourceSupported = function () {
     // Opera 12 fails this test, but this is fine.
-    return global.EventSource != undefined && ("withCredentials" in global.EventSource.prototype);
+    return NativeEventSource != undefined && ("withCredentials" in NativeEventSource.prototype);
   };
 
   global.EventSourcePolyfill = EventSourcePolyfill;
+  global.NativeEventSource = NativeEventSource;
 
-  if (Transport != undefined && (global.EventSource == undefined || (isCORSSupported && !isEventSourceSupported()))) {
+  if (Transport != undefined && (NativeEventSource == undefined || (isCORSSupported && !isEventSourceSupported()))) {
     // Why replace a native EventSource ?
     // https://bugzilla.mozilla.org/show_bug.cgi?id=444328
     // https://bugzilla.mozilla.org/show_bug.cgi?id=831392
     // https://code.google.com/p/chromium/issues/detail?id=260144
     // https://code.google.com/p/chromium/issues/detail?id=225654
     // ...
-    global.NativeEventSource = global.EventSource;
-    global.EventSource = global.EventSourcePolyfill;
+    global.EventSource = EventSourcePolyfill;
   }
 
 }(typeof window !== 'undefined' ? window : this));
