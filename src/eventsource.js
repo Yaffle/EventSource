@@ -382,7 +382,10 @@
       } else {
         var message = "";
         if (status !== 200) {
-          message = "EventSource's response has a status " + status + " " + statusText.replace(/\s+/g, " ") + " that is not 200. Aborting the connection.";
+          if (statusText) {
+            statusText = statusText.replace(/\s+/g, " ")
+          }
+          message = "EventSource's response has a status " + status + " " + statusText + " that is not 200. Aborting the connection.";
         } else {
           message = "EventSource's response has a Content-Type specifying an unsupported type: " + (contentType == undefined ? "-" : contentType.replace(/\s+/g, " ")) + ". Aborting the connection.";
         }
