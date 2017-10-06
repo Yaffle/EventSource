@@ -91,7 +91,7 @@ http.createServer(function (request, response) {
 
     response.writeHead(200, {
       "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
+      "Cache-Control": "no-store",
       "Access-Control-Allow-Origin": "*"
     });
 
@@ -141,7 +141,7 @@ or use PHP (see php/events.php)
 <?php
 
   header("Content-Type: text/event-stream");
-  header("Cache-Control: no-cache");
+  header("Cache-Control: no-store");
   header("Access-Control-Allow-Origin: *");
 
   $lastEventId = floatval(isset($_SERVER["HTTP_LAST_EVENT_ID"]) ? $_SERVER["HTTP_LAST_EVENT_ID"] : 0);

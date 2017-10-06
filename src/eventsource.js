@@ -563,14 +563,12 @@
     this.valueStart = 0;
     this.state = FIELD_START;
 
-    // Request header field Cache-Control is not allowed by Access-Control-Allow-Headers.
-    // "Cache-control: no-cache" are not honored in Chrome and Firefox
     // https://bugzilla.mozilla.org/show_bug.cgi?id=428916
     // Request header field Last-Event-ID is not allowed by Access-Control-Allow-Headers.
     var url = this.url;
     if (this.url.slice(0, 5) !== "data:" &&
         this.url.slice(0, 5) !== "blob:") {
-      url = this.url + ((this.url.indexOf("?", 0) === -1 ? "?" : "&") + "lastEventId=" + encodeURIComponent(this.lastEventId) + "&r=" + (Math.random() + 1).toString().slice(2));
+      url = this.url + (this.url.indexOf("?", 0) === -1 ? "?" : "&") + "lastEventId=" + encodeURIComponent(this.lastEventId);
     }
     var headers = {};
     headers["Accept"] = "text/event-stream";

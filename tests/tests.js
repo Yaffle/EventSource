@@ -15,7 +15,7 @@
 
   var commonHeaders = "Access-Control-Allow-Origin: *\n" +
                       "Content-Type: text/event-stream\n" +
-                      "Cache-Control: no-cache\n";
+                      "Cache-Control: no-store\n";
 
   var mainTests = function () {
     // Opera bug with "XMLHttpRequest#onprogress"
@@ -329,7 +329,7 @@
       }
     });
 
-    asyncTest("Cache-Control: no-cache", function () {
+    asyncTest("Cache-Control: no-store", function () {
       var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "Cache-Control: max-age=3600\nExpires: " + new Date(new Date().getTime() + 3600000).toUTCString() + "\n\n" + "retry:1000\ndata:<random()>\n\n"));
       var data = "";
       var f = true;

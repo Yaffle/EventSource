@@ -1,7 +1,7 @@
 <?php
 
   header("Content-Type: text/event-stream");
-  header("Cache-Control: no-cache");
+  header("Cache-Control: no-store");
   header("Access-Control-Allow-Origin: *");
 
   $lastEventId = floatval(isset($_SERVER["HTTP_LAST_EVENT_ID"]) ? $_SERVER["HTTP_LAST_EVENT_ID"] : 0);

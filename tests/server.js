@@ -106,7 +106,7 @@ function eventStream(request, response) {
 
   response.writeHead(200, {
     "Content-Type": "text/event-stream",
-    "Cache-Control": "no-cache",
+    "Cache-Control": "no-store",
     "Access-Control-Allow-Origin": "*"
   });
 
