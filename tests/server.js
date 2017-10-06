@@ -82,7 +82,17 @@ function eventStream(request, response) {
     var next = function () {
       ++i;
       if (body[i] !== "") {
-        response.write(body[i]);
+        var pieces = body[i].split(/<byte\(([0-9A-F][0-9A-F])\)>/);
+        for (var j = 0; j < pieces.length; j += 2) {
+          if (pieces[j] !== "") {
+            response.write(pieces[j]);
+          }
+          if (j + 1 < pieces.length) {
+            var b = parseInt(pieces[j + 1], 16);
+            response.write(Buffer.from([b]));
+          }
+        }
+        //response.write(body[i]);
       }
       if (++i < body.length) {
         setTimeout(next, Number(body[i]));

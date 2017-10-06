@@ -223,6 +223,26 @@
         ok(event.data === "12", "failed");
         start();
       };
+      es.onerror = function () {
+        es.close();
+        ok(false, "failed");
+        start();
+      };
+    });
+
+    asyncTest("unicode", function () {
+      var body = "data:<byte(F0)><delay(500)><byte(9F)><delay(500)><byte(8F)><delay(500)><byte(A9)><delay(500)>\n\n";
+      var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));
+      es.onmessage = function (event) {
+        es.close();
+        ok(event.data === "\uD83C\uDFE9", "failed");
+        start();
+      };
+      es.onerror = function () {
+        es.close();
+        ok(false, "failed");
+        start();
+      };
     });
 
   };
