@@ -248,8 +248,9 @@
     }
   };
   EventTarget.prototype.addEventListener = function (type, listener) {
+    type = String(type);
     var listeners = this._listeners;
-    var typeListeners = listeners.get(type);
+    var typeListeners = listeners[type];
     if (typeListeners == undefined) {
       typeListeners = [];
       listeners[type] = typeListeners;
@@ -259,6 +260,7 @@
     }
   };
   EventTarget.prototype.removeEventListener = function (type, listener) {
+    type = String(type);
     var listeners = this._listeners;
     var typeListeners = listeners[type];
     if (typeListeners != undefined) {
