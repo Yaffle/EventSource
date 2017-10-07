@@ -27,14 +27,14 @@ function checkId() {
   }
 }
 
-es.addEventListener("message", function (event) {
-  lastEventId = Number(event.lastEventId);
+es.onmessage = function (event) {
+  lastEventId = parseInt(event.lastEventId);
   var div = document.createElement("div");
   var text = document.createTextNode(event.data);
   div.appendChild(text);
   msgs.insertBefore(div, msgs.firstChild);
   checkId();
-});
+};
 
 function showReadyState(event) {
   document.getElementById("readyStateConnecting").style.visibility = es.readyState === es.CONNECTING ? "visible" : "hidden";
@@ -57,7 +57,7 @@ function post() {
   xhr.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
   xhr.onreadystatechange = function () {
     if (xhr.readyState === 4) {
-      messageId = Number(xhr.responseText) || Infinity;
+      messageId = parseInt(xhr.responseText) || Infinity;
       checkId();
     }
   };
@@ -67,8 +67,8 @@ function post() {
 }
 
 window.onload = function () {
-  es.addEventListener("open", showReadyState);
-  es.addEventListener("error", showReadyState);
+  es.onopen = showReadyState;
+  es.onerror = showReadyState;
   showReadyState(undefined);
   var m = document.getElementById("msgs");
   m.appendChild(msgs);
