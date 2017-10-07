@@ -28,13 +28,22 @@
   var k = function () {
   };
 
-  function XHRTransport(xhr) {
-    this.xhr = xhr;
-    this.abort = k;
+  function XHRWrapper(xhr) {
+    this.withCredentials = false;
+    this.responseType = "";
+    this.readyState = 0;
+    this.status = 0;
+    this.statusText = "";
+    this.responseText = "";
+    this.onprogress = k;
+    this.onreadystatechange = k;
+    this._contentType = "";
+    this._xhr = xhr;
+    this._abort = k;
   }
 
-  XHRTransport.prototype.open = function (onStartCallback, onProgressCallback, onFinishCallback, url, withCredentials, headers) {
-    this.abort(true);
+  XHRWrapper.prototype.open = function (method, url) {
+    this._abort(true);
 
     // loading indicator in Safari < ? (6), Chrome < 14, Firefox
     if (!("ontimeout" in XMLHttpRequest.prototype) &&
@@ -44,9 +53,9 @@
       var that = this;
       var timeout = setTimeout(function () {
         timeout = 0;
-        that.open(onStartCallback, onProgressCallback, onFinishCallback, url, withCredentials, headers);
+        that.open(method, url);
       }, 4);
-      this.abort = function () {
+      this._abort = function () {
         if (timeout !== 0) {
           clearTimeout(timeout);
           timeout = 0;
@@ -55,12 +64,12 @@
       return;
     }
 
-    var xhr = this.xhr;
+    var that = this;
+    var xhr = this._xhr;
     var state = 1;
-    var offset = 0;
     var timeout = 0;
 
-    this.abort = function (silent) {
+    this._abort = function (silent) {
       if (state === 1 || state === 2 || state === 3) {
         state = 4;
         xhr.onload = k;
@@ -76,7 +85,8 @@
           timeout = 0;
         }
         if (!silent) {
-          onFinishCallback();
+          that.readyState = 4;
+          that.onreadystatechange();
         }
       }
       state = 0;
@@ -111,7 +121,11 @@
         }
         if (status !== 0) {
           state = 2;
-          onStartCallback(status, statusText, contentType);
+          that.readyState = 2;
+          that.status = status;
+          that.statusText = statusText;
+          that._contentType = contentType;
+          that.onreadystatechange();
         }
       }
     };
@@ -125,9 +139,9 @@
         } catch (error) {
           // IE 8 - 9 with XMLHttpRequest
         }
-        var chunk = responseText.slice(offset);
-        offset += chunk.length;
-        onProgressCallback(chunk);
+        that.readyState = 3;
+        that.responseText = responseText;
+        that.onprogress();
       }
     };
     var onFinish = function () {
@@ -140,7 +154,8 @@
           clearTimeout(timeout);
           timeout = 0;
         }
-        onFinishCallback();
+        that.readyState = 4;
+        that.onreadystatechange();
       }
     };
     var onReadyStateChange = function () {
@@ -189,24 +204,8 @@
     if ("contentType" in xhr) {
       url += (url.indexOf("?", 0) === -1 ? "?" : "&") + "padding=true";
     }
-    xhr.open("GET", url, true);
-    // withCredentials should be set after "open" for Safari and Chrome (< 19 ?)
-    xhr.withCredentials = withCredentials;
-    xhr.responseType = "text";
-    if ("setRequestHeader" in xhr) {
-      for (var name in headers) {
-        if (Object.prototype.hasOwnProperty.call(headers, name)) {
-          xhr.setRequestHeader(name, headers[name]);
-        }
-      }
-    }
-    try {
-      // xhr.send(); throws "Not enough arguments" in Firefox 3.0
-      xhr.send(undefined);
-    } catch (error1) {
-      // Safari 5.1.7, Opera 12
-      throw error1;
-    }
+    xhr.open(method, url, true);
+
     if ("readyState" in xhr) {
       // workaround for Opera 12 issue with "progress" events
       // #91
@@ -215,8 +214,69 @@
       }, 0);
     }
   };
+  XHRWrapper.prototype.abort = function () {
+    this._abort(false);
+  };
+  XHRWrapper.prototype.getResponseHeader = function (name) {
+    return this._contentType;
+  };
+  XHRWrapper.prototype.setRequestHeader = function (name, value) {
+    var xhr = this._xhr;
+    if ("setRequestHeader" in xhr) {
+      xhr.setRequestHeader(name, value);
+    }
+  };
+  XHRWrapper.prototype.send = function () {
+    var xhr = this._xhr;
+    // withCredentials should be set after "open" for Safari and Chrome (< 19 ?)
+    xhr.withCredentials = this.withCredentials;
+    xhr.responseType = this.responseType;
+    try {
+      // xhr.send(); throws "Not enough arguments" in Firefox 3.0
+      xhr.send(undefined);
+    } catch (error1) {
+      // Safari 5.1.7, Opera 12
+      throw error1;
+    }
+  };
+
+  function XHRTransport(xhr) {
+    this._xhr = new XHRWrapper(xhr);
+  }
+
+  XHRTransport.prototype.open = function (onStartCallback, onProgressCallback, onFinishCallback, url, withCredentials, headers) {
+    var xhr = this._xhr;
+    xhr.open("GET", url);
+    var offset = 0;
+    xhr.onprogress = function () {
+      var responseText = xhr.responseText;
+      var chunk = responseText.slice(offset);
+      offset += chunk.length;
+      onProgressCallback(chunk);
+    };
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState === 2) {
+        var status = xhr.status;
+        var statusText = xhr.statusText;
+        var contentType = xhr.getResponseHeader("Content-Type");
+        onStartCallback(status, statusText, contentType);
+      } else if (xhr.readyState === 4) {
+        onFinishCallback();
+      }
+    };
+    xhr.withCredentials = withCredentials;
+    xhr.responseType = "text";
+    for (var name in headers) {
+      if (Object.prototype.hasOwnProperty.call(headers, name)) {
+        xhr.setRequestHeader(name, headers[name]);
+      }
+    }
+    xhr.send();
+  };
+
   XHRTransport.prototype.cancel = function () {
-    this.abort(false);
+    var xhr = this._xhr;
+    xhr.abort();
   };
 
   function EventTarget() {
