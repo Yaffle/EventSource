@@ -293,7 +293,8 @@
     event.target = this;
     var typeListeners = this._listeners[event.type];
     if (typeListeners != undefined) {
-      for (var i = 0; i < typeListeners.length; i += 1) {
+      var length = typeListeners.length;
+      for (var i = 0; i < length; i += 1) {
         var listener = typeListeners[i];
         try {
           if (typeof listener.handleEvent === "function") {
@@ -315,7 +316,13 @@
       typeListeners = [];
       listeners[type] = typeListeners;
     }
-    if (typeListeners.indexOf(listener) === -1) {
+    var found = false;
+    for (var i = 0; i < typeListeners.length; i += 1) {
+      if (typeListeners[i] === listener) {
+        found = true;
+      }
+    }
+    if (!found) {
       typeListeners.push(listener);
     }
   };
@@ -324,12 +331,16 @@
     var listeners = this._listeners;
     var typeListeners = listeners[type];
     if (typeListeners != undefined) {
-      var i = typeListeners.indexOf(listener);
-      if (i !== -1) {
-        typeListeners.splice(i, 1);
-        if (typeListeners.length === 0) {
-          delete listeners[type];
+      var filtered = [];
+      for (var i = 0; i < typeListeners.length; i += 1) {
+        if (typeListeners[i] !== listener) {
+          filtered.push(typeListeners[i]);
         }
+      }
+      if (filtered.length === 0) {
+        delete listeners[type];
+      } else {
+        listeners[type] = filtered;
       }
     }
   };

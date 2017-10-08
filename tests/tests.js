@@ -396,9 +396,8 @@
       start();
     });
 
-    // Chrome: 0
-    // Opera, Firefox: 03
-    // IE 9-10: 023
+    // Opera, Firefox, Chrome: 03
+    // IE 9 - Edge 15: 023
     // EventEmitter node.js: 023
 
     asyncTest("EventTarget addEventListener/removeEventListener", function () {
@@ -460,11 +459,11 @@
                  "data: b\n\n";
       var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));
       var ok = false;
-      es.addEventListener("message", function (event) {
+      es.onmessage = function (event) {
         if (event.data === "\x00") {
           ok = true;
         }
-      });
+      };
       es.onerror = function () {
         es.close();
         strictEqual(true, ok);
