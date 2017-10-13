@@ -7,7 +7,7 @@
 /*jslint indent: 2, vars: true, plusplus: true */
 /*global setTimeout, clearTimeout */
 
-const EventSourcePolyfill = (function (global) {
+var EventSourcePolyfill = (function (global) {
     "use strict";
 
     var setTimeout = global.setTimeout;
