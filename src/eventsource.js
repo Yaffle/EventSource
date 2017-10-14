@@ -39,30 +39,12 @@
     this.onreadystatechange = k;
     this._contentType = "";
     this._xhr = xhr;
+    this._sendTimeout = 0;
     this._abort = k;
   }
 
   XHRWrapper.prototype.open = function (method, url) {
     this._abort(true);
-
-    // loading indicator in Safari < ? (6), Chrome < 14, Firefox
-    if (!("ontimeout" in XMLHttpRequest.prototype) &&
-        document != undefined &&
-        document.readyState != undefined &&
-        document.readyState !== "complete") {
-      var that = this;
-      var timeout = setTimeout(function () {
-        timeout = 0;
-        that.open(method, url);
-      }, 4);
-      this._abort = function () {
-        if (timeout !== 0) {
-          clearTimeout(timeout);
-          timeout = 0;
-        }
-      };
-      return;
-    }
 
     var that = this;
     var xhr = this._xhr;
@@ -70,6 +52,10 @@
     var timeout = 0;
 
     this._abort = function (silent) {
+      if (that._sendTimeout !== 0) {
+        clearTimeout(that._sendTimeout);
+        that._sendTimeout = 0;
+      }
       if (state === 1 || state === 2 || state === 3) {
         state = 4;
         xhr.onload = k;
@@ -227,6 +213,19 @@
     }
   };
   XHRWrapper.prototype.send = function () {
+    // loading indicator in Safari < ? (6), Chrome < 14, Firefox
+    if (!("ontimeout" in XMLHttpRequest.prototype) &&
+        document != undefined &&
+        document.readyState != undefined &&
+        document.readyState !== "complete") {
+      var that = this;
+      that._sendTimeout = setTimeout(function () {
+        that._sendTimeout = 0;
+        that.send();
+      }, 4);
+      return;
+    }
+
     var xhr = this._xhr;
     // withCredentials should be set after "open" for Safari and Chrome (< 19 ?)
     xhr.withCredentials = this.withCredentials;
