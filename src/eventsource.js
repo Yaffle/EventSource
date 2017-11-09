@@ -415,7 +415,7 @@
     var withCredentials = options != undefined && Boolean(options.withCredentials);
 
     var initialRetry = clampDuration(1000);
-    var heartbeatTimeout = clampDuration(45000);
+    var heartbeatTimeout = options != undefined && options.heartbeatTimeout != undefined ? parseDuration(options.heartbeatTimeout, 45000) : clampDuration(45000);
 
     var lastEventId = "";
     var retry = initialRetry;
