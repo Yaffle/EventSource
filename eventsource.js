@@ -150,7 +150,7 @@ var EventSourcePolyfill = (function (global) {
 
         var withCredentials = isCORSSupported && options != undefined && Boolean(options.withCredentials);
         var initialRetry = getDuration(1000, 0);
-        var heartbeatTimeout = getDuration(45000, 0);
+        var heartbeatTimeout = getDuration(options.heartbeatTimeout || 45000, 0);
 
         var lastEventId = "";
         var headers = (options && options.headers) || {};
