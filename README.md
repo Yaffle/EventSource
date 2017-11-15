@@ -17,6 +17,26 @@ bower install event-source-polyfill
 Just include `src/eventsource.js` or `src/eventsource.min.js` in your page to use the polyfill.
 
 
+Ionic2/Angular2 Installation:
+-----------------------------
+
+Unless a typescript definition file is created for this polyfill, this is how you would use it in an Ionic2 project.  It should (in theory) be very similar in an Angular2 project.
+
+```
+npm install event-source-polyfill
+```
+
+Add to (or create) src/app/polyfills.ts (path is relative to where polyfills.ts is) :
+```
+import 'path/to/event-source-polyfill/src/eventsource.min.js'
+```
+
+Add anywhere you need access to EventSourcePolyfill class : 
+
+```
+declare var EventSourcePolyfill: any;
+```
+
 Browser support:
 ----------------
 
