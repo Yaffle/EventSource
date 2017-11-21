@@ -151,7 +151,10 @@ var EventSourcePolyfill = (function (global) {
         var withCredentials = isCORSSupported && options != undefined && Boolean(options.withCredentials);
         var initialRetry = getDuration(1000, 0);
         var heartbeatTimeout = getDuration(options.heartbeatTimeout || 45000, 0);
-
+        var checkActivity = true;
+        if (options && options.checkActivity != null) {
+            checkActivity = Boolean(options.checkActivity);
+        }
         var lastEventId = "";
         var headers = (options && options.headers) || {};
         var that = this;
@@ -350,11 +353,11 @@ var EventSourcePolyfill = (function (global) {
             }
 
             if ((currentState === OPEN || currentState === CONNECTING) &&
-                (type === "load" || type === "error" || isWrongStatusCodeOrContentType || (charOffset > 1024 * 1024) || (timeout === 0 && !wasActivity))) {
+                (type === "load" || type === "error" || isWrongStatusCodeOrContentType || (charOffset > 1024 * 1024) || (timeout === 0 && (!wasActivity || !checkActivity)))) {
                 if (isWrongStatusCodeOrContentType) {
                     close();
                 } else {
-                    if (type === "" && timeout === 0 && !wasActivity) {
+                    if (type === "" && timeout === 0 && (!wasActivity || !checkActivity)) {
                         setTimeout(function () {
                             if (errorOnTimeout) {
                                 throw new Error("No activity within " + heartbeatTimeout + " milliseconds. Reconnecting.");
