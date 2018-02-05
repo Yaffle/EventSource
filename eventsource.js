@@ -13,7 +13,7 @@ var EventSourcePolyfill = (function (global) {
     var setTimeout = global.setTimeout;
     var clearTimeout = global.clearTimeout;
 
-    function Map() {
+    function Map () {
         this.data = {};
     }
 
@@ -27,11 +27,11 @@ var EventSourcePolyfill = (function (global) {
         delete this.data[key + "~"];
     };
 
-    function EventTarget() {
+    function EventTarget () {
         this.listeners = new Map();
     }
 
-    function throwError(e) {
+    function throwError (e) {
         setTimeout(function () {
             throw e;
         }, 0);
@@ -95,12 +95,12 @@ var EventSourcePolyfill = (function (global) {
         }
     };
 
-    function Event(type) {
+    function Event (type) {
         this.type = type;
         this.target = undefined;
     }
 
-    function MessageEvent(type, options) {
+    function MessageEvent (type, options) {
         Event.call(this, type);
         this.data = options.data;
         this.lastEventId = options.lastEventId;
@@ -127,7 +127,7 @@ var EventSourcePolyfill = (function (global) {
     var MINIMUM_DURATION = 1000;
     var MAXIMUM_DURATION = 18000000;
 
-    function getDuration(value, def) {
+    function getDuration (value, def) {
         var n = value;
         if (n !== n) {
             n = def;
@@ -135,7 +135,7 @@ var EventSourcePolyfill = (function (global) {
         return (n < MINIMUM_DURATION ? MINIMUM_DURATION : (n > MAXIMUM_DURATION ? MAXIMUM_DURATION : n));
     }
 
-    function fire(that, f, event) {
+    function fire (that, f, event) {
         try {
             if (typeof f === "function") {
                 f.call(that, event);
@@ -145,7 +145,7 @@ var EventSourcePolyfill = (function (global) {
         }
     }
 
-    function EventSourcePolyfill(url, options) {
+    function EventSourcePolyfill (url, options) {
         url = url.toString();
 
         var withCredentials = isCORSSupported && options != undefined && Boolean(options.withCredentials);
@@ -154,6 +154,10 @@ var EventSourcePolyfill = (function (global) {
         var checkActivity = true;
         if (options && options.checkActivity != null) {
             checkActivity = Boolean(options.checkActivity);
+        }
+        var connectionTimeout = 0;
+        if (options && options.connectionTimeout) {
+            connectionTimeout = options.connectionTimeout;
         }
         var lastEventId = "";
         var headers = (options && options.headers) || {};
@@ -179,7 +183,7 @@ var EventSourcePolyfill = (function (global) {
         var field = "";
         var value = "";
 
-        function close() {
+        function close () {
             currentState = CLOSED;
             if (xhr != undefined) {
                 xhr.abort();
@@ -196,7 +200,7 @@ var EventSourcePolyfill = (function (global) {
             that.readyState = CLOSED;
         }
 
-        function onEvent(type) {
+        function onEvent (type) {
             var responseText = "";
             if (currentState === OPEN || currentState === CONNECTING) {
                 try {
@@ -205,6 +209,7 @@ var EventSourcePolyfill = (function (global) {
                     // IE 8 - 9 with XMLHttpRequest
                 }
             }
+
             var event = undefined;
             var isWrongStatusCodeOrContentType = false;
 
@@ -393,19 +398,19 @@ var EventSourcePolyfill = (function (global) {
             }
         }
 
-        function onProgress() {
+        function onProgress () {
             onEvent("progress");
         }
 
-        function onLoad() {
+        function onLoad () {
             onEvent("load");
         }
 
-        function onError() {
+        function onError () {
             onEvent("error");
         }
 
-        function onReadyStateChange() {
+        function onReadyStateChange () {
             if (xhr.readyState === 4) {
                 if (xhr.status === 0) {
                     onEvent("error");
@@ -419,7 +424,7 @@ var EventSourcePolyfill = (function (global) {
 
         if (("readyState" in xhr) && global.opera != undefined) {
             // workaround for Opera issue with "progress" events
-            timeout0 = setTimeout(function f() {
+            timeout0 = setTimeout(function f () {
                 if (xhr.readyState === 3) {
                     onEvent("progress");
                 }
@@ -485,6 +490,15 @@ var EventSourcePolyfill = (function (global) {
             }
             xhr.open("GET", s, true);
 
+            if (connectionTimeout > 0) {
+                xhr.timeout = connectionTimeout;
+                xhr.ontimeout = function (e) {
+                    if (errorOnTimeout) {
+                        throw new Error("No ack received");
+                    }
+                }
+            }
+
             if ("withCredentials" in xhr) {
                 // withCredentials should be set after "open" for Safari and Chrome (< 19 ?)
                 xhr.withCredentials = withCredentials;
@@ -526,11 +540,12 @@ var EventSourcePolyfill = (function (global) {
         onTimeout();
     }
 
-    function F() {
+    function F () {
         this.CONNECTING = CONNECTING;
         this.OPEN = OPEN;
         this.CLOSED = CLOSED;
     }
+
     F.prototype = EventTarget.prototype;
 
     EventSourcePolyfill.prototype = new F();
@@ -543,4 +558,4 @@ var EventSourcePolyfill = (function (global) {
 
 }(typeof window !== 'undefined' ? window : this));
 
-export { EventSourcePolyfill };
+export {EventSourcePolyfill};

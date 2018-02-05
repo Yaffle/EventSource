@@ -21,6 +21,7 @@ interface EventSourceInit {
     errorOnTimeout?: boolean;
     heartbeatTimeout?: number;
     checkActivity?: boolean;
+    connectionTimeout?: number;
 }
 
 interface OnMessageEvent {
