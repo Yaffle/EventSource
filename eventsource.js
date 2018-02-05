@@ -168,6 +168,7 @@ var EventSourcePolyfill = (function (global) {
         var xhr = new CurrentTransport();
         var timeout = 0;
         var timeout0 = 0;
+        var timeoutConnection = 0;
         var charOffset = 0;
         var currentState = WAITING;
         var dataBuffer = [];
@@ -196,6 +197,10 @@ var EventSourcePolyfill = (function (global) {
             if (timeout0 !== 0) {
                 clearTimeout(timeout0);
                 timeout0 = 0;
+            }
+            if (timeoutConnection !== 0) {
+                clearTimeout(timeoutConnection);
+                timeoutConnection = 0;
             }
             that.readyState = CLOSED;
         }
@@ -472,6 +477,14 @@ var EventSourcePolyfill = (function (global) {
 
             wasActivity = false;
             timeout = setTimeout(onTimeout, heartbeatTimeout);
+            timeoutConnection = setTimeout(function() {
+                if (xhr.status === 0) {
+                    xhr.timeout = 1;
+                    if (errorOnTimeout) {
+                        console.log('No ack received');
+                    }
+                }
+            }, connectionTimeout);
 
             charOffset = 0;
             currentState = CONNECTING;
@@ -488,16 +501,8 @@ var EventSourcePolyfill = (function (global) {
             } else {
                 s = url;
             }
+            xhr.timeout = 0;
             xhr.open("GET", s, true);
-
-            if (connectionTimeout > 0) {
-                xhr.timeout = connectionTimeout;
-                xhr.ontimeout = function (e) {
-                    if (errorOnTimeout) {
-                        throw new Error("No ack received");
-                    }
-                }
-            }
 
             if ("withCredentials" in xhr) {
                 // withCredentials should be set after "open" for Safari and Chrome (< 19 ?)
