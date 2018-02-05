@@ -477,14 +477,16 @@ var EventSourcePolyfill = (function (global) {
 
             wasActivity = false;
             timeout = setTimeout(onTimeout, heartbeatTimeout);
-            timeoutConnection = setTimeout(function() {
-                if (xhr.status === 0) {
-                    xhr.timeout = 1;
-                    if (errorOnTimeout) {
-                        console.log('No ack received');
+            if (connectionTimeout && connectionTimeout > 0) {
+                timeoutConnection = setTimeout(function() {
+                    if (xhr.status === 0) {
+                        xhr.timeout = 1;
+                        if (errorOnTimeout) {
+                            console.log('No ack received');
+                        }
                     }
-                }
-            }, connectionTimeout);
+                }, connectionTimeout);
+            }
 
             charOffset = 0;
             currentState = CONNECTING;
