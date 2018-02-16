@@ -410,18 +410,32 @@
     start(this, url, options);
   }
 
+  function getBestTransport() {
+    // No XHR? Use XDomainRequest.
+    if (typeof XMLHttpRequest === 'undefined' && typeof XDomainRequest !== 'undefined') {
+      return XDomainRequest;
+    }
+    // No CORS support for XHR? Use XDomainRequest.
+    var testXhr = new XMLHttpRequest();
+    if (typeof testXhr.withCredentials === 'undefined') {
+      return XDomainRequest;
+    }
+    // Use XMLHttpRequest with CORS.
+    return XMLHttpRequest;
+  }
+
   function start(es, url, options) {
     url = String(url);
     var withCredentials = options != undefined && Boolean(options.withCredentials);
 
     var initialRetry = clampDuration(1000);
-    var heartbeatTimeout = clampDuration(45000);
+    var heartbeatTimeout = options != undefined && options.heartbeatTimeout != undefined ? parseDuration(options.heartbeatTimeout, 45000) : clampDuration(45000);
 
     var lastEventId = "";
     var retry = initialRetry;
     var wasActivity = false;
     var headers = options != undefined && options.headers != undefined ? JSON.parse(JSON.stringify(options.headers)) : undefined;
-    var CurrentTransport = options != undefined && options.Transport != undefined ? options.Transport : (XDomainRequest != undefined ? XDomainRequest : XMLHttpRequest);
+    var CurrentTransport = options != undefined && options.Transport != undefined ? options.Transport : getBestTransport();
     var transport = new XHRTransport(new CurrentTransport());
     var timeout = 0;
     var currentState = WAITING;

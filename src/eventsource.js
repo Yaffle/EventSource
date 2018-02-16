@@ -410,6 +410,12 @@
     start(this, url, options);
   }
 
+  function getBestTransport() {
+    return XMLHttpRequest && "withCredentials" in XMLHttpRequest.prototype
+      ? XMLHttpRequest
+      : XDomainRequest;
+  }
+
   function start(es, url, options) {
     url = String(url);
     var withCredentials = options != undefined && Boolean(options.withCredentials);
@@ -421,7 +427,7 @@
     var retry = initialRetry;
     var wasActivity = false;
     var headers = options != undefined && options.headers != undefined ? JSON.parse(JSON.stringify(options.headers)) : undefined;
-    var CurrentTransport = options != undefined && options.Transport != undefined ? options.Transport : (XDomainRequest != undefined ? XDomainRequest : XMLHttpRequest);
+    var CurrentTransport = options != undefined && options.Transport != undefined ? options.Transport : getBestTransport();
     var transport = new XHRTransport(new CurrentTransport());
     var timeout = 0;
     var currentState = WAITING;
