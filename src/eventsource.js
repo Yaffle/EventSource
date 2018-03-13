@@ -463,6 +463,8 @@
           throwError(new Error(message));
           close();
           var event = new Event("error");
+          event.statusCode = status;
+          event.statusText = statusText;
           es.dispatchEvent(event);
           fire(es, es.onerror, event);
         }
@@ -623,7 +625,11 @@
       var requestURL = url;
       if (url.slice(0, 5) !== "data:" &&
           url.slice(0, 5) !== "blob:") {
-        requestURL = url + (url.indexOf("?", 0) === -1 ? "?" : "&") + "lastEventId=" + encodeURIComponent(lastEventId);
+        requestURL = url;
+        
+        if(lastEventId) {
+          requestURL += (url.indexOf("?", 0) === -1 ? "?" : "&") + "lastEventId=" + encodeURIComponent(lastEventId);
+        }
       }
       var requestHeaders = {};
       requestHeaders["Accept"] = "text/event-stream";
