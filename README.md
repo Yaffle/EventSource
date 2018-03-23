@@ -1,4 +1,4 @@
-EventSource polyfill - http://www.w3.org/TR/eventsource/
+EventSource polyfill - https://html.spec.whatwg.org/multipage/server-sent-events.html#server-sent-events
 ========================================================
 
 Installing:
