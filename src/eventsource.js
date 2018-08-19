@@ -223,9 +223,9 @@
   XHRWrapper.prototype.send = function () {
     // loading indicator in Safari < ? (6), Chrome < 14, Firefox
     if (!("ontimeout" in XMLHttpRequest.prototype) &&
-       document != undefined &&
-       document.readyState != undefined &&
-       document.readyState !== "complete") {
+        document != undefined &&
+        document.readyState != undefined &&
+        document.readyState !== "complete") {
       var that = this;
       that._sendTimeout = setTimeout(function () {
         that._sendTimeout = 0;
