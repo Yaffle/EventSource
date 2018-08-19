@@ -37,6 +37,7 @@
     this.responseText = "";
     this.onprogress = k;
     this.onreadystatechange = k;
+    this._headers = {};
     this._contentType = "";
     this._xhr = xhr;
     this._sendTimeout = 0;
@@ -84,11 +85,13 @@
         var status = 0;
         var statusText = "";
         var contentType = undefined;
+        var headers = {};
         if (!("contentType" in xhr)) {
           try {
             status = xhr.status;
             statusText = xhr.statusText;
             contentType = xhr.getResponseHeader("Content-Type");
+            headers = xhr.getAllResponseHeaders();
           } catch (error) {
             // IE < 10 throws exception for `xhr.status` when xhr.readyState === 2 || xhr.readyState === 3
             // Opera < 11 throws exception for `xhr.status` when xhr.readyState === 2
@@ -104,6 +107,7 @@
           status = 200;
           statusText = "OK";
           contentType = xhr.contentType;
+          headers = xhr.getAllResponseHeaders();
         }
         if (status !== 0) {
           state = 2;
@@ -111,6 +115,7 @@
           that.status = status;
           that.statusText = statusText;
           that._contentType = contentType;
+          that._headers = headers;
           that.onreadystatechange();
         }
       }
@@ -212,12 +217,15 @@
       xhr.setRequestHeader(name, value);
     }
   };
+  XHRWrapper.prototype.getAllResponseHeaders = function () {
+    return this._xhr.getAllResponseHeaders();
+  };
   XHRWrapper.prototype.send = function () {
     // loading indicator in Safari < ? (6), Chrome < 14, Firefox
     if (!("ontimeout" in XMLHttpRequest.prototype) &&
-        document != undefined &&
-        document.readyState != undefined &&
-        document.readyState !== "complete") {
+       document != undefined &&
+       document.readyState != undefined &&
+       document.readyState !== "complete") {
       var that = this;
       that._sendTimeout = setTimeout(function () {
         that._sendTimeout = 0;
@@ -258,7 +266,17 @@
         var status = xhr.status;
         var statusText = xhr.statusText;
         var contentType = xhr.getResponseHeader("Content-Type");
-        onStartCallback(status, statusText, contentType);
+        // Get headers: implemented according to mozilla's example code: https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/getAllResponseHeaders#Example
+        var headers = xhr.getAllResponseHeaders();
+        var arr = headers.trim().split(/[\r\n]+/);
+        var headerMap = {};
+        arr.forEach(function (line) {
+          var parts = line.split(': ');
+          var header = parts.shift();
+          var value = parts.join(': ');
+          headerMap[header] = value;
+        });
+        onStartCallback(status, statusText, contentType, headerMap || undefined);
       } else if (xhr.readyState === 4) {
         onFinishCallback();
       }
@@ -419,6 +437,7 @@
   function start(es, url, options) {
     url = String(url);
     var withCredentials = options != undefined && Boolean(options.withCredentials);
+    var exposeHeaders = options != undefined && Boolean(options.exposeHeaders);
 
     var initialRetry = clampDuration(1000);
     var heartbeatTimeout = options != undefined && options.heartbeatTimeout != undefined ? parseDuration(options.heartbeatTimeout, 45000) : clampDuration(45000);
@@ -440,7 +459,7 @@
     var fieldStart = 0;
     var valueStart = 0;
 
-    var onStart = function (status, statusText, contentType) {
+    var onStart = function (status, statusText, contentType, headerMap) {
       if (currentState === CONNECTING) {
         if (status === 200 && contentType != undefined && contentTypeRegExp.test(contentType)) {
           currentState = OPEN;
@@ -448,6 +467,11 @@
           retry = initialRetry;
           es.readyState = OPEN;
           var event = new Event("open");
+          event.status = status;
+          event.statusText = statusText;
+          if (exposeHeaders) {
+            event.headers = headerMap;
+          }
           es.dispatchEvent(event);
           fire(es, es.onopen, event);
         } else {
@@ -464,6 +488,11 @@
           close();
           var event = new Event("error");
           es.dispatchEvent(event);
+          event.status = status;
+          event.statusText = statusText;
+          if (exposeHeaders) {
+            event.headers = headerMap;
+          }
           fire(es, es.onerror, event);
         }
       }
@@ -622,7 +651,7 @@
       // Request header field Last-Event-ID is not allowed by Access-Control-Allow-Headers.
       var requestURL = url;
       if (url.slice(0, 5) !== "data:" &&
-          url.slice(0, 5) !== "blob:") {
+         url.slice(0, 5) !== "blob:") {
         requestURL = url + (url.indexOf("?", 0) === -1 ? "?" : "&") + "lastEventId=" + encodeURIComponent(lastEventId);
       }
       var requestHeaders = {};
