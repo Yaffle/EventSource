@@ -487,6 +487,8 @@
           throwError(new Error(message));
           close();
           var event = new Event("error");
+          event.statusCode = status;
+          event.statusText = statusText;
           es.dispatchEvent(event);
           event.status = status;
           event.statusText = statusText;
@@ -650,9 +652,12 @@
       // https://bugzilla.mozilla.org/show_bug.cgi?id=428916
       // Request header field Last-Event-ID is not allowed by Access-Control-Allow-Headers.
       var requestURL = url;
-      if (url.slice(0, 5) !== "data:" &&
-         url.slice(0, 5) !== "blob:") {
-        requestURL = url + (url.indexOf("?", 0) === -1 ? "?" : "&") + "lastEventId=" + encodeURIComponent(lastEventId);
+      if (url.slice(0, 5) !== "data:" && url.slice(0, 5) !== "blob:") {
+        requestURL = url;
+        
+        if(lastEventId) {
+          requestURL += (url.indexOf("?", 0) === -1 ? "?" : "&") + "lastEventId=" + encodeURIComponent(lastEventId);
+        }
       }
       var requestHeaders = {};
       requestHeaders["Accept"] = "text/event-stream";
