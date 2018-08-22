@@ -258,7 +258,7 @@
     xhr.onreadystatechange = onReadyStateChange;
 
     if ("contentType" in xhr) {
-      url += (url.indexOf("?", 0) === -1 ? "?" : "&") + "padding=true";
+      url += (url.indexOf("?") === -1 ? "?" : "&") + "padding=true";
     }
     xhr.open(method, url, true);
 
@@ -312,6 +312,23 @@
     }
   };
 
+  function HeadersPolyfill(all) {
+    // Get headers: implemented according to mozilla's example code: https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/getAllResponseHeaders#Example
+    var map = Object.create(null);
+    var array = all.split("\r\n");
+    for (var i = 0; i < array.length; i += 1) {
+      var line = array[i];
+      var parts = line.split(": ");
+      var name = parts.shift();
+      var value = parts.join(": ");
+      map[name] = value;
+    }
+    this._map = map;
+  }
+  HeadersPolyfill.prototype.get = function (name) {
+    return this._map[name];
+  };
+
   function XHRTransport() {
   }
 
@@ -329,17 +346,8 @@
         var status = xhr.status;
         var statusText = xhr.statusText;
         var contentType = xhr.getResponseHeader("Content-Type");
-        // Get headers: implemented according to mozilla's example code: https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/getAllResponseHeaders#Example
-        var array = xhr.getAllResponseHeaders().replace(/\s+|\s+/g, "").split("\r\n");
-        var headers = Object.create(null);
-        for (var i = 0; i < array.length; i += 1) {
-          var line = array[i];
-          var parts = line.split(": ");
-          var header = parts.shift();
-          var value = parts.join(": ");
-          headers[header] = value;
-        }
-        onStartCallback(status, statusText, contentType, headers, function () {
+        var headers = xhr.getAllResponseHeaders();
+        onStartCallback(status, statusText, contentType, new HeadersPolyfill(headers), function () {
           xhr.abort();
         });
       } else if (xhr.readyState === 4) {
@@ -355,6 +363,13 @@
     }
     xhr.send();
   };
+  
+  function HeadersWrapper(headers) {
+    this._headers = headers;
+  }
+  HeadersWrapper.prototype.get = function (name) {
+    return this._headers.get(name);
+  };
 
   function FetchTransport() {
   }
@@ -368,7 +383,7 @@
       credentials: withCredentials ? "include" : "same-origin"
     }).then(function (response) {
       var reader = response.body.getReader();
-      onStartCallback(response.status, response.statusText, response.headers.get("Content-Type"), response.headers, function () {
+      onStartCallback(response.status, response.statusText, response.headers.get("Content-Type"), new HeadersWrapper(response.headers), function () {
         reader.cancel();
       });
       return new Promise(function (resolve, reject) {
@@ -764,7 +779,7 @@
       var requestURL = url;
       if (url.slice(0, 5) !== "data:" && url.slice(0, 5) !== "blob:") {
         if (lastEventId !== "") {
-          requestURL += (url.indexOf("?", 0) === -1 ? "?" : "&") + "lastEventId=" + encodeURIComponent(lastEventId);
+          requestURL += (url.indexOf("?") === -1 ? "?" : "&") + "lastEventId=" + encodeURIComponent(lastEventId);
         }
       }
       var requestHeaders = {};
