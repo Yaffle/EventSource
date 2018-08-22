@@ -47,48 +47,48 @@
 
   // Firefox < 40 (no "stream" option), IE, Edge
   function TextDecoderPolyfill() {
+    this.bytesNeeded = 0;
+    this.codePoint = 0;
   }
 
-  //TODO: stream option support
   TextDecoderPolyfill.prototype.decode = function (octets) {
     var string = "";
-    var i = 0;
-    while (i < octets.length) {
+    var bytesNeeded = this.bytesNeeded;
+    var codePoint = this.codePoint;
+    for (var i = 0; i < octets.length; i += 1) {
       var octet = octets[i];
-      var bytesNeeded = 0;
-      var codePoint = 0;
-      if (octet <= 0x7F) {
-        bytesNeeded = 0;
-        codePoint = octet & 0xFF;
-      } else if (octet <= 0xDF) {
-        bytesNeeded = 1;
-        codePoint = octet & 0x1F;
-      } else if (octet <= 0xEF) {
-        bytesNeeded = 2;
-        codePoint = octet & 0x0F;
-      } else if (octet <= 0xF4) {
-        bytesNeeded = 3;
-        codePoint = octet & 0x07;
-      }
-      if (octets.length - i - bytesNeeded > 0) {
-        var k = 0;
-        while (k < bytesNeeded) {
-          octet = octets[i + k + 1];
-          codePoint = (codePoint << 6) | (octet & 0x3F);
-          k += 1;
+      if (bytesNeeded === 0) {
+        if (octet <= 0x7F) {
+          bytesNeeded = 0;
+          codePoint = octet & 0xFF;
+        } else if (octet <= 0xDF) {
+          bytesNeeded = 1;
+          codePoint = octet & 0x1F;
+        } else if (octet <= 0xEF) {
+          bytesNeeded = 2;
+          codePoint = octet & 0x0F;
+        } else if (octet <= 0xF4) {
+          bytesNeeded = 3;
+          codePoint = octet & 0x07;
+        } else {
+          bytesNeeded = 0;
+          codePoint = 0xFFFD;
         }
       } else {
-        codePoint = 0xFFFD;
-        bytesNeeded = octets.length - i;
+        bytesNeeded -= 1;
+        codePoint = (codePoint << 6) | (octet & 0x3F);
       }
-      if (codePoint > 0xFFFF) {
-        string += String.fromCharCode(0xD800 + ((codePoint - 0xFFFF - 1) >> 10));
-        string += String.fromCharCode(0xDC00 + ((codePoint - 0xFFFF - 1) & 0x3FF));
-      } else {
-        string += String.fromCharCode(codePoint);
+      if (bytesNeeded === 0) {
+        if (codePoint > 0xFFFF) {
+          string += String.fromCharCode(0xD800 + ((codePoint - 0xFFFF - 1) >> 10));
+          string += String.fromCharCode(0xDC00 + ((codePoint - 0xFFFF - 1) & 0x3FF));
+        } else {
+          string += String.fromCharCode(codePoint);
+        }
       }
-      i += bytesNeeded + 1;
     }
+    this.bytesNeeded = bytesNeeded;
+    this.codePoint = codePoint;
     return string;
   };
 
