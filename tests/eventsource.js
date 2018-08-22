@@ -20,6 +20,7 @@
   var fetch = global.fetch;
   var Response = global.Response;
   var TextDecoder = global.TextDecoder;
+  var TextEncoder = global.TextEncoder;
 
   if (Object.create == null) {
     Object.create = function (C) {
@@ -91,7 +92,17 @@
     return string;
   };
 
-  if (TextDecoder == undefined) {
+  // Firefox < 38 throws an error with stream option
+  var supportsStreamOption = function () {
+    try {
+      return new TextDecoder().decode(new TextEncoder().encode("test"), {stream: true}) === "test";
+    } catch (error) {
+      console.log(error);
+    }
+    return false;
+  };
+
+  if (TextDecoder == undefined || TextEncoder == undefined || !supportsStreamOption()) {
     TextDecoder = TextDecoderPolyfill;
   }
 
