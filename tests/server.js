@@ -77,6 +77,9 @@ function eventStream(request, response) {
     body = body.replace(/<authorization>/g, function () {
       return authorization;
     });
+    body = body.replace(/<bigData>/g, function () {
+      return new Array(1024 * 1024 * 16).join("X");
+    });
     body = body.split(/<delay\((\d+)\)>/);
     i = -1;
     var next = function () {

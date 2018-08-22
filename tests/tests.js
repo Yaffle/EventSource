@@ -230,6 +230,44 @@
       };
     });
 
+    asyncTest("onprogress-and-onreadystatechange-50ms", function () {
+      var body = "data:1<delay(1000)>2<delay(25)>3<delay(25)>\n<delay(25)>\n";
+      var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));
+      es.onmessage = function (event) {
+        es.close();
+        strictEqual(event.data, "123");
+        start();
+      };
+      es.onerror = function () {
+        es.close();
+        ok(false, "no message event");
+        start();
+      };
+    });
+
+    // IE 11, Edge 17
+    asyncTest("fast-response-text-parsing-after-big-data", function () {
+      var body = "<bigData>\n\n<delay(5000)>data: small1\n\n<delay(1000)>data: small2\n\n";
+      var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));
+      var t = 0;
+      es.onmessage = function (event) {
+        if (event.data === "small1") {
+          t = Date.now();
+        }
+        if (event.data === "small2") {
+          t = Date.now() - t;
+          es.close();
+          strictEqual(t < 1000 + 4, true);
+          start();
+        }
+      };
+      es.onerror = function () {
+        es.close();
+        ok(false, "no message event");
+        start();
+      };
+    });
+
     asyncTest("unicode", function () {
       var body = "data:<byte(F0)><delay(500)><byte(9F)><delay(500)><byte(8F)><delay(500)><byte(A9)><delay(500)>\n\n";
       var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body));

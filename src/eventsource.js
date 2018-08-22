@@ -37,7 +37,6 @@
     this.responseText = "";
     this.onprogress = k;
     this.onreadystatechange = k;
-    this._headers = {};
     this._contentType = "";
     this._xhr = xhr;
     this._sendTimeout = 0;
@@ -85,13 +84,11 @@
         var status = 0;
         var statusText = "";
         var contentType = undefined;
-        var headers = {};
         if (!("contentType" in xhr)) {
           try {
             status = xhr.status;
             statusText = xhr.statusText;
             contentType = xhr.getResponseHeader("Content-Type");
-            headers = xhr.getAllResponseHeaders();
           } catch (error) {
             // IE < 10 throws exception for `xhr.status` when xhr.readyState === 2 || xhr.readyState === 3
             // Opera < 11 throws exception for `xhr.status` when xhr.readyState === 2
@@ -107,7 +104,6 @@
           status = 200;
           statusText = "OK";
           contentType = xhr.contentType;
-          headers = xhr.getAllResponseHeaders();
         }
         if (status !== 0) {
           state = 2;
@@ -115,7 +111,6 @@
           that.status = status;
           that.statusText = statusText;
           that._contentType = contentType;
-          that._headers = headers;
           that.onreadystatechange();
         }
       }
@@ -218,7 +213,7 @@
     }
   };
   XHRWrapper.prototype.getAllResponseHeaders = function () {
-    return this._xhr.getAllResponseHeaders();
+    return this._xhr.getAllResponseHeaders != undefined ? this._xhr.getAllResponseHeaders() : "";
   };
   XHRWrapper.prototype.send = function () {
     // loading indicator in Safari < ? (6), Chrome < 14, Firefox
@@ -267,16 +262,16 @@
         var statusText = xhr.statusText;
         var contentType = xhr.getResponseHeader("Content-Type");
         // Get headers: implemented according to mozilla's example code: https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/getAllResponseHeaders#Example
-        var headers = xhr.getAllResponseHeaders();
-        var arr = headers.trim().split(/[\r\n]+/);
-        var headerMap = {};
-        arr.forEach(function (line) {
-          var parts = line.split(': ');
+        var array = xhr.getAllResponseHeaders().replace(/\s+|\s+/g, "").split("\r\n");
+        var headers = Object.create(null);
+        for (var i = 0; i < array.length; i += 1) {
+          var line = array[i];
+          var parts = line.split(": ");
           var header = parts.shift();
-          var value = parts.join(': ');
-          headerMap[header] = value;
-        });
-        onStartCallback(status, statusText, contentType, headerMap || undefined);
+          var value = parts.join(": ");
+          headers[header] = value;
+        }
+        onStartCallback(status, statusText, contentType, headers);
       } else if (xhr.readyState === 4) {
         onFinishCallback();
       }
@@ -375,6 +370,15 @@
 
   MessageEvent.prototype = Object.create(Event.prototype);
 
+  function ConnectionEvent(type, options) {
+    Event.call(this, type);
+    this.status = options.status;
+    this.statusText = options.statusText;
+    this.headers = options.headers;
+  }
+
+  ConnectionEvent.prototype = Object.create(Event.prototype);
+
   var WAITING = -1;
   var CONNECTING = 0;
   var OPEN = 1;
@@ -437,7 +441,6 @@
   function start(es, url, options) {
     url = String(url);
     var withCredentials = options != undefined && Boolean(options.withCredentials);
-    var exposeHeaders = options != undefined && Boolean(options.exposeHeaders);
 
     var initialRetry = clampDuration(1000);
     var heartbeatTimeout = options != undefined && options.heartbeatTimeout != undefined ? parseDuration(options.heartbeatTimeout, 45000) : clampDuration(45000);
@@ -459,19 +462,18 @@
     var fieldStart = 0;
     var valueStart = 0;
 
-    var onStart = function (status, statusText, contentType, headerMap) {
+    var onStart = function (status, statusText, contentType, headers) {
       if (currentState === CONNECTING) {
         if (status === 200 && contentType != undefined && contentTypeRegExp.test(contentType)) {
           currentState = OPEN;
           wasActivity = true;
           retry = initialRetry;
           es.readyState = OPEN;
-          var event = new Event("open");
-          event.status = status;
-          event.statusText = statusText;
-          if (exposeHeaders) {
-            event.headers = headerMap;
-          }
+          var event = new ConnectionEvent("open", {
+            status: status,
+            statusText: statusText,
+            headers: headers
+          });
           es.dispatchEvent(event);
           fire(es, es.onopen, event);
         } else {
@@ -486,15 +488,12 @@
           }
           throwError(new Error(message));
           close();
-          var event = new Event("error");
-          event.statusCode = status;
-          event.statusText = statusText;
+          var event = new ConnectionEvent("error", {
+            status: status,
+            statusText: statusText,
+            headers: headers
+          });
           es.dispatchEvent(event);
-          event.status = status;
-          event.statusText = statusText;
-          if (exposeHeaders) {
-            event.headers = headerMap;
-          }
           fire(es, es.onerror, event);
         }
       }
@@ -653,9 +652,7 @@
       // Request header field Last-Event-ID is not allowed by Access-Control-Allow-Headers.
       var requestURL = url;
       if (url.slice(0, 5) !== "data:" && url.slice(0, 5) !== "blob:") {
-        requestURL = url;
-        
-        if(lastEventId) {
+        if (lastEventId !== "") {
           requestURL += (url.indexOf("?", 0) === -1 ? "?" : "&") + "lastEventId=" + encodeURIComponent(lastEventId);
         }
       }
