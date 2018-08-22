@@ -16,6 +16,10 @@
   var XDomainRequest = global.XDomainRequest;
   var NativeEventSource = global.EventSource;
   var document = global.document;
+  var Promise = global.Promise;
+  var fetch = global.fetch;
+  var Response = global.Response;
+  var TextDecoder = global.TextDecoder;
 
   if (Object.create == null) {
     Object.create = function (C) {
@@ -23,6 +27,72 @@
       F.prototype = C;
       return new F();
     };
+  }
+
+  // ?
+  if (Promise != undefined && Promise.prototype["finally"] == undefined) {
+    Promise.prototype["finally"] = function (callback) {
+      return this.then(function (result) {
+        return Promise.resolve(callback()).then(function () {
+          return result;
+        });
+      }, function (error) {
+        return Promise.resolve(callback()).then(function () {
+          throw error;
+        });
+      });
+    };
+  }
+
+  // Firefox < 40 (no "stream" option), IE, Edge
+  function TextDecoderPolyfill() {
+  }
+
+  //TODO: stream option support
+  TextDecoderPolyfill.prototype.decode = function (octets) {
+    var string = "";
+    var i = 0;
+    while (i < octets.length) {
+      var octet = octets[i];
+      var bytesNeeded = 0;
+      var codePoint = 0;
+      if (octet <= 0x7F) {
+        bytesNeeded = 0;
+        codePoint = octet & 0xFF;
+      } else if (octet <= 0xDF) {
+        bytesNeeded = 1;
+        codePoint = octet & 0x1F;
+      } else if (octet <= 0xEF) {
+        bytesNeeded = 2;
+        codePoint = octet & 0x0F;
+      } else if (octet <= 0xF4) {
+        bytesNeeded = 3;
+        codePoint = octet & 0x07;
+      }
+      if (octets.length - i - bytesNeeded > 0) {
+        var k = 0;
+        while (k < bytesNeeded) {
+          octet = octets[i + k + 1];
+          codePoint = (codePoint << 6) | (octet & 0x3F);
+          k += 1;
+        }
+      } else {
+        codePoint = 0xFFFD;
+        bytesNeeded = octets.length - i;
+      }
+      if (codePoint > 0xFFFF) {
+        string += String.fromCharCode(0xD800 + ((codePoint - 0xFFFF - 1) >> 10));
+        string += String.fromCharCode(0xDC00 + ((codePoint - 0xFFFF - 1) & 0x3FF));
+      } else {
+        string += String.fromCharCode(codePoint);
+      }
+      i += bytesNeeded + 1;
+    }
+    return string;
+  };
+
+  if (TextDecoder == undefined) {
+    TextDecoder = TextDecoderPolyfill;
   }
 
   var k = function () {
@@ -242,12 +312,10 @@
     }
   };
 
-  function XHRTransport(xhr) {
-    this._xhr = new XHRWrapper(xhr);
+  function XHRTransport() {
   }
 
-  XHRTransport.prototype.open = function (onStartCallback, onProgressCallback, onFinishCallback, url, withCredentials, headers) {
-    var xhr = this._xhr;
+  XHRTransport.prototype.open = function (xhr, onStartCallback, onProgressCallback, onFinishCallback, url, withCredentials, headers) {
     xhr.open("GET", url);
     var offset = 0;
     xhr.onprogress = function () {
@@ -271,7 +339,9 @@
           var value = parts.join(": ");
           headers[header] = value;
         }
-        onStartCallback(status, statusText, contentType, headers);
+        onStartCallback(status, statusText, contentType, headers, function () {
+          xhr.abort();
+        });
       } else if (xhr.readyState === 4) {
         onFinishCallback();
       }
@@ -286,9 +356,41 @@
     xhr.send();
   };
 
-  XHRTransport.prototype.cancel = function () {
-    var xhr = this._xhr;
-    xhr.abort();
+  function FetchTransport() {
+  }
+
+  FetchTransport.prototype.open = function (xhr, onStartCallback, onProgressCallback, onFinishCallback, url, withCredentials, headers) {
+    // cache: "no-store"
+    // https://bugs.chromium.org/p/chromium/issues/detail?id=453190
+    var textDecoder = new TextDecoder();
+    fetch(url, {
+      headers: headers,
+      credentials: withCredentials ? "include" : "same-origin"
+    }).then(function (response) {
+      var reader = response.body.getReader();
+      onStartCallback(response.status, response.statusText, response.headers.get("Content-Type"), response.headers, function () {
+        reader.cancel();
+      });
+      return new Promise(function (resolve, reject) {
+        var readNextChunk = function () {
+          reader.read().then(function (result) {
+            if (result.done) {
+              //Note: bytes in textDecoder are ignored
+              resolve(undefined);
+            } else {
+              var chunk = textDecoder.decode(result.value, {stream: true});
+              onProgressCallback(chunk);
+              readNextChunk();
+            }
+          })["catch"](function (error) {
+            reject(error);
+          });
+        };
+        readNextChunk();
+      });
+    })["finally"](function () {
+      onFinishCallback();
+    });
   };
 
   function EventTarget() {
@@ -438,6 +540,8 @@
       : XDomainRequest;
   }
 
+  var isFetchSupported = fetch != undefined && Response != undefined && "body" in Response.prototype;
+
   function start(es, url, options) {
     url = String(url);
     var withCredentials = options != undefined && Boolean(options.withCredentials);
@@ -450,7 +554,9 @@
     var wasActivity = false;
     var headers = options != undefined && options.headers != undefined ? JSON.parse(JSON.stringify(options.headers)) : undefined;
     var CurrentTransport = options != undefined && options.Transport != undefined ? options.Transport : getBestTransport();
-    var transport = new XHRTransport(new CurrentTransport());
+    var xhr = isFetchSupported ? undefined : new XHRWrapper(new CurrentTransport());
+    var transport = isFetchSupported ? new FetchTransport() : new XHRTransport();
+    var cancelFunction = undefined;
     var timeout = 0;
     var currentState = WAITING;
     var dataBuffer = "";
@@ -462,8 +568,9 @@
     var fieldStart = 0;
     var valueStart = 0;
 
-    var onStart = function (status, statusText, contentType, headers) {
+    var onStart = function (status, statusText, contentType, headers, cancel) {
       if (currentState === CONNECTING) {
+        cancelFunction = cancel;
         if (status === 200 && contentType != undefined && contentTypeRegExp.test(contentType)) {
           currentState = OPEN;
           wasActivity = true;
@@ -610,7 +717,10 @@
 
     var close = function () {
       currentState = CLOSED;
-      transport.cancel();
+      if (cancelFunction != undefined) {
+        cancelFunction();
+        cancelFunction = undefined;
+      }
       if (timeout !== 0) {
         clearTimeout(timeout);
         timeout = 0;
@@ -622,9 +732,10 @@
       timeout = 0;
 
       if (currentState !== WAITING) {
-        if (!wasActivity) {
+        if (!wasActivity && cancelFunction != undefined) {
           throwError(new Error("No activity within " + heartbeatTimeout + " milliseconds. Reconnecting."));
-          transport.cancel();
+          cancelFunction();
+          cancelFunction = undefined;
         } else {
           wasActivity = false;
           timeout = setTimeout(function () {
@@ -666,7 +777,7 @@
         }
       }
       try {
-        transport.open(onStart, onProgress, onFinish, requestURL, withCredentials, requestHeaders);
+        transport.open(xhr, onStart, onProgress, onFinish, requestURL, withCredentials, requestHeaders);
       } catch (error) {
         close();
         throw error;
