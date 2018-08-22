@@ -312,6 +312,12 @@
     }
   };
 
+  function toLowerCase(name) {
+    return name.replace(/[A-Z]/g, function (c) {
+      return String.fromCharCode(c.charCodeAt(0) + 0x20);
+    });
+  }
+
   function HeadersPolyfill(all) {
     // Get headers: implemented according to mozilla's example code: https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/getAllResponseHeaders#Example
     var map = Object.create(null);
@@ -321,12 +327,12 @@
       var parts = line.split(": ");
       var name = parts.shift();
       var value = parts.join(": ");
-      map[name] = value;
+      map[toLowerCase(name)] = value;
     }
     this._map = map;
   }
   HeadersPolyfill.prototype.get = function (name) {
-    return this._map[name];
+    return this._map[toLowerCase(name)];
   };
 
   function XHRTransport() {
