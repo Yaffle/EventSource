@@ -45,49 +45,84 @@
     };
   }
 
-  // Firefox < 40 (no "stream" option), IE, Edge
   function TextDecoderPolyfill() {
-    this.bytesNeeded = 0;
+    this.bitsNeeded = 0;
     this.codePoint = 0;
   }
 
   TextDecoderPolyfill.prototype.decode = function (octets) {
+    function valid(codePoint, shift, octetsCount) {
+      if (octetsCount === 1) {
+        return codePoint >= 0x0080 >> shift && codePoint << shift <= 0x07FF;
+      }
+      if (octetsCount === 2) {
+        return codePoint >= 0x0800 >> shift && codePoint << shift <= 0xD7FF || codePoint >= 0xE000 >> shift && codePoint << shift <= 0xFFFF;
+      }
+      if (octetsCount === 3) {
+        return codePoint >= 0x010000 >> shift && codePoint << shift <= 0x10FFFF;
+      }
+      throw new Error();
+    }
+    function octetsCount(bitsNeeded, codePoint) {
+      if (bitsNeeded === 6 * 1) {
+        return codePoint >> 6 > 15 ? 3 : codePoint > 31 ? 2 : 1;
+      }
+      if (bitsNeeded === 6 * 2) {
+        return codePoint > 15 ? 3 : 2;
+      }
+      if (bitsNeeded === 6 * 3) {
+        return 3;
+      }
+      throw new Error();
+    }
+    var REPLACER = 0xFFFD;
     var string = "";
-    var bytesNeeded = this.bytesNeeded;
+    var bitsNeeded = this.bitsNeeded;
     var codePoint = this.codePoint;
     for (var i = 0; i < octets.length; i += 1) {
       var octet = octets[i];
-      if (bytesNeeded === 0) {
-        if (octet <= 0x7F) {
-          bytesNeeded = 0;
-          codePoint = octet & 0xFF;
-        } else if (octet <= 0xDF) {
-          bytesNeeded = 1;
-          codePoint = octet & 0x1F;
-        } else if (octet <= 0xEF) {
-          bytesNeeded = 2;
-          codePoint = octet & 0x0F;
-        } else if (octet <= 0xF4) {
-          bytesNeeded = 3;
-          codePoint = octet & 0x07;
-        } else {
-          bytesNeeded = 0;
-          codePoint = 0xFFFD;
-        }
-      } else {
-        bytesNeeded -= 1;
-        codePoint = (codePoint << 6) | (octet & 0x3F);
-      }
-      if (bytesNeeded === 0) {
-        if (codePoint > 0xFFFF) {
-          string += String.fromCharCode(0xD800 + ((codePoint - 0xFFFF - 1) >> 10));
-          string += String.fromCharCode(0xDC00 + ((codePoint - 0xFFFF - 1) & 0x3FF));
-        } else {
+      if (bitsNeeded !== 0) {
+        if (octet < 128 || octet > 191 || !valid(codePoint << 6 | octet & 63, bitsNeeded - 6, octetsCount(bitsNeeded, codePoint))) {
+          bitsNeeded = 0;
+          codePoint = REPLACER;
           string += String.fromCharCode(codePoint);
         }
       }
+      if (bitsNeeded === 0) {
+        if (octet >= 0 && octet <= 127) {
+          bitsNeeded = 0;
+          codePoint = octet;
+        } else if (octet >= 192 && octet <= 223) {
+          bitsNeeded = 6 * 1;
+          codePoint = octet & 31;
+        } else if (octet >= 224 && octet <= 239) {
+          bitsNeeded = 6 * 2;
+          codePoint = octet & 15;
+        } else if (octet >= 240 && octet <= 247) {
+          bitsNeeded = 6 * 3;
+          codePoint = octet & 7;
+        } else {
+          bitsNeeded = 0;
+          codePoint = REPLACER;
+        }
+        if (bitsNeeded !== 0 && !valid(codePoint, bitsNeeded, octetsCount(bitsNeeded, codePoint))) {
+          bitsNeeded = 0;
+          codePoint = REPLACER;
+        }
+      } else {
+        bitsNeeded -= 6;
+        codePoint = codePoint << 6 | octet & 63;
+      }
+      if (bitsNeeded === 0) {
+        if (codePoint <= 0xFFFF) {
+          string += String.fromCharCode(codePoint);
+        } else {
+          string += String.fromCharCode(0xD800 + (codePoint - 0xFFFF - 1 >> 10));
+          string += String.fromCharCode(0xDC00 + (codePoint - 0xFFFF - 1 & 0x3FF));
+        }
+      }
     }
-    this.bytesNeeded = bytesNeeded;
+    this.bitsNeeded = bitsNeeded;
     this.codePoint = codePoint;
     return string;
   };
@@ -102,6 +137,7 @@
     return false;
   };
 
+  // IE, Edge
   if (TextDecoder == undefined || TextEncoder == undefined || !supportsStreamOption()) {
     TextDecoder = TextDecoderPolyfill;
   }
