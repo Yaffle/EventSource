@@ -470,7 +470,8 @@ var EventSourcePolyfill = (function (global) {
             }, 0);
         }
 
-        onTimeout = () => {
+        that = this;
+        onTimeout = function() {
             timeout = 0;
             if (currentState !== WAITING) {
                 onEvent("");
@@ -529,14 +530,16 @@ var EventSourcePolyfill = (function (global) {
             value = "";
             field = "";
             state = FIELD_START;
-            var s = this.url.slice(0, 5);
+            var s = that.url.slice(0, 5);
             if (s !== "data:" && s !== "blob:") {
-                s = this.url + ((this.url.indexOf("?", 0) === -1 ? "?" : "&") + "lastEventId=" + encodeURIComponent(lastEventId) + "&r=" + (Math.random() + 1).toString().slice(2));
+                s = that.url + ((that.url.indexOf("?", 0) === -1 ? "?" : "&") + "lastEventId=" + encodeURIComponent(lastEventId) + "&r=" + (Math.random() + 1).toString().slice(2));
             } else {
-                s = this.url;
+                s = that.url;
             }
-            xhr.timeout = 0;
+
+
             xhr.open("GET", s, true);
+            xhr.timeout = 0;
 
             if ("withCredentials" in xhr) {
                 // withCredentials should be set after "open" for Safari and Chrome (< 19 ?)
