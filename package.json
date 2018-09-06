@@ -1,6 +1,6 @@
 {
   "name": "ng-event-source",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "main": "eventsource.js",
   "typings": "typings.d.ts",
   "repository": {
