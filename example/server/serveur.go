@@ -30,6 +30,7 @@ import (
 // Example SSE server in Golang.
 //     $ go run serveur.go
 
+var maxConnection = 0;
 type Broker struct {
 
   // Events are pushed to this channel by the main events-gathering routine
@@ -61,7 +62,23 @@ func NewServer() (broker *Broker) {
 }
 
 func (broker *Broker) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+  (rw).Header().Set("Access-Control-Allow-Origin", "*")
+  (rw).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+  (rw).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
 
+  if req.Method == "OPTIONS" {
+    return
+  }
+
+  maxConnection++
+
+  /*
+  if maxConnection == 2 {
+    rw.WriteHeader(401)
+    maxConnection = 0
+    return
+  }
+  */
   // Make sure that the writer supports flushing.
   //
   flusher, ok := rw.(http.Flusher)
@@ -98,7 +115,9 @@ func (broker *Broker) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
   //rw.WriteHeader(401)
   //return
+
   for {
+
 
     // Write to the ResponseWriter
     // Server Sent Events compatible
@@ -106,6 +125,7 @@ func (broker *Broker) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
     log.Printf("Sending data\n")
     // Flush the data immediatly instead of buffering it for later.
     flusher.Flush()
+
   }
 
 }
