@@ -482,6 +482,7 @@ var EventSourcePolyfill = (function (global) {
         }
 
         that = this;
+
         onTimeout = function() {
             timeout = 0;
             if (currentState !== WAITING) {
@@ -579,6 +580,13 @@ var EventSourcePolyfill = (function (global) {
 
             xhr.send(undefined);
         };
+
+        this.update = function(options) {
+            if (xhr && options && options.headers) {
+                // Add the headers to the transport.
+                headers = options.headers;
+            }
+        }
 
         EventTarget.call(this);
         this.close = close;

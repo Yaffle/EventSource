@@ -12,6 +12,7 @@ export class EventSourcePolyfill extends EventTarget {
     onopen: Function;
     onmessage: (event: OnMessageEvent) => void;
     onerror: Function;
+    update: (options: EventSourceInit) => void;
     close: () => void;
 }
 

@@ -14,7 +14,7 @@ export class AppComponent implements OnInit {
 
   ngOnInit(): void {
     this.zone = new NgZone({enableLongStackTrace: false});
-    let eventSource = new EventSourcePolyfill('http://localhost:3000', {});
+    let eventSource = new EventSourcePolyfill('http://localhost:3000', { heartbeatTimeout: 5000, connectionTimeout: 5000, headers: { "Authorization": "Basic foo" }});
     eventSource.onmessage = (data => {
       console.log(data.data);
       this.zone.run(() => {
@@ -29,7 +29,10 @@ export class AppComponent implements OnInit {
           this.status = e.errorCode
         }
       });
-    }
+    };
+    setTimeout(() => {
+      eventSource.update({ headers: { "Authorization": "Basic bar"}});
+    }, 3000);
   }
 
 
