@@ -95,9 +95,11 @@ var EventSourcePolyfill = (function (global) {
         }
     };
 
-    function Event (type) {
+    function Event (type, code, msg) {
         this.type = type;
         this.target = undefined;
+        this.errorCode = code;
+        this.errorMessage = msg;
     }
 
     function MessageEvent (type, options) {
@@ -236,7 +238,7 @@ var EventSourcePolyfill = (function (global) {
                 retry = retry * 2 + 1;
 
                 that.readyState = CONNECTING;
-                event = new Event("error");
+                event = new Event("error", xhr.status, "");
                 that.dispatchEvent(event);
                 fire(that, that.onerror, event);
             } else {
@@ -293,7 +295,7 @@ var EventSourcePolyfill = (function (global) {
                         wasActivity = true;
                         retry = initialRetry;
                         that.readyState = OPEN;
-                        event = new Event("open");
+                        event = new Event("open", status, "");
                         that.dispatchEvent(event);
                         fire(that, that.onopen, event);
                         if (currentState === CLOSED) {
@@ -309,6 +311,8 @@ var EventSourcePolyfill = (function (global) {
                                 message = "EventSource's response has a Content-Type specifying an unsupported type: " + contentType.replace(/\s+/g, " ") + ". Aborting the connection.";
                             }
                             setTimeout(function () {
+                                var ev = new Event("error", status, message);
+                                fire(that, that.onerror, ev);
                                 throw new Error(message);
                             }, 0);
                             isWrongStatusCodeOrContentType = true;
@@ -426,7 +430,11 @@ var EventSourcePolyfill = (function (global) {
 
                         that.readyState = CONNECTING;
                     }
-                    event = new Event("error");
+                    var statusCode = 0;
+                    if (xhr && xhr.status) {
+                        statusCode = xhr.status;
+                    }
+                    event = new Event("error", statusCode, "");
                     that.dispatchEvent(event);
                     fire(that, that.onerror, event);
                 } else {
@@ -452,7 +460,7 @@ var EventSourcePolyfill = (function (global) {
         }
 
         function onReadyStateChange () {
-            if (xhr.readyState === 4) {
+            if (xhr && xhr.readyState === 4) {
                 if (xhr.status === 0) {
                     onEvent("error");
                 } else {
