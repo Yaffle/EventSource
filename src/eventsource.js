@@ -45,6 +45,14 @@
     };
   }
 
+  // see #118
+  if (fetch != undefined && fetch("data:text/plain,").finally == undefined) {
+    var originalFetch = fetch;
+    fetch = function (url, options) {
+      return Promise.resolve(originalFetch(url, options));
+    };
+  }
+
   function TextDecoderPolyfill() {
     this.bitsNeeded = 0;
     this.codePoint = 0;
