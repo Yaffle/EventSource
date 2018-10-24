@@ -22,7 +22,7 @@
   var TextDecoder = global.TextDecoder;
   var TextEncoder = global.TextEncoder;
 
-  if (Object.create == null) {
+  if (Object.create == undefined) {
     Object.create = function (C) {
       function F(){}
       F.prototype = C;
@@ -611,7 +611,7 @@
   }
 
   function getBestTransport() {
-    return XMLHttpRequest && "withCredentials" in XMLHttpRequest.prototype
+    return (XMLHttpRequest != undefined && ("withCredentials" in XMLHttpRequest.prototype)) || XDomainRequest == undefined
       ? XMLHttpRequest
       : XDomainRequest;
   }
