@@ -21,6 +21,7 @@
   var Response = global.Response;
   var TextDecoder = global.TextDecoder;
   var TextEncoder = global.TextEncoder;
+  var AbortController = global.AbortController;
 
   if (Object.create == undefined) {
     Object.create = function (C) {
@@ -50,6 +51,14 @@
     var originalFetch = fetch;
     fetch = function (url, options) {
       return Promise.resolve(originalFetch(url, options));
+    };
+  }
+
+  if (AbortController == undefined) {
+    AbortController = function () {
+      this.signal = null;
+      this.abort = function () {
+      };
     };
   }
 
@@ -436,15 +445,18 @@
   }
 
   FetchTransport.prototype.open = function (xhr, onStartCallback, onProgressCallback, onFinishCallback, url, withCredentials, headers) {
-    // cache: "no-store"
-    // https://bugs.chromium.org/p/chromium/issues/detail?id=453190
+    var controller = new AbortController();
+    var signal = controller.signal;// see #120
     var textDecoder = new TextDecoder();
     fetch(url, {
       headers: headers,
-      credentials: withCredentials ? "include" : "same-origin"
+      credentials: withCredentials ? "include" : "same-origin",
+      signal: signal,
+      cache: "no-store"
     }).then(function (response) {
       var reader = response.body.getReader();
       onStartCallback(response.status, response.statusText, response.headers.get("Content-Type"), new HeadersWrapper(response.headers), function () {
+        controller.abort();
         reader.cancel();
       });
       return new Promise(function (resolve, reject) {
