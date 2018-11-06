@@ -37,6 +37,15 @@ Add anywhere you need access to EventSourcePolyfill class :
 declare var EventSourcePolyfill: any;
 ```
 
+Usage with webpack/browserify:
+------------------------------
+
+```javascript
+import { NativeEventSource, EventSourcePolyfill } from 'event-source-polyfill';
+
+const EventSource = NativeEventSource || EventSourcePolyfill;
+```
+
 Browser support:
 ----------------
 
