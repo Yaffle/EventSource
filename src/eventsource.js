@@ -47,7 +47,8 @@
   }
 
   // see #118
-  if (fetch != undefined && fetch("data:text/plain,").finally == undefined) {
+  // We don't care about the content of the data URI, but Edge 15 will crash if the content is empty (#123), so make it one byte.
+  if (fetch != undefined && fetch("data:,a").finally == undefined) {
     var originalFetch = fetch;
     fetch = function (url, options) {
       return Promise.resolve(originalFetch(url, options));
