@@ -1,5 +1,5 @@
 {
   "name": "event-source-polyfill",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "main": "src/eventsource.js"
 }
