@@ -917,4 +917,4 @@
       exports.EventSource = EventSourcePolyfill;
     }
   });
-}(typeof window !== 'undefined' ? window : this));
+}(typeof window !== 'undefined' ? window : typeof self !== 'undefined' ? self : this));
