@@ -44,6 +44,8 @@ Usage with webpack/browserify:
 import { NativeEventSource, EventSourcePolyfill } from 'event-source-polyfill';
 
 const EventSource = NativeEventSource || EventSourcePolyfill;
+// OR: may also need to set as global property
+global.EventSource =  NativeEventSource || EventSourcePolyfill;
 ```
 
 Browser support:
