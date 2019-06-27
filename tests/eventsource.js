@@ -55,9 +55,37 @@
   }
 
   if (AbortController == undefined) {
+    var originalFetch2 = fetch;
+    fetch = function (url, options) {
+      var signal = options.signal;
+      return originalFetch2(url, {headers: options.headers, credentials: options.credentials, cache: options.cache}).then(function (response) {
+        var reader = response.body.getReader();
+        signal._reader = reader;
+        if (signal._aborted) {
+          signal._reader.cancel();
+        }
+        return {
+          status: response.status,
+          statusText: response.statusText,
+          headers: response.headers,
+          body: {
+            getReader: function () {
+              return reader;
+            }
+          }
+        };
+      });
+    };
     AbortController = function () {
-      this.signal = null;
+      this.signal = {
+        _reader: null,
+        _aborted: false
+      };
       this.abort = function () {
+        if (this.signal._reader != null) {
+          this.signal._reader.cancel();
+        }
+        this.signal._aborted = true;
       };
     };
   }
@@ -417,9 +445,7 @@
         var statusText = xhr.statusText;
         var contentType = xhr.getResponseHeader("Content-Type");
         var headers = xhr.getAllResponseHeaders();
-        onStartCallback(status, statusText, contentType, new HeadersPolyfill(headers), function () {
-          xhr.abort();
-        });
+        onStartCallback(status, statusText, contentType, new HeadersPolyfill(headers));
       } else if (xhr.readyState === 4) {
         onFinishCallback();
       }
@@ -432,8 +458,9 @@
       }
     }
     xhr.send();
+    return xhr;
   };
-  
+
   function HeadersWrapper(headers) {
     this._headers = headers;
   }
@@ -455,10 +482,7 @@
       cache: "no-store"
     }).then(function (response) {
       var reader = response.body.getReader();
-      onStartCallback(response.status, response.statusText, response.headers.get("Content-Type"), new HeadersWrapper(response.headers), function () {
-        controller.abort();
-        reader.cancel();
-      });
+      onStartCallback(response.status, response.statusText, response.headers.get("Content-Type"), new HeadersWrapper(response.headers));
       return new Promise(function (resolve, reject) {
         var readNextChunk = function () {
           reader.read().then(function (result) {
@@ -471,7 +495,11 @@
               readNextChunk();
             }
           })["catch"](function (error) {
-            reject(error);
+            if (error.name === "AbortError") {
+              resolve(undefined); // catch the exception, see #130
+            } else {
+              reject(error);
+            }
           });
         };
         readNextChunk();
@@ -479,6 +507,7 @@
     })["finally"](function () {
       onFinishCallback();
     });
+    return controller;
   };
 
   function EventTarget() {
@@ -644,7 +673,7 @@
     var CurrentTransport = options != undefined && options.Transport != undefined ? options.Transport : getBestTransport();
     var xhr = isFetchSupported && !(options != undefined && options.Transport != undefined) ? undefined : new XHRWrapper(new CurrentTransport());
     var transport = xhr == undefined ? new FetchTransport() : new XHRTransport();
-    var cancelFunction = undefined;
+    var abortController = undefined;
     var timeout = 0;
     var currentState = WAITING;
     var dataBuffer = "";
@@ -656,9 +685,8 @@
     var fieldStart = 0;
     var valueStart = 0;
 
-    var onStart = function (status, statusText, contentType, headers, cancel) {
+    var onStart = function (status, statusText, contentType, headers) {
       if (currentState === CONNECTING) {
-        cancelFunction = cancel;
         if (status === 200 && contentType != undefined && contentTypeRegExp.test(contentType)) {
           currentState = OPEN;
           wasActivity = true;
@@ -805,9 +833,9 @@
 
     var close = function () {
       currentState = CLOSED;
-      if (cancelFunction != undefined) {
-        cancelFunction();
-        cancelFunction = undefined;
+      if (abortController != undefined) {
+        abortController.abort();
+        abortController = undefined;
       }
       if (timeout !== 0) {
         clearTimeout(timeout);
@@ -820,10 +848,10 @@
       timeout = 0;
 
       if (currentState !== WAITING) {
-        if (!wasActivity && cancelFunction != undefined) {
+        if (!wasActivity && abortController != undefined) {
           throwError(new Error("No activity within " + heartbeatTimeout + " milliseconds. Reconnecting."));
-          cancelFunction();
-          cancelFunction = undefined;
+          abortController.abort();
+          abortController = undefined;
         } else {
           wasActivity = false;
           timeout = setTimeout(function () {
@@ -865,7 +893,7 @@
         }
       }
       try {
-        transport.open(xhr, onStart, onProgress, onFinish, requestURL, withCredentials, requestHeaders);
+        abortController = transport.open(xhr, onStart, onProgress, onFinish, requestURL, withCredentials, requestHeaders);
       } catch (error) {
         close();
         throw error;
@@ -917,4 +945,4 @@
       exports.EventSource = EventSourcePolyfill;
     }
   });
-}(typeof window !== 'undefined' ? window : this));
+}(typeof window !== 'undefined' ? window : typeof self !== 'undefined' ? self : this));

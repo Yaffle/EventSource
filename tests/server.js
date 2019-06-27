@@ -4,15 +4,14 @@ var PORT2 = 8003;
 var http = require("http");
 var fs = require("fs");
 var url = require("url");
-var util = require("util");
 var EventEmitter = require("events").EventEmitter;
 
-util.puts("Version: " + process.version);
-util.puts("Starting server at http://localhost:" + PORT1);
+console.log("Version: " + process.version);
+console.log("Starting server at http://localhost:" + PORT1);
 
 process.on("uncaughtException", function (e) {
   try {
-    util.puts("Caught exception: " + e + " " + (typeof e === "object" ? e.stack : ""));
+    console.log("Caught exception: " + e + " " + (typeof e === "object" ? e.stack : ""));
   } catch (ignore) {
   }
 });
@@ -21,6 +20,7 @@ var emitter = new EventEmitter();
 var history = [];
 var heartbeatTimeout = 9000;
 var firstId = Number(new Date());
+var idCounter = 0;
 
 setInterval(function () {
   emitter.emit("message");
@@ -49,7 +49,10 @@ function eventStream(request, response) {
     response.write(":\n");
   }
 
+  var id = ++idCounter;
+  console.log('connected ' + id);
   response.on("close", function () {
+    console.log('disconnected ' + id);
     emitter.removeListener("message", sendMessages);
     response.end();
   });
@@ -110,6 +113,7 @@ function eventStream(request, response) {
   response.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-store",
+    "Access-control-allow-headers": "x-requested-with",
     "Access-Control-Allow-Origin": "*"
   });
 
