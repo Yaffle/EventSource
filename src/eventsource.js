@@ -15,6 +15,7 @@
   var XMLHttpRequest = global.XMLHttpRequest;
   var XDomainRequest = global.XDomainRequest;
   var NativeEventSource = global.EventSource;
+
   var document = global.document;
   var Promise = global.Promise;
   var fetch = global.fetch;
@@ -336,7 +337,7 @@
     // IE 8 fires "onload" without "onprogress
     xhr.onabort = onFinish;
 
-    // https://bugzilla.mozilla.org/show_bug.cgi?id=736723    
+    // https://bugzilla.mozilla.org/show_bug.cgi?id=736723
     if (!("sendAsBinary" in XMLHttpRequest.prototype) && !("mozAnon" in XMLHttpRequest.prototype)) {
       xhr.onprogress = onProgress;
     }
@@ -495,15 +496,17 @@
               readNextChunk();
             }
           })["catch"](function (error) {
-            if (error.name === "AbortError") {
-              resolve(undefined); // catch the exception, see #130
-            } else {
-              reject(error);
-            }
+            reject(error);
           });
         };
         readNextChunk();
       });
+    })["catch"](function (error) {
+      if (error.name === "AbortError") {
+        return undefined; // catch the exception, see #130, #133
+      } else {
+        throw error;
+      }
     })["finally"](function () {
       onFinishCallback();
     });

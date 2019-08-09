@@ -283,6 +283,36 @@
       };
     });
 
+    asyncTest("EventSource + close before open", function () {
+      var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + "data:test\n\n"));
+      var events = '';
+      window.onunhandledrejection = es.onopen = es.onmessage = es.onerror = function (event) {
+        events += event.type;
+      };
+      es.close();
+      window.setTimeout(function () {
+        strictEqual(events, '');
+        strictEqual(es.readyState, EventSource.CLOSED);
+        start();
+      }, 1000);
+    });
+
+    asyncTest("EventSource + close after open", function () {
+      var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + "data:test\n\n"));
+      var events = '';
+      window.onunhandledrejection = es.onopen = es.onmessage = es.onerror = function (event) {
+        events += event.type;
+        if (event.type === 'open') {
+          es.close();
+        }
+      };
+      window.setTimeout(function () {
+        strictEqual(events, 'open');
+        strictEqual(es.readyState, EventSource.CLOSED);
+        start();
+      }, 1000);
+    });
+
   };
 
   mainTests();
