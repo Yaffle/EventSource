@@ -52,7 +52,7 @@ Browser support:
 ----------------
 
 * IE 10+, Firefox 3.5+, Chrome 3+, Safari 4+, Opera 12+
-* IE 8 - IE 9: XDomainRequest is used internally, which has some limitations (2KB padding is requried, no way to send cookies, no way to use client certificates)
+* IE 8 - IE 9: XDomainRequest is used internally, which has some limitations (2KB padding is required, no way to send cookies, no way to use client certificates)
 * It works on Mobile Safari, Opera Mobile, Chrome for Android, Firefox for Android
 * It does not work on: Android Browser(requires 4 KB padding), Opera Mini
 
