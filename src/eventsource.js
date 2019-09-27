@@ -47,7 +47,9 @@
     };
   }
 
-  // see #118, #123, #125
+  // see #118 (Promise#finally with polyfilled Promise)
+  // see #123 (data URLs crash Edge)
+  // see #125 (CSP violations)
   if (fetch != undefined && true) {
     var originalFetch = fetch;
     fetch = function (url, options) {
@@ -347,7 +349,7 @@
     // Firefox < 3.5
     // Firefox 3.5 - 3.6 - ? < 9.0
     // onprogress is not fired sometimes or delayed
-    // see also #64
+    // see also #64 (significant lag in IE 11)
     xhr.onreadystatechange = onReadyStateChange;
 
     if ("contentType" in xhr) {
@@ -357,7 +359,7 @@
 
     if ("readyState" in xhr) {
       // workaround for Opera 12 issue with "progress" events
-      // #91
+      // #91 (XMLHttpRequest onprogress not fired for streaming response in Edge 14-15-?)
       timeout = setTimeout(function () {
         onTimeout();
       }, 0);
@@ -441,13 +443,13 @@
       onProgressCallback(chunk);
     };
     xhr.onreadystatechange = function () {
-      if (xhr.readyState === 2) {
+      if (xhr.readyState === XMLHttpRequest.HEADERS_RECEIVED) {
         var status = xhr.status;
         var statusText = xhr.statusText;
         var contentType = xhr.getResponseHeader("Content-Type");
         var headers = xhr.getAllResponseHeaders();
         onStartCallback(status, statusText, contentType, new HeadersPolyfill(headers));
-      } else if (xhr.readyState === 4) {
+      } else if (xhr.readyState === XMLHttpRequest.DONE) {
         onFinishCallback();
       }
     };
@@ -474,7 +476,7 @@
 
   FetchTransport.prototype.open = function (xhr, onStartCallback, onProgressCallback, onFinishCallback, url, withCredentials, headers) {
     var controller = new AbortController();
-    var signal = controller.signal;// see #120
+    var signal = controller.signal;
     var textDecoder = new TextDecoder();
     fetch(url, {
       headers: headers,
@@ -503,7 +505,7 @@
       });
     })["catch"](function (error) {
       if (error.name === "AbortError") {
-        return undefined; // catch the exception, see #130, #133
+        return undefined;
       } else {
         throw error;
       }
@@ -654,10 +656,10 @@
     start(this, url, options);
   }
 
-  function getBestTransport() {
+  function getBestXHRTransport() {
     return (XMLHttpRequest != undefined && ("withCredentials" in XMLHttpRequest.prototype)) || XDomainRequest == undefined
-      ? XMLHttpRequest
-      : XDomainRequest;
+      ? new XMLHttpRequest()
+      : new XDomainRequest();
   }
 
   var isFetchSupported = fetch != undefined && Response != undefined && "body" in Response.prototype;
@@ -673,8 +675,8 @@
     var retry = initialRetry;
     var wasActivity = false;
     var headers = options != undefined && options.headers != undefined ? JSON.parse(JSON.stringify(options.headers)) : undefined;
-    var CurrentTransport = options != undefined && options.Transport != undefined ? options.Transport : getBestTransport();
-    var xhr = isFetchSupported && !(options != undefined && options.Transport != undefined) ? undefined : new XHRWrapper(new CurrentTransport());
+    var TransportOption = options != undefined && options.Transport != undefined ? options.Transport : undefined;
+    var xhr = isFetchSupported && TransportOption == undefined ? undefined : new XHRWrapper(TransportOption != undefined ? new TransportOption() : getBestXHRTransport());
     var transport = xhr == undefined ? new FetchTransport() : new XHRTransport();
     var abortController = undefined;
     var timeout = 0;
