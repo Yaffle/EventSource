@@ -475,6 +475,7 @@
   }
 
   FetchTransport.prototype.open = function (xhr, onStartCallback, onProgressCallback, onFinishCallback, url, withCredentials, headers) {
+    var reader = null;
     var controller = new AbortController();
     var signal = controller.signal;
     var textDecoder = new TextDecoder();
@@ -484,7 +485,7 @@
       signal: signal,
       cache: "no-store"
     }).then(function (response) {
-      var reader = response.body.getReader();
+      reader = response.body.getReader();
       onStartCallback(response.status, response.statusText, response.headers.get("Content-Type"), new HeadersWrapper(response.headers));
       return new Promise(function (resolve, reject) {
         var readNextChunk = function () {
@@ -512,7 +513,14 @@
     })["finally"](function () {
       onFinishCallback();
     });
-    return controller;
+    return {
+      abort: function () {
+        if (reader != null) {
+          reader.cancel(); // https://bugzilla.mozilla.org/show_bug.cgi?id=1583815
+        }
+        controller.abort();
+      }
+    };
   };
 
   function EventTarget() {
