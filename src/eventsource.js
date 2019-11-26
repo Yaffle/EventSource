@@ -53,7 +53,12 @@
   if (fetch != undefined && true) {
     var originalFetch = fetch;
     fetch = function (url, options) {
-      return Promise.resolve(originalFetch(url, options));
+      var promise = Promise.resolve(originalFetch(url, options));
+      var originalThen = promise.then;
+      Promise.prototype["then"] = function () {
+        return Promise.resolve(originalThen.apply(this, arguments));
+      };
+      return promise;
     };
   }
 
