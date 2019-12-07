@@ -14,6 +14,7 @@
   var clearTimeout = global.clearTimeout;
   var XMLHttpRequest = global.XMLHttpRequest;
   var XDomainRequest = global.XDomainRequest;
+  var ActiveXObject = global.ActiveXObject;
   var NativeEventSource = global.EventSource;
 
   var document = global.document;
@@ -23,6 +24,12 @@
   var TextDecoder = global.TextDecoder;
   var TextEncoder = global.TextEncoder;
   var AbortController = global.AbortController;
+
+  if (XMLHttpRequest == null && ActiveXObject != null) { // https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/Using_XMLHttpRequest_in_IE6
+    XMLHttpRequest = function () {
+      return new ActiveXObject("Microsoft.XMLHTTP");
+    };
+  }
 
   if (Object.create == undefined) {
     Object.create = function (C) {
@@ -176,7 +183,6 @@
 
   function XHRWrapper(xhr) {
     this.withCredentials = false;
-    this.responseType = "";
     this.readyState = 0;
     this.status = 0;
     this.statusText = "";
@@ -333,7 +339,7 @@
     // see also #64 (significant lag in IE 11)
     xhr.onreadystatechange = onReadyStateChange;
 
-    if ("contentType" in xhr) {
+    if ("contentType" in xhr || !("ontimeout" in XMLHttpRequest.prototype)) {
       url += (url.indexOf("?") === -1 ? "?" : "&") + "padding=true";
     }
     xhr.open(method, url, true);
@@ -378,7 +384,6 @@
     var xhr = this._xhr;
     // withCredentials should be set after "open" for Safari and Chrome (< 19 ?)
     xhr.withCredentials = this.withCredentials;
-    xhr.responseType = this.responseType;
     try {
       // xhr.send(); throws "Not enough arguments" in Firefox 3.0
       xhr.send(undefined);
@@ -410,6 +415,11 @@
   HeadersPolyfill.prototype.get = function (name) {
     return this._map[toLowerCase(name)];
   };
+  
+  if (XMLHttpRequest != null && XMLHttpRequest.HEADERS_RECEIVED == null) { // IE < 9
+    XMLHttpRequest.HEADERS_RECEIVED = 2;
+    XMLHttpRequest.DONE = 4;
+  }
 
   function XHRTransport() {
   }
@@ -435,7 +445,6 @@
       }
     };
     xhr.withCredentials = withCredentials;
-    xhr.responseType = "text";
     for (var name in headers) {
       if (Object.prototype.hasOwnProperty.call(headers, name)) {
         xhr.setRequestHeader(name, headers[name]);
