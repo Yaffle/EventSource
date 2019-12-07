@@ -619,7 +619,7 @@
   var MAXIMUM_DURATION = 18000000;
 
   var parseDuration = function (value, def) {
-    var n = parseInt(value, 10);
+    var n = value == null ? def : parseInt(value, 10);
     if (n !== n) {
       n = def;
     }
@@ -641,6 +641,7 @@
 
   function EventSourcePolyfill(url, options) {
     EventTarget.call(this);
+    options = options || {};
 
     this.onopen = undefined;
     this.onmessage = undefined;
@@ -649,6 +650,7 @@
     this.url = undefined;
     this.readyState = undefined;
     this.withCredentials = undefined;
+    this.headers = undefined;
 
     this._close = undefined;
 
@@ -665,16 +667,16 @@
 
   function start(es, url, options) {
     url = String(url);
-    var withCredentials = options != undefined && Boolean(options.withCredentials);
+    var withCredentials = Boolean(options.withCredentials);
 
     var initialRetry = clampDuration(1000);
-    var heartbeatTimeout = options != undefined && options.heartbeatTimeout != undefined ? parseDuration(options.heartbeatTimeout, 45000) : clampDuration(45000);
+    var heartbeatTimeout = parseDuration(options.heartbeatTimeout, 45000);
 
     var lastEventId = "";
     var retry = initialRetry;
     var wasActivity = false;
-    var headers = options != undefined && options.headers != undefined ? JSON.parse(JSON.stringify(options.headers)) : undefined;
-    var TransportOption = options != undefined && options.Transport != undefined ? options.Transport : undefined;
+    var headers = JSON.parse(JSON.stringify(options.headers || {}));
+    var TransportOption = options.Transport;
     var xhr = isFetchSupported && TransportOption == undefined ? undefined : new XHRWrapper(TransportOption != undefined ? new TransportOption() : getBestXHRTransport());
     var transport = xhr == undefined ? new FetchTransport() : new XHRTransport();
     var abortController = undefined;
@@ -890,8 +892,10 @@
           requestURL += (url.indexOf("?") === -1 ? "?" : "&") + "lastEventId=" + encodeURIComponent(lastEventId);
         }
       }
+      var withCredentials = es.withCredentials;
       var requestHeaders = {};
       requestHeaders["Accept"] = "text/event-stream";
+      var headers = es.headers;
       if (headers != undefined) {
         for (var name in headers) {
           if (Object.prototype.hasOwnProperty.call(headers, name)) {
@@ -910,6 +914,7 @@
     es.url = url;
     es.readyState = CONNECTING;
     es.withCredentials = withCredentials;
+    es.headers = headers;
     es._close = close;
 
     onTimeout();
