@@ -678,7 +678,7 @@
     var headers = JSON.parse(JSON.stringify(options.headers || {}));
     var TransportOption = options.Transport;
     var xhr = isFetchSupported && TransportOption == undefined ? undefined : new XHRWrapper(TransportOption != undefined ? new TransportOption() : getBestXHRTransport());
-    var transport = xhr == undefined ? new FetchTransport() : new XHRTransport();
+    var transport = typeof TransportOption !== "string" ? new TransportOption() : (xhr == undefined ? new FetchTransport() : new XHRTransport());
     var abortController = undefined;
     var timeout = 0;
     var currentState = WAITING;
