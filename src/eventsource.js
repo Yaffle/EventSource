@@ -25,7 +25,7 @@
   var TextEncoder = global.TextEncoder;
   var AbortController = global.AbortController;
 
-  if (XMLHttpRequest == null && ActiveXObject != null) { // https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/Using_XMLHttpRequest_in_IE6
+  if (XMLHttpRequest == null) { // https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/Using_XMLHttpRequest_in_IE6
     XMLHttpRequest = function () {
       return new ActiveXObject("Microsoft.XMLHTTP");
     };
@@ -188,6 +188,8 @@
     this.statusText = "";
     this.responseText = "";
     this.onprogress = k;
+    this.onload = k;
+    this.onerror = k;
     this.onreadystatechange = k;
     this._contentType = "";
     this._xhr = xhr;
@@ -224,6 +226,7 @@
         }
         if (!silent) {
           that.readyState = 4;
+          that.onabort(null);
           that.onreadystatechange();
         }
       }
@@ -282,7 +285,12 @@
         that.onprogress();
       }
     };
-    var onFinish = function () {
+    var onFinish = function (type, event) {
+      if (event == null || event.preventDefault == null) {
+        event = {
+          preventDefault: k
+        };
+      }
       // Firefox 52 fires "readystatechange" (xhr.readyState === 4) without final "readystatechange" (xhr.readyState === 3)
       // IE 8 fires "onload" without "onprogress"
       onProgress();
@@ -293,13 +301,24 @@
           timeout = 0;
         }
         that.readyState = 4;
+        if (type === "load") {
+          that.onload(event);
+        } else if (type === "error") {
+          that.onerror(event);
+        } else if (type === "abort") {
+          that.onabort(event);
+        } else {
+          throw new TypeError();
+        }
         that.onreadystatechange();
       }
     };
-    var onReadyStateChange = function () {
+    var onReadyStateChange = function (event) {
       if (xhr != undefined) { // Opera 12
         if (xhr.readyState === 4) {
-          onFinish();
+          if (!("onload" in xhr) || !("onerror" in xhr) || !("onabort" in xhr)) {
+            onFinish(xhr.responseText === "" ? "error" : "load", event);
+          }
         } else if (xhr.readyState === 3) {
           onProgress();
         } else if (xhr.readyState === 2) {
@@ -317,18 +336,32 @@
     };
 
     // XDomainRequest#abort removes onprogress, onerror, onload
-    xhr.onload = onFinish;
-    xhr.onerror = onFinish;
+    if ("onload" in xhr) {
+      xhr.onload = function (event) {
+        onFinish("load", event);
+      };
+    }
+    if ("onerror" in xhr) {
+      xhr.onerror = function (event) {
+        onFinish("error", event);
+      };
+    }
     // improper fix to match Firefox behaviour, but it is better than just ignore abort
     // see https://bugzilla.mozilla.org/show_bug.cgi?id=768596
     // https://bugzilla.mozilla.org/show_bug.cgi?id=880200
     // https://code.google.com/p/chromium/issues/detail?id=153570
     // IE 8 fires "onload" without "onprogress
-    xhr.onabort = onFinish;
+    if ("onabort" in xhr) {
+      xhr.onabort = function (event) {
+        onFinish("abort", event);
+      };
+    }
 
     // https://bugzilla.mozilla.org/show_bug.cgi?id=736723
     if (!("sendAsBinary" in XMLHttpRequest.prototype) && !("mozAnon" in XMLHttpRequest.prototype)) {
-      xhr.onprogress = onProgress;
+      if ("onprogress" in xhr) {
+        xhr.onprogress = onProgress;
+      }
     }
 
     // IE 8 - 9 (XMLHTTPRequest)
@@ -337,7 +370,9 @@
     // Firefox 3.5 - 3.6 - ? < 9.0
     // onprogress is not fired sometimes or delayed
     // see also #64 (significant lag in IE 11)
-    xhr.onreadystatechange = onReadyStateChange;
+    xhr.onreadystatechange = function (event) {
+      onReadyStateChange(event);
+    };
 
     if ("contentType" in xhr || !("ontimeout" in XMLHttpRequest.prototype)) {
       url += (url.indexOf("?") === -1 ? "?" : "&") + "padding=true";
@@ -383,7 +418,9 @@
 
     var xhr = this._xhr;
     // withCredentials should be set after "open" for Safari and Chrome (< 19 ?)
-    xhr.withCredentials = this.withCredentials;
+    if ("withCredentials" in xhr) {
+      xhr.withCredentials = this.withCredentials;
+    }
     try {
       // xhr.send(); throws "Not enough arguments" in Firefox 3.0
       xhr.send(undefined);
@@ -418,7 +455,6 @@
   
   if (XMLHttpRequest != null && XMLHttpRequest.HEADERS_RECEIVED == null) { // IE < 9
     XMLHttpRequest.HEADERS_RECEIVED = 2;
-    XMLHttpRequest.DONE = 4;
   }
 
   function XHRTransport() {
@@ -433,6 +469,16 @@
       offset += chunk.length;
       onProgressCallback(chunk);
     };
+    xhr.onerror = function (event) {
+      event.preventDefault();
+      onFinishCallback(new Error("NetworkError"));
+    };
+    xhr.onload = function () {
+      onFinishCallback(null);
+    };
+    xhr.onabort = function () {
+      onFinishCallback(null);
+    };
     xhr.onreadystatechange = function () {
       if (xhr.readyState === XMLHttpRequest.HEADERS_RECEIVED) {
         var status = xhr.status;
@@ -440,8 +486,6 @@
         var contentType = xhr.getResponseHeader("Content-Type");
         var headers = xhr.getAllResponseHeaders();
         onStartCallback(status, statusText, contentType, new HeadersPolyfill(headers));
-      } else if (xhr.readyState === XMLHttpRequest.DONE) {
-        onFinishCallback(null);
       }
     };
     xhr.withCredentials = withCredentials;
@@ -583,7 +627,12 @@
   function Event(type) {
     this.type = type;
     this.target = undefined;
+    this.defaultPrevented = false;
   }
+  
+  Event.prototype.preventDefault = function () {
+    this.defaultPrevented = true;
+  };
 
   function MessageEvent(type, options) {
     Event.call(this, type);
@@ -675,10 +724,10 @@
     var lastEventId = "";
     var retry = initialRetry;
     var wasActivity = false;
-    var headers = JSON.parse(JSON.stringify(options.headers || {}));
+    var headers = options.headers || {};
     var TransportOption = options.Transport;
     var xhr = isFetchSupported && TransportOption == undefined ? undefined : new XHRWrapper(TransportOption != undefined ? new TransportOption() : getBestXHRTransport());
-    var transport = typeof TransportOption !== "string" ? new TransportOption() : (xhr == undefined ? new FetchTransport() : new XHRTransport());
+    var transport = TransportOption != null && typeof TransportOption !== "string" ? new TransportOption() : (xhr == undefined ? new FetchTransport() : new XHRTransport());
     var abortController = undefined;
     var timeout = 0;
     var currentState = WAITING;
@@ -715,7 +764,6 @@
           } else {
             message = "EventSource's response has a Content-Type specifying an unsupported type: " + (contentType == undefined ? "-" : contentType.replace(/\s+/g, " ")) + ". Aborting the connection.";
           }
-          throwError(new Error(message));
           close();
           var event = new ConnectionEvent("error", {
             status: status,
@@ -724,6 +772,9 @@
           });
           es.dispatchEvent(event);
           fire(es, es.onerror, event);
+          if (!event.defaultPrevented) {
+            throwError(new Error(message));
+          }
         }
       }
     };
@@ -835,7 +886,9 @@
         es.dispatchEvent(event);
         fire(es, es.onerror, event);
         if (error != null) {
-          throwError(error);
+          if (!event.defaultPrevented) {
+            throwError(error);
+          }
         }
       }
     };
@@ -858,7 +911,7 @@
 
       if (currentState !== WAITING) {
         if (!wasActivity && abortController != undefined) {
-          throwError(new Error("No activity within " + heartbeatTimeout + " milliseconds. Reconnecting."));
+          onFinish(new Error("No activity within " + heartbeatTimeout + " milliseconds. Reconnecting."));
           abortController.abort();
           abortController = undefined;
         } else {
