@@ -301,16 +301,40 @@
       var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + "data:test\n\n"));
       var events = '';
       window.onunhandledrejection = es.onopen = es.onmessage = es.onerror = function (event) {
-        events += event.type;
+        events += event.type + ' ';
         if (event.type === 'open') {
           es.close();
         }
       };
       window.setTimeout(function () {
-        strictEqual(events, 'open');
+        strictEqual(events, 'open ');
         strictEqual(es.readyState, EventSource.CLOSED);
         start();
       }, 1000);
+    });
+
+    asyncTest("EventSource#close stops the connection", function () {
+      var ok = false;
+      var es1 = new EventSource(url);
+      es1.onmessage = function (event) {
+        if (/disconnected/.test(event.data)) {
+          ok = true;
+        }
+      };
+
+      var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + "data:test\n\n<delay(10000)>"));
+      window.onunhandledrejection = es.onopen = es.onmessage = es.onerror = function (event) {
+        if (event.type === 'message') {
+          ok = false;
+          es.close();
+        }
+      };
+      window.setTimeout(function () {
+        strictEqual(ok, true);
+        start();
+        es.close();
+        es1.close();
+      }, 3000);
     });
 
   };

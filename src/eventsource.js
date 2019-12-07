@@ -32,35 +32,11 @@
     };
   }
 
-  // ?
-  if (Promise != undefined && Promise.prototype["finally"] == undefined) {
-    Promise.prototype["finally"] = function (callback) {
-      return this.then(function (result) {
-        return Promise.resolve(callback()).then(function () {
-          return result;
-        });
-      }, function (error) {
-        return Promise.resolve(callback()).then(function () {
-          throw error;
-        });
-      });
-    };
-  }
-
   // see #118 (Promise#finally with polyfilled Promise)
   // see #123 (data URLs crash Edge)
   // see #125 (CSP violations)
-  if (fetch != undefined && true) {
-    var originalFetch = fetch;
-    fetch = function (url, options) {
-      var promise = Promise.resolve(originalFetch(url, options));
-      var originalThen = promise.then;
-      Promise.prototype["then"] = function () {
-        return Promise.resolve(originalThen.apply(this, arguments));
-      };
-      return promise;
-    };
-  }
+  // see pull/#138
+  // => No way to polyfill Promise#finally
 
   if (AbortController == undefined) {
     var originalFetch2 = fetch;
@@ -455,7 +431,7 @@
         var headers = xhr.getAllResponseHeaders();
         onStartCallback(status, statusText, contentType, new HeadersPolyfill(headers));
       } else if (xhr.readyState === XMLHttpRequest.DONE) {
-        onFinishCallback();
+        onFinishCallback(null);
       }
     };
     xhr.withCredentials = withCredentials;
@@ -492,6 +468,7 @@
     }).then(function (response) {
       reader = response.body.getReader();
       onStartCallback(response.status, response.statusText, response.headers.get("Content-Type"), new HeadersWrapper(response.headers));
+      // see https://github.com/promises-aplus/promises-spec/issues/179
       return new Promise(function (resolve, reject) {
         var readNextChunk = function () {
           reader.read().then(function (result) {
@@ -513,10 +490,10 @@
       if (error.name === "AbortError") {
         return undefined;
       } else {
-        throw error;
+        return error;
       }
-    })["finally"](function () {
-      onFinishCallback();
+    }).then(function (error) {
+      onFinishCallback(error);
     });
     return {
       abort: function () {
@@ -830,7 +807,7 @@
       }
     };
 
-    var onFinish = function () {
+    var onFinish = function (error) {
       if (currentState === OPEN || currentState === CONNECTING) {
         currentState = WAITING;
         if (timeout !== 0) {
@@ -846,6 +823,9 @@
         var event = new Event("error");
         es.dispatchEvent(event);
         fire(es, es.onerror, event);
+        if (error != null) {
+          throwError(error);
+        }
       }
     };
 

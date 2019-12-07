@@ -51,10 +51,14 @@ function eventStream(request, response) {
 
   var id = ++idCounter;
   console.log('connected ' + id);
+  history.push('connected ' + id);
+  emitter.emit("message");
   response.on("close", function () {
     console.log('disconnected ' + id);
     emitter.removeListener("message", sendMessages);
     response.end();
+    history.push('disconnected ' + id);
+    emitter.emit("message");
   });
 
   response.socket.setTimeout(0); // see http://contourline.wordpress.com/2011/03/30/preventing-server-timeout-in-node-js/
