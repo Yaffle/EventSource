@@ -839,8 +839,12 @@
                     lastEventId: lastEventIdBuffer
                   });
                   es.dispatchEvent(event);
-                  if (eventTypeBuffer === "message") {
+                  if (eventTypeBuffer === "open") {
+                    fire(es, es.onopen, event);
+                  } else if (eventTypeBuffer === "message") {
                     fire(es, es.onmessage, event);
+                  } else if (eventTypeBuffer === "error") {
+                    fire(es, es.onerror, event);
                   }
                   if (currentState === CLOSED) {
                     return;

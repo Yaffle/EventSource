@@ -342,8 +342,8 @@
   mainTests();
   
   var otherTests = function () {
-    var getURL = function (credentials) {
-      return location.protocol + "//" + credentials + location.hostname + ":" + location.port + location.pathname.split("/").slice(0, -1).join("/") + "/events";
+    var getURL = function (protocol, credentials) {
+      return protocol + "//" + credentials + location.hostname + ":" + location.port + location.pathname.split("/").slice(0, -1).join("/") + "/events";
     };
     var url4CORS = getURL(location.protocol === "https:" ? "http:" : "https");
     var urlWithAuthorization = getURL(location.protocol, "user012:pass012");
@@ -592,13 +592,19 @@
       function handler(event) {
         s += event.data || "";
       }
+      function handler2(event) {
+        s += event.data || "";
+      }
       es.addEventListener("open", handler);
       es.addEventListener("message", handler);
       es.addEventListener("error", handler);
       es.addEventListener("end", handler);
+      es.onopen = handler2;
+      es.onmessage = handler2;
       es.onerror = function (event) {
+        handler2(event);
         if (event.data == undefined) { // !(event instanceof MessageEvent)
-          strictEqual(s, "abcdef");
+          strictEqual(s, "aabbccddeef");
           start();
           es.close();
         }
@@ -625,6 +631,6 @@
     });
   };
 
-  //otherTests();
+  otherTests();
   
 }(this));
