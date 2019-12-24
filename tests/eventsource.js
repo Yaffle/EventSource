@@ -400,7 +400,8 @@
     }
   };
   XHRWrapper.prototype.getAllResponseHeaders = function () {
-    return this._xhr.getAllResponseHeaders != undefined ? this._xhr.getAllResponseHeaders() : "";
+    // XMLHttpRequest#getAllResponseHeaders returns null for CORS requests in Firefox 3.6.28
+    return this._xhr.getAllResponseHeaders != undefined ? this._xhr.getAllResponseHeaders() || "" : "";
   };
   XHRWrapper.prototype.send = function () {
     // loading indicator in Safari < ? (6), Chrome < 14, Firefox
@@ -453,7 +454,7 @@
     return this._map[toLowerCase(name)];
   };
   
-  if (XMLHttpRequest != null && XMLHttpRequest.HEADERS_RECEIVED == null) { // IE < 9
+  if (XMLHttpRequest != null && XMLHttpRequest.HEADERS_RECEIVED == null) { // IE < 9, Firefox 3.6
     XMLHttpRequest.HEADERS_RECEIVED = 2;
   }
 
