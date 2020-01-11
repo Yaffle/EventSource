@@ -25,6 +25,13 @@
   var TextEncoder = global.TextEncoder;
   var AbortController = global.AbortController;
 
+  if (typeof window !== "undefined" && !("readyState" in document) && document.body == null) { // Firefox 2
+    document.readyState = "loading";
+    window.addEventListener("load", function (event) {
+      document.readyState = "complete";
+    }, false);
+  }
+
   if (XMLHttpRequest == null) { // https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/Using_XMLHttpRequest_in_IE6
     XMLHttpRequest = function () {
       return new ActiveXObject("Microsoft.XMLHTTP");

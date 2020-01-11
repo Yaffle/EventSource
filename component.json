@@ -2,7 +2,7 @@
   "name": "event-source-polyfill",
   "repo": "yaffle/eventsource",
   "description": "a polyfill for http://www.w3.org/TR/eventsource/",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "keywords": [
     "sse",
     "server sent events",

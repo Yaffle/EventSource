@@ -1,6 +1,6 @@
 {
   "name": "event-source-polyfill",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "description": "A polyfill for http://www.w3.org/TR/eventsource/ ",
   "main": "src/eventsource.js",
   "scripts": {
