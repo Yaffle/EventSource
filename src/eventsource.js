@@ -327,7 +327,10 @@
             onFinish(xhr.responseText === "" ? "error" : "load", event);
           }
         } else if (xhr.readyState === 3) {
-          onProgress();
+          if (!("onprogress" in xhr)) { // testing XMLHttpRequest#responseText too many times is too slow in IE 11
+            // and in Firefox 3.6
+            onProgress();
+          }
         } else if (xhr.readyState === 2) {
           onStart();
         }
@@ -364,11 +367,8 @@
       };
     }
 
-    // https://bugzilla.mozilla.org/show_bug.cgi?id=736723
-    if (!("sendAsBinary" in XMLHttpRequest.prototype) && !("mozAnon" in XMLHttpRequest.prototype)) {
-      if ("onprogress" in xhr) {
-        xhr.onprogress = onProgress;
-      }
+    if ("onprogress" in xhr) {
+      xhr.onprogress = onProgress;
     }
 
     // IE 8 - 9 (XMLHTTPRequest)
@@ -377,9 +377,11 @@
     // Firefox 3.5 - 3.6 - ? < 9.0
     // onprogress is not fired sometimes or delayed
     // see also #64 (significant lag in IE 11)
-    xhr.onreadystatechange = function (event) {
-      onReadyStateChange(event);
-    };
+    if ("onreadystatechange" in xhr) {
+      xhr.onreadystatechange = function (event) {
+        onReadyStateChange(event);
+      };
+    }
 
     if ("contentType" in xhr || !("ontimeout" in XMLHttpRequest.prototype)) {
       url += (url.indexOf("?") === -1 ? "?" : "&") + "padding=true";
@@ -412,7 +414,8 @@
   };
   XHRWrapper.prototype.send = function () {
     // loading indicator in Safari < ? (6), Chrome < 14, Firefox
-    if (!("ontimeout" in XMLHttpRequest.prototype) &&
+    // https://bugzilla.mozilla.org/show_bug.cgi?id=736723
+    if ((!("ontimeout" in XMLHttpRequest.prototype) || (!("sendAsBinary" in XMLHttpRequest.prototype) && !("mozAnon" in XMLHttpRequest.prototype))) &&
         document != undefined &&
         document.readyState != undefined &&
         document.readyState !== "complete") {
