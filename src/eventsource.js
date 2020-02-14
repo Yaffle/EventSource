@@ -662,6 +662,13 @@
 
   ConnectionEvent.prototype = Object.create(Event.prototype);
 
+  function ErrorEvent(type, error) {
+    Event.call(this, type);
+    this.error = error;
+  }
+
+  ErrorEvent.prototype = Object.create(Event.prototype);
+
   var WAITING = -1;
   var CONNECTING = 0;
   var OPEN = 1;
@@ -897,7 +904,7 @@
         retry = clampDuration(Math.min(initialRetry * 16, retry * 2));
 
         es.readyState = CONNECTING;
-        var event = new Event("error");
+        var event = new ErrorEvent("error", error);
         es.dispatchEvent(event);
         fire(es, es.onerror, event);
         if (error != null) {
