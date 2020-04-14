@@ -25,20 +25,25 @@
   var TextEncoder = global.TextEncoder;
   var AbortController = global.AbortController;
 
-  if (typeof window !== "undefined" && !("readyState" in document) && document.body == null) { // Firefox 2
+  if (
+    typeof window !== "undefined" &&
+    !("readyState" in document) &&
+    document.body == null
+  ) { // Firefox 2
     document.readyState = "loading";
     window.addEventListener("load", function (event) {
       document.readyState = "complete";
     }, false);
   }
 
-  if (XMLHttpRequest == null) { // https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/Using_XMLHttpRequest_in_IE6
+  if (XMLHttpRequest === null) {
+    // https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/Using_XMLHttpRequest_in_IE6
     XMLHttpRequest = function () {
       return new ActiveXObject("Microsoft.XMLHTTP");
     };
   }
 
-  if (Object.create == undefined) {
+  if (Object.create === undefined) {
     Object.create = function (C) {
       function F(){}
       F.prototype = C;
@@ -52,28 +57,41 @@
   // see pull/#138
   // => No way to polyfill Promise#finally
 
-  if (AbortController == undefined) {
+  if (AbortController === undefined) {
     var originalFetch2 = fetch;
+
     fetch = function (url, options) {
       var signal = options.signal;
-      return originalFetch2(url, {headers: options.headers, credentials: options.credentials, cache: options.cache}).then(function (response) {
-        var reader = response.body.getReader();
-        signal._reader = reader;
-        if (signal._aborted) {
-          signal._reader.cancel();
+      return originalFetch2(
+        url,
+        {
+          method: options.method,
+          headers: options.headers,
+          credentials: options.credentials,
+          cache: options.cache
         }
-        return {
-          status: response.status,
-          statusText: response.statusText,
-          headers: response.headers,
-          body: {
-            getReader: function () {
-              return reader;
-            }
+      ).then(
+        function (response) {
+          var reader = response.body.getReader();
+          signal._reader = reader;
+          if (signal._aborted) {
+            signal._reader.cancel();
           }
-        };
-      });
+          return {
+            method: response.method,
+            status: response.status,
+            statusText: response.statusText,
+            headers: response.headers,
+            body: {
+              getReader: function () {
+                return reader;
+              }
+            }
+          };
+        }
+      );
     };
+
     AbortController = function () {
       this.signal = {
         _reader: null,
@@ -181,7 +199,11 @@
   };
 
   // IE, Edge
-  if (TextDecoder == undefined || TextEncoder == undefined || !supportsStreamOption()) {
+  if (
+    TextDecoder === undefined ||
+    TextEncoder === undefined ||
+    !supportsStreamOption()
+  ) {
     TextDecoder = TextDecoderPolyfill;
   }
 
@@ -321,7 +343,7 @@
       }
     };
     var onReadyStateChange = function (event) {
-      if (xhr != undefined) { // Opera 12
+      if (xhr !== undefined) { // Opera 12
         if (xhr.readyState === 4) {
           if (!("onload" in xhr) || !("onerror" in xhr) || !("onabort" in xhr)) {
             onFinish(xhr.responseText === "" ? "error" : "load", event);
@@ -410,20 +432,31 @@
   };
   XHRWrapper.prototype.getAllResponseHeaders = function () {
     // XMLHttpRequest#getAllResponseHeaders returns null for CORS requests in Firefox 3.6.28
-    return this._xhr.getAllResponseHeaders != undefined ? this._xhr.getAllResponseHeaders() || "" : "";
+    return this._xhr.getAllResponseHeaders !== undefined ? this._xhr.getAllResponseHeaders() || "" : "";
   };
   XHRWrapper.prototype.send = function () {
     // loading indicator in Safari < ? (6), Chrome < 14, Firefox
     // https://bugzilla.mozilla.org/show_bug.cgi?id=736723
-    if ((!("ontimeout" in XMLHttpRequest.prototype) || (!("sendAsBinary" in XMLHttpRequest.prototype) && !("mozAnon" in XMLHttpRequest.prototype))) &&
-        document != undefined &&
-        document.readyState != undefined &&
-        document.readyState !== "complete") {
+    if (
+      (
+        !("ontimeout" in XMLHttpRequest.prototype) ||
+        (
+          !("sendAsBinary" in XMLHttpRequest.prototype) &&
+          !("mozAnon" in XMLHttpRequest.prototype)
+        )
+      ) &&
+      document !== undefined &&
+      document.readyState !== undefined &&
+      document.readyState !== "complete"
+    ) {
       var that = this;
-      that._sendTimeout = setTimeout(function () {
-        that._sendTimeout = 0;
-        that.send();
-      }, 4);
+      that._sendTimeout = setTimeout(
+        function () {
+          that._sendTimeout = 0;
+          that.send();
+        },
+        4
+      );
       return;
     }
 
@@ -463,16 +496,28 @@
   HeadersPolyfill.prototype.get = function (name) {
     return this._map[toLowerCase(name)];
   };
-  
-  if (XMLHttpRequest != null && XMLHttpRequest.HEADERS_RECEIVED == null) { // IE < 9, Firefox 3.6
+
+  if (
+    XMLHttpRequest !== null &&
+    XMLHttpRequest.HEADERS_RECEIVED === null
+  ) { // IE < 9, Firefox 3.6
     XMLHttpRequest.HEADERS_RECEIVED = 2;
   }
 
   function XHRTransport() {
   }
 
-  XHRTransport.prototype.open = function (xhr, onStartCallback, onProgressCallback, onFinishCallback, url, withCredentials, headers) {
-    xhr.open("GET", url);
+  XHRTransport.prototype.open = function (
+    xhr,
+    onStartCallback,
+    onProgressCallback,
+    onFinishCallback,
+    url,
+    withCredentials,
+    method,
+    headers
+  ) {
+    xhr.open(method, url);
     var offset = 0;
     xhr.onprogress = function () {
       var responseText = xhr.responseText;
@@ -492,11 +537,18 @@
     };
     xhr.onreadystatechange = function () {
       if (xhr.readyState === XMLHttpRequest.HEADERS_RECEIVED) {
+
         var status = xhr.status;
         var statusText = xhr.statusText;
         var contentType = xhr.getResponseHeader("Content-Type");
         var headers = xhr.getAllResponseHeaders();
-        onStartCallback(status, statusText, contentType, new HeadersPolyfill(headers));
+
+        onStartCallback(
+          status,
+          statusText,
+          contentType,
+          new HeadersPolyfill(headers)
+        );
       }
     };
     xhr.withCredentials = withCredentials;
@@ -519,49 +571,88 @@
   function FetchTransport() {
   }
 
-  FetchTransport.prototype.open = function (xhr, onStartCallback, onProgressCallback, onFinishCallback, url, withCredentials, headers) {
+  FetchTransport.prototype.open = function (
+    xhr,
+    onStartCallback,
+    onProgressCallback,
+    onFinishCallback,
+    url,
+    withCredentials,
+    method,
+    headers
+  ) {
     var reader = null;
     var controller = new AbortController();
     var signal = controller.signal;
     var textDecoder = new TextDecoder();
-    fetch(url, {
-      headers: headers,
-      credentials: withCredentials ? "include" : "same-origin",
-      signal: signal,
-      cache: "no-store"
-    }).then(function (response) {
-      reader = response.body.getReader();
-      onStartCallback(response.status, response.statusText, response.headers.get("Content-Type"), new HeadersWrapper(response.headers));
-      // see https://github.com/promises-aplus/promises-spec/issues/179
-      return new Promise(function (resolve, reject) {
-        var readNextChunk = function () {
-          reader.read().then(function (result) {
-            if (result.done) {
-              //Note: bytes in textDecoder are ignored
-              resolve(undefined);
-            } else {
-              var chunk = textDecoder.decode(result.value, {stream: true});
-              onProgressCallback(chunk);
+
+    fetch(
+      url,
+      {
+        method: method,
+        headers: headers,
+        credentials: withCredentials ? "include" : "same-origin",
+        signal: signal,
+        cache: "no-store"
+      }
+    )
+      .then(
+        function (response) {
+          reader = response.body.getReader();
+
+          onStartCallback(
+            response.status,
+            response.statusText,
+            response.headers.get("Content-Type"),
+            new HeadersWrapper(response.headers)
+          );
+
+          // see https://github.com/promises-aplus/promises-spec/issues/179
+          return new Promise(
+            function (resolve, reject) {
+              var readNextChunk = function () {
+                reader
+                  .read()
+                  .then(
+                    function (result) {
+                      if (result.done) {
+                        //Note: bytes in textDecoder are ignored
+                        resolve(undefined);
+                      } else {
+                        var chunk = textDecoder.decode(result.value, {stream: true});
+                        onProgressCallback(chunk);
+                        readNextChunk();
+                      }
+                    }
+                  )
+                  .catch(
+                    function (error) {
+                      reject(error);
+                    }
+                  );
+              };
               readNextChunk();
             }
-          })["catch"](function (error) {
-            reject(error);
-          });
-        };
-        readNextChunk();
-      });
-    })["catch"](function (error) {
-      if (error.name === "AbortError") {
-        return undefined;
-      } else {
-        return error;
-      }
-    }).then(function (error) {
-      onFinishCallback(error);
-    });
+          );
+        }
+      )
+      .catch(
+        function (error) {
+          if (error.name === "AbortError") {
+            return undefined;
+          } else {
+            return error;
+          }
+        }
+      )
+      .then(
+        function (error) {
+          onFinishCallback(error);
+        }
+      );
     return {
       abort: function () {
-        if (reader != null) {
+        if (reader !== null) {
           reader.cancel(); // https://bugzilla.mozilla.org/show_bug.cgi?id=1583815
         }
         controller.abort();
@@ -582,7 +673,7 @@
   EventTarget.prototype.dispatchEvent = function (event) {
     event.target = this;
     var typeListeners = this._listeners[event.type];
-    if (typeListeners != undefined) {
+    if (typeListeners !== undefined) {
       var length = typeListeners.length;
       for (var i = 0; i < length; i += 1) {
         var listener = typeListeners[i];
@@ -602,7 +693,7 @@
     type = String(type);
     var listeners = this._listeners;
     var typeListeners = listeners[type];
-    if (typeListeners == undefined) {
+    if (typeListeners === undefined) {
       typeListeners = [];
       listeners[type] = typeListeners;
     }
@@ -620,7 +711,7 @@
     type = String(type);
     var listeners = this._listeners;
     var typeListeners = listeners[type];
-    if (typeListeners != undefined) {
+    if (typeListeners !== undefined) {
       var filtered = [];
       for (var i = 0; i < typeListeners.length; i += 1) {
         if (typeListeners[i] !== listener) {
@@ -640,7 +731,7 @@
     this.target = undefined;
     this.defaultPrevented = false;
   }
-  
+
   Event.prototype.preventDefault = function () {
     this.defaultPrevented = true;
   };
@@ -680,7 +771,7 @@
   var VALUE_START = 2;
   var VALUE = 3;
 
-  var contentTypeRegExp = /^text\/event\-stream;?(\s*charset\=utf\-8)?$/i;
+  var contentTypeRegExp = /^text\/event-stream;?(\s*charset=utf-8)?$/i;
 
   var MINIMUM_DURATION = 1000;
   var MAXIMUM_DURATION = 18000000;
@@ -717,6 +808,7 @@
     this.url = undefined;
     this.readyState = undefined;
     this.withCredentials = undefined;
+    this.method = undefined;
     this.headers = undefined;
 
     this._close = undefined;
@@ -725,12 +817,12 @@
   }
 
   function getBestXHRTransport() {
-    return (XMLHttpRequest != undefined && ("withCredentials" in XMLHttpRequest.prototype)) || XDomainRequest == undefined
+    return (XMLHttpRequest !== undefined && ("withCredentials" in XMLHttpRequest.prototype)) || XDomainRequest === undefined
       ? new XMLHttpRequest()
       : new XDomainRequest();
   }
 
-  var isFetchSupported = fetch != undefined && Response != undefined && "body" in Response.prototype;
+  var isFetchSupported = fetch !== undefined && Response !== undefined && "body" in Response.prototype;
 
   function start(es, url, options) {
     url = String(url);
@@ -743,9 +835,26 @@
     var retry = initialRetry;
     var wasActivity = false;
     var headers = options.headers || {};
+    var method = options.method || "GET";
     var TransportOption = options.Transport;
-    var xhr = isFetchSupported && TransportOption == undefined ? undefined : new XHRWrapper(TransportOption != undefined ? new TransportOption() : getBestXHRTransport());
-    var transport = TransportOption != null && typeof TransportOption !== "string" ? new TransportOption() : (xhr == undefined ? new FetchTransport() : new XHRTransport());
+
+    var xhr = isFetchSupported && TransportOption === undefined ?
+      undefined :
+      new XHRWrapper(
+        TransportOption !== undefined ?
+          new TransportOption() :
+          getBestXHRTransport()
+      );
+
+    var transport =
+      TransportOption !== null && typeof TransportOption !== "string" ?
+        new TransportOption() :
+        (
+          xhr === undefined ?
+            new FetchTransport() :
+            new XHRTransport()
+        );
+
     var abortController = undefined;
     var timeout = 0;
     var currentState = WAITING;
@@ -758,14 +867,15 @@
     var fieldStart = 0;
     var valueStart = 0;
 
-    var onStart = function (status, statusText, contentType, headers) {
+    var onStart = function (status, statusText, contentType, method, headers) {
       if (currentState === CONNECTING) {
-        if (status === 200 && contentType != undefined && contentTypeRegExp.test(contentType)) {
+        if (status === 200 && contentType !== undefined && contentTypeRegExp.test(contentType)) {
           currentState = OPEN;
           wasActivity = true;
           retry = initialRetry;
           es.readyState = OPEN;
           var event = new ConnectionEvent("open", {
+            method: method,
             status: status,
             statusText: statusText,
             headers: headers
@@ -780,7 +890,7 @@
             }
             message = "EventSource's response has a status " + status + " " + statusText + " that is not 200. Aborting the connection.";
           } else {
-            message = "EventSource's response has a Content-Type specifying an unsupported type: " + (contentType == undefined ? "-" : contentType.replace(/\s+/g, " ")) + ". Aborting the connection.";
+            message = "EventSource's response has a Content-Type specifying an unsupported type: " + (contentType === undefined ? "-" : contentType.replace(/\s+/g, " ")) + ". Aborting the connection.";
           }
           close();
           var event = new ConnectionEvent("error", {
@@ -917,7 +1027,7 @@
 
     var close = function () {
       currentState = CLOSED;
-      if (abortController != undefined) {
+      if (abortController !== undefined) {
         abortController.abort();
         abortController = undefined;
       }
@@ -932,7 +1042,7 @@
       timeout = 0;
 
       if (currentState !== WAITING) {
-        if (!wasActivity && abortController != undefined) {
+        if (!wasActivity && abortController !== undefined) {
           onFinish(new Error("No activity within " + heartbeatTimeout + " milliseconds. Reconnecting."));
           abortController.abort();
           abortController = undefined;
@@ -967,19 +1077,32 @@
           requestURL += (url.indexOf("?") === -1 ? "?" : "&") + "lastEventId=" + encodeURIComponent(lastEventId);
         }
       }
+
       var withCredentials = es.withCredentials;
+      var method = es.method;
       var requestHeaders = {};
       requestHeaders["Accept"] = "text/event-stream";
       var headers = es.headers;
-      if (headers != undefined) {
+
+      if (headers !== undefined) {
         for (var name in headers) {
           if (Object.prototype.hasOwnProperty.call(headers, name)) {
             requestHeaders[name] = headers[name];
           }
         }
       }
+
       try {
-        abortController = transport.open(xhr, onStart, onProgress, onFinish, requestURL, withCredentials, requestHeaders);
+        abortController = transport.open(
+          xhr,
+          onStart,
+          onProgress,
+          onFinish,
+          requestURL,
+          withCredentials,
+          method,
+          requestHeaders
+        );
       } catch (error) {
         close();
         throw error;
@@ -989,6 +1112,7 @@
     es.url = url;
     es.readyState = CONNECTING;
     es.withCredentials = withCredentials;
+    es.method = method;
     es.headers = headers;
     es._close = close;
 
@@ -1007,9 +1131,9 @@
   EventSourcePolyfill.OPEN = OPEN;
   EventSourcePolyfill.CLOSED = CLOSED;
   EventSourcePolyfill.prototype.withCredentials = undefined;
-  
+
   var R = NativeEventSource
-  if (XMLHttpRequest != undefined && (NativeEventSource == undefined || !("withCredentials" in NativeEventSource.prototype))) {
+  if (XMLHttpRequest !== undefined && (NativeEventSource === undefined || !("withCredentials" in NativeEventSource.prototype))) {
     // Why replace a native EventSource ?
     // https://bugzilla.mozilla.org/show_bug.cgi?id=444328
     // https://bugzilla.mozilla.org/show_bug.cgi?id=831392
