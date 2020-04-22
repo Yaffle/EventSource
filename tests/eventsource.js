@@ -175,7 +175,7 @@
     try {
       return new TextDecoder().decode(new TextEncoder().encode("test"), {stream: true}) === "test";
     } catch (error) {
-      console.log(error);
+      console.debug("TextDecoder does not support streaming option. Using polyfill instead: " + error);
     }
     return false;
   };
