@@ -629,6 +629,16 @@
         }
       };
     });
+    
+    asyncTest("close from onerror after inactivity", function () {
+      var es = new EventSource(url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + "heartbeatTimeout:1000\n\n<delay(10000)>"));
+      es.onerror = function () {
+        ok(es.readyState === EventSource.CONNECTING);
+        es.close();
+        ok(es.readyState === EventSource.CLOSED);
+        start();
+      };
+    });
   };
 
   otherTests();

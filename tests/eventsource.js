@@ -638,12 +638,7 @@
   function Event(type) {
     this.type = type;
     this.target = undefined;
-    this.defaultPrevented = false;
   }
-  
-  Event.prototype.preventDefault = function () {
-    this.defaultPrevented = true;
-  };
 
   function MessageEvent(type, options) {
     Event.call(this, type);
@@ -661,6 +656,13 @@
   }
 
   ConnectionEvent.prototype = Object.create(Event.prototype);
+
+  function ErrorEvent(type, options) {
+    Event.call(this, type);
+    this.error = options.error;
+  }
+
+  ErrorEvent.prototype = Object.create(Event.prototype);
 
   var WAITING = -1;
   var CONNECTING = 0;
@@ -783,9 +785,7 @@
           });
           es.dispatchEvent(event);
           fire(es, es.onerror, event);
-          if (!event.defaultPrevented) {
-            throwError(new Error(message));
-          }
+          console.error(message);
         }
       }
     };
@@ -897,14 +897,9 @@
         retry = clampDuration(Math.min(initialRetry * 16, retry * 2));
 
         es.readyState = CONNECTING;
-        var event = new Event("error");
+        var event = new ErrorEvent("error", {error: error});
         es.dispatchEvent(event);
         fire(es, es.onerror, event);
-        if (error != null) {
-          if (!event.defaultPrevented) {
-            throwError(error);
-          }
-        }
       }
     };
 
@@ -927,8 +922,10 @@
       if (currentState !== WAITING) {
         if (!wasActivity && abortController != undefined) {
           onFinish(new Error("No activity within " + heartbeatTimeout + " milliseconds. Reconnecting."));
-          abortController.abort();
-          abortController = undefined;
+          if (abortController != undefined) {
+            abortController.abort();
+            abortController = undefined;
+          }
         } else {
           wasActivity = false;
           timeout = setTimeout(function () {
