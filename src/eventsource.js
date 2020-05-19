@@ -737,6 +737,7 @@
     var lastEventId = "";
     var retry = initialRetry;
     var wasActivity = false;
+    var textLength = 0;
     var headers = options.headers || {};
     var TransportOption = options.Transport;
     var xhr = isFetchSupported && TransportOption == undefined ? undefined : new XHRWrapper(TransportOption != undefined ? new TransportOption() : getBestXHRTransport());
@@ -801,8 +802,9 @@
         }
         var chunk = (n !== -1 ? textBuffer : "") + textChunk.slice(0, n + 1);
         textBuffer = (n === -1 ? textBuffer : "") + textChunk.slice(n + 1);
-        if (chunk !== "") {
+        if (textChunk !== "") {
           wasActivity = true;
+          textLength += textChunk.length;
         }
         for (var position = 0; position < chunk.length; position += 1) {
           var c = chunk.charCodeAt(position);
@@ -921,7 +923,7 @@
 
       if (currentState !== WAITING) {
         if (!wasActivity && abortController != undefined) {
-          onFinish(new Error("No activity within " + heartbeatTimeout + " milliseconds. Reconnecting."));
+          onFinish(new Error("No activity within " + heartbeatTimeout + " milliseconds." + " " + (currentState === CONNECTING ? "No response received." : textLength + " chars received.") + " " + "Reconnecting."));
           if (abortController != undefined) {
             abortController.abort();
             abortController = undefined;
@@ -936,6 +938,7 @@
       }
 
       wasActivity = false;
+      textLength = 0;
       timeout = setTimeout(function () {
         onTimeout();
       }, heartbeatTimeout);
