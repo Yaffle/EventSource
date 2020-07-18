@@ -681,7 +681,7 @@
   var VALUE_START = 2;
   var VALUE = 3;
 
-  var contentTypeRegExp = /^text\/event\-stream;?(.*)$/i;
+  var contentTypeRegExp = /^text\/event\-stream(;.*)?$/i;
 
   var MINIMUM_DURATION = 1000;
   var MAXIMUM_DURATION = 18000000;
