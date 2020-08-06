@@ -46,6 +46,12 @@
     };
   }
 
+  if (!Date.now) {
+    Date.now = function now() {
+      return new Date().getTime();
+    };
+  }
+
   // see #118 (Promise#finally with polyfilled Promise)
   // see #123 (data URLs crash Edge)
   // see #125 (CSP violations)
@@ -463,7 +469,7 @@
   HeadersPolyfill.prototype.get = function (name) {
     return this._map[toLowerCase(name)];
   };
-  
+
   if (XMLHttpRequest != null && XMLHttpRequest.HEADERS_RECEIVED == null) { // IE < 9, Firefox 3.6
     XMLHttpRequest.HEADERS_RECEIVED = 2;
   }
@@ -675,7 +681,7 @@
   var VALUE_START = 2;
   var VALUE = 3;
 
-  var contentTypeRegExp = /^text\/event\-stream;?(\s*charset\=utf\-8)?$/i;
+  var contentTypeRegExp = /^text\/event\-stream(;.*)?$/i;
 
   var MINIMUM_DURATION = 1000;
   var MAXIMUM_DURATION = 18000000;
@@ -721,8 +727,8 @@
 
   function getBestXHRTransport() {
     return (XMLHttpRequest != undefined && ("withCredentials" in XMLHttpRequest.prototype)) || XDomainRequest == undefined
-      ? new XMLHttpRequest()
-      : new XDomainRequest();
+        ? new XMLHttpRequest()
+        : new XDomainRequest();
   }
 
   var isFetchSupported = fetch != undefined && Response != undefined && "body" in Response.prototype;
@@ -758,7 +764,7 @@
       if (currentState === CONNECTING) {
         if (status === 200 && contentType != undefined && contentTypeRegExp.test(contentType)) {
           currentState = OPEN;
-          wasActivity = true;
+          wasActivity = Date.now();
           retry = initialRetry;
           es.readyState = OPEN;
           var event = new ConnectionEvent("open", {
@@ -803,7 +809,7 @@
         var chunk = (n !== -1 ? textBuffer : "") + textChunk.slice(0, n + 1);
         textBuffer = (n === -1 ? textBuffer : "") + textChunk.slice(n + 1);
         if (textChunk !== "") {
-          wasActivity = true;
+          wasActivity = Date.now();
           textLength += textChunk.length;
         }
         for (var position = 0; position < chunk.length; position += 1) {
@@ -929,10 +935,11 @@
             abortController = undefined;
           }
         } else {
+          var nextHeartbeat = Math.max((wasActivity || Date.now()) + heartbeatTimeout - Date.now(), 1);
           wasActivity = false;
           timeout = setTimeout(function () {
             onTimeout();
-          }, heartbeatTimeout);
+          }, nextHeartbeat);
         }
         return;
       }
@@ -1000,7 +1007,7 @@
   EventSourcePolyfill.OPEN = OPEN;
   EventSourcePolyfill.CLOSED = CLOSED;
   EventSourcePolyfill.prototype.withCredentials = undefined;
-  
+
   var R = NativeEventSource
   if (XMLHttpRequest != undefined && (NativeEventSource == undefined || !("withCredentials" in NativeEventSource.prototype))) {
     // Why replace a native EventSource ?
