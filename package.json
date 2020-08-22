@@ -1,6 +1,6 @@
 {
   "name": "event-source-polyfill",
-  "version": "1.0.16",
+  "version": "1.0.17",
   "description": "A polyfill for http://www.w3.org/TR/eventsource/ ",
   "main": "src/eventsource.js",
   "scripts": {
@@ -16,6 +16,9 @@
     "eventsource",
     "event-source",
     "polyfill"
+  ],
+  "files": [
+    "src/*"
   ],
   "author": "Yaffle (https://github.com/Yaffle)",
   "license": "MIT",
