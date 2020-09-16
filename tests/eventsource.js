@@ -32,9 +32,50 @@
     }, false);
   }
 
-  if (XMLHttpRequest == null) { // https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/Using_XMLHttpRequest_in_IE6
+  if (XMLHttpRequest == null && ActiveXObject != null) { // https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/Using_XMLHttpRequest_in_IE6
     XMLHttpRequest = function () {
       return new ActiveXObject("Microsoft.XMLHTTP");
+    };
+  }
+
+  if (XMLHttpRequest == null && fetch == null && typeof Buffer === "function") {
+    // assume this is the node.js
+    XMLHttpRequest = function () {
+      this.status = 0;
+      this.statusText = '';
+      this.readyState = 0;
+      this.onreadystatechange = null;
+      this.onprogress = null;
+      this.onload = null;
+      this.responseText = '';
+    };
+    XMLHttpRequest.HEADERS_RECEIVED = 2;
+    XMLHttpRequest.LOADING = 3;
+    XMLHttpRequest.DONE = 4;
+    XMLHttpRequest.prototype.open = function (method, url) {
+      var xhr = this;
+      import(url.indexOf('https://') === 0 ? 'https' : 'http').then(function (https) {
+        var request = https.request(url, {method: method}, function (response) {
+          xhr.status = response.statusCode;
+          xhr.statusText = response.statusMessage;
+          xhr.readyState = XMLHttpRequest.HEADERS_RECEIVED;
+          xhr.onreadystatechange();
+          response.on('data', function (chunk) {
+            xhr.responseText += Buffer.from(chunk).toString();
+            xhr.onprogress();
+          });
+          response.on('end', function () {
+            xhr.readyState = XMLHttpRequest.DONE;
+            xhr.onload();
+          });
+        });
+        request.end();
+      });
+    };
+    XMLHttpRequest.prototype.send = function () {
+    };
+    XMLHttpRequest.prototype.getResponseHeader = function () {
+      return 'text/event-stream';
     };
   }
 
@@ -1035,4 +1076,4 @@
     exports.NativeEventSource = NativeEventSource;
     exports.EventSource = R;
   });
-}(typeof window !== 'undefined' ? window : typeof self !== 'undefined' ? self : this));
+}(typeof globalThis === 'undefined' ? (typeof window !== 'undefined' ? window : typeof self !== 'undefined' ? self : this) : globalThis));
