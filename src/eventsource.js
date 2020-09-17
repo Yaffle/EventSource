@@ -54,7 +54,7 @@
     XMLHttpRequest.DONE = 4;
     XMLHttpRequest.prototype.open = function (method, url) {
       var xhr = this;
-      import(url.indexOf('https://') === 0 ? 'https' : 'http').then(function (https) {
+      (url.indexOf('https://') === 0 ? import('https') : import('http')).then(function (https) {
         var request = https.request(url, {method: method}, function (response) {
           xhr.status = response.statusCode;
           xhr.statusText = response.statusMessage;
