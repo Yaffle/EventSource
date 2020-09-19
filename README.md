@@ -225,6 +225,30 @@ index.html (php/index.html):
 </html>
 ```
 
+Usage in node.js:
+=================
+With some dynamic imports it may work in node.js:
+
+Install the library and the dependency:
+`npm install @titelmedia/node-fetch`
+`npm install event-source-polyfill`
+
+x.js:
+```javascript
+// The @titelmedia/node-fetch is used instead of node-fetch as it supports ReadableStream Web API
+import('@titelmedia/node-fetch').then(function (fetch) {
+  globalThis.fetch = fetch.default;
+  globalThis.Response = fetch.default.Response;
+  import('event-source-polyfill').then(function (x) {
+    var es = new x.default.EventSourcePolyfill('http://localhost:8004/events');
+    es.onerror = es.onopen = es.onmessage = function (event) {
+      console.log(event.type + ': ' + event.data);
+    };
+  });
+});
+```
+
+`node --experimental-modules ./x.js`
 
 License
 -------

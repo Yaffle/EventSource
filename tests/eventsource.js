@@ -38,47 +38,6 @@
     };
   }
 
-  if (XMLHttpRequest == null && fetch == null && typeof Buffer === "function") {
-    // assume this is the node.js
-    XMLHttpRequest = function () {
-      this.status = 0;
-      this.statusText = '';
-      this.readyState = 0;
-      this.onreadystatechange = null;
-      this.onprogress = null;
-      this.onload = null;
-      this.responseText = '';
-    };
-    XMLHttpRequest.HEADERS_RECEIVED = 2;
-    XMLHttpRequest.LOADING = 3;
-    XMLHttpRequest.DONE = 4;
-    XMLHttpRequest.prototype.open = function (method, url) {
-      var xhr = this;
-      (url.indexOf('https://') === 0 ? import('https') : import('http')).then(function (https) {
-        var request = https.request(url, {method: method}, function (response) {
-          xhr.status = response.statusCode;
-          xhr.statusText = response.statusMessage;
-          xhr.readyState = XMLHttpRequest.HEADERS_RECEIVED;
-          xhr.onreadystatechange();
-          response.on('data', function (chunk) {
-            xhr.responseText += Buffer.from(chunk).toString();
-            xhr.onprogress();
-          });
-          response.on('end', function () {
-            xhr.readyState = XMLHttpRequest.DONE;
-            xhr.onload();
-          });
-        });
-        request.end();
-      });
-    };
-    XMLHttpRequest.prototype.send = function () {
-    };
-    XMLHttpRequest.prototype.getResponseHeader = function () {
-      return 'text/event-stream';
-    };
-  }
-
   if (Object.create == undefined) {
     Object.create = function (C) {
       function F(){}
@@ -949,6 +908,7 @@
         var event = new ErrorEvent("error", {error: error});
         es.dispatchEvent(event);
         fire(es, es.onerror, event);
+        console.error(error);
       }
     };
 
