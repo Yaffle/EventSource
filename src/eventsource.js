@@ -908,7 +908,6 @@
         var event = new ErrorEvent("error", {error: error});
         es.dispatchEvent(event);
         fire(es, es.onerror, event);
-        console.error(error);
       }
     };
 
