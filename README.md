@@ -93,6 +93,18 @@ var es = new EventSourcePolyfill('/events', {
 });
 ```
 
+Custom query parameter name for the last event id:
+---------------
+ * Some server require a special query parameter name for last-event-id, you can change that via option
+ * The default is `lastEventId`
+ * Example for mercure-hub (https://mercure.rocks/)
+  
+```
+var es = new EventSourcePolyfill(hubUrl, {
+  lastEventIdQueryParameterName: 'Last-Event-Id'
+});
+```
+
 Other EventSource polyfills:
 ----------------------------
 
