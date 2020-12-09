@@ -28,7 +28,7 @@ setInterval(function () {
 
 function eventStream(request, response) {
   var parsedURL = url.parse(request.url, true);
-  var lastEventId = Number(request.headers["last-event-id"]) || Number(parsedURL.query.lastEventId) || 0;
+  var lastEventId = Number(request.headers["last-event-id"]) || Number(parsedURL.query.lastEventId) || Number(parsedURL.query["Last-Event-Id"])  || 0;
   var authorization = request.headers["authorization"];
 
   if (parsedURL.query.authorization !== undefined && !authorization) {

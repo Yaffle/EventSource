@@ -72,6 +72,47 @@
       timer = setTimeout(onTimeout, 1000);
     });
 
+      asyncTest("Last event id test with custom query name", function () {
+          var body = "retry: 500\n" +
+              "id: <lastEventId(1)>\n" +
+              "data: <lastEventId(1)>;\n\n" +
+              "id: <lastEventId(2)>\n" +
+              "data: <lastEventId(2)>;\n\n" +
+              "id: <lastEventId(3)>\n" +
+              "data: <lastEventId(3)>;\n\n";
+          var es = new EventSource(
+              url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body),
+              {lastEventIdQueryParameterName: "Last-Event-Id"}
+              );
+          var esUnsupportedName = new EventSource(
+              url + "?estest=" + encodeURIComponent(commonHeaders + "\n\n" + body),
+              {lastEventIdQueryParameterName: "unknown"}
+          );
+          var s = "";
+          var s1 = "";
+          var timer = 0;
+
+          function onTimeout() {
+              clearTimeout(timer);
+              var z = " 1; 2; 3; 4; 5;";
+              strictEqual(s.slice(0, z.length), z, "Should produce a sequenz");
+              var z1 = " 1; 2; 3; 1; 2; 3;";
+              strictEqual(s1.slice(0, z1.length), z1, "Should always restart");
+              es.close();
+              esUnsupportedName.close();
+              start();
+          }
+
+          timer = setTimeout(onTimeout, 3000);
+
+          es.onmessage = function (event) {
+              s += " " + event.data;
+          };
+          esUnsupportedName.onmessage = function (event) {
+              s1 += " " + event.data;
+          };
+      });
+
     asyncTest("EventSource: 1; 2; 3; 4; 5;", function () {
       var body = "retry: 500\n" +
                  "id: <lastEventId(1)>\n" +
