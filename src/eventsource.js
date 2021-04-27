@@ -25,7 +25,7 @@
   var TextEncoder = global.TextEncoder;
   var AbortController = global.AbortController;
 
-  if (typeof window !== "undefined" && !("readyState" in document) && document.body == null) { // Firefox 2
+  if (typeof window !== "undefined" && typeof document !== "undefined" && !("readyState" in document) && document.body == null) { // Firefox 2
     document.readyState = "loading";
     window.addEventListener("load", function (event) {
       document.readyState = "complete";
