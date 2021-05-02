@@ -968,6 +968,12 @@
       var requestURL = url;
       if (url.slice(0, 5) !== "data:" && url.slice(0, 5) !== "blob:") {
         if (lastEventId !== "") {
+          // Remove the lastEventId parameter if it's already part of the request URL.
+          var i = url.indexOf("?");
+          requestURL = i === -1 ? url : url.slice(0, i + 1) + url.slice(i + 1).replace(/(?:^|&)([^=&]*)(?:=[^&]*)?/g, function (p, paramName) {
+            return paramName === lastEventIdQueryParameterName ? '' : p;
+          });
+          // Append the current lastEventId to the request URL.
           requestURL += (url.indexOf("?") === -1 ? "?" : "&") + lastEventIdQueryParameterName +"=" + encodeURIComponent(lastEventId);
         }
       }
