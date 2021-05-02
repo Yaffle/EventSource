@@ -965,10 +965,16 @@
 
       // https://bugzilla.mozilla.org/show_bug.cgi?id=428916
       // Request header field Last-Event-ID is not allowed by Access-Control-Allow-Headers.
-      var requestURL = new URL(url);
+      var requestURL = url;
       if (url.slice(0, 5) !== "data:" && url.slice(0, 5) !== "blob:") {
         if (lastEventId !== "") {
-          requestURL.searchParams.set(lastEventIdQueryParameterName, lastEventId);
+          // Remove the lastEventId parameter if it's already part of the request URL.
+          var i = url.indexOf("?");
+          requestURL = i === -1 ? url : url.slice(0, i + 1) + url.slice(i + 1).replace(/(?:^|&)([^=&]*)(?:=[^&]*)?/g, function (p, paramName) {
+            return paramName === lastEventIdQueryParameterName ? '' : p;
+          });
+          // Append the current lastEventId to the request URL.
+          requestURL += (url.indexOf("?") === -1 ? "?" : "&") + lastEventIdQueryParameterName +"=" + encodeURIComponent(lastEventId);
         }
       }
       var withCredentials = es.withCredentials;
@@ -983,7 +989,7 @@
         }
       }
       try {
-        abortController = transport.open(xhr, onStart, onProgress, onFinish, requestURL.toString(), withCredentials, requestHeaders);
+        abortController = transport.open(xhr, onStart, onProgress, onFinish, requestURL, withCredentials, requestHeaders);
       } catch (error) {
         close();
         throw error;
