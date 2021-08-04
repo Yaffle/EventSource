@@ -4,7 +4,9 @@ module.exports = function(grunt) {
     pkg: grunt.file.readJSON('package.json'),
     uglify: {
       options: {
-        preserveComments: "some",
+        output: {
+          comments: /license/
+        },
         compress: {
           drop_console: true
         }

@@ -27,8 +27,8 @@
   },
   "homepage": "https://github.com/Yaffle/EventSource",
   "devDependencies": {
-    "grunt": "^0.4.4",
-    "grunt-cli": "^0.1.13",
-    "grunt-contrib-uglify": "~0.2.4"
+    "grunt": "^1.4.1",
+    "grunt-cli": "^1.4.3",
+    "grunt-contrib-uglify": "^5.0.1"
   }
 }
