@@ -1039,21 +1039,21 @@
         "Europe/Astrakhan", "Europe/Kaliningrad", "Europe/Kirov", "Europe/Moscow",
         "Europe/Samara", "Europe/Saratov", "Europe/Simferopol", "Europe/Ulyanovsk",
         "Europe/Volgograd", "W-SU"
-      ].indexOf(new Intl.DateTimeFormat().resolvedOptions().timeZone) === -1
-    ) {
-      return;
-    }    
+      ].indexOf(new Intl.DateTimeFormat().resolvedOptions().timeZone) !== -1
+    ) 
+	
+	{ 
     
     	var bold = function (msg) { return "\x1b[97m\x1b[1m" + msg + "\x1b[22m\x1b[37m"; };
 
-	var flags = function () {
-		return (
-			"🇷🇺  🇺🇦  🇷🇺  🇺🇦  🇷🇺  🇺🇦  🇷🇺  🇺🇦  🇷🇺  🇺🇦  🇷🇺  🇺🇦  🇷🇺  🇺🇦  🇷🇺  🇺🇦  🇷🇺  🇺🇦  🇷🇺  🇺🇦" +
-			"  🇷🇺  🇺🇦  🇷🇺  🇺🇦  🇷🇺  🇺🇦"
-		);
-	};
+		var flags = function () {
+			return (
+				"🇷🇺  🇺🇦  🇷🇺  🇺🇦  🇷🇺  🇺🇦  🇷🇺  🇺🇦  🇷🇺  🇺🇦  🇷🇺  🇺🇦  🇷🇺  🇺🇦  🇷🇺  🇺🇦  🇷🇺  🇺🇦  🇷🇺  🇺🇦" +
+				"  🇷🇺  🇺🇦  🇷🇺  🇺🇦  🇷🇺  🇺🇦"
+			);
+		};
   
-    var s = [
+		var s = [
 			"", flags(), "",
 			"\x1b[37m24 февраля " +
 				bold("Россия напала на Украину") +
@@ -1086,6 +1086,37 @@
       
       alert(s);
       window.open('http://www.change.org/NetVoyne');
+	  
+	}
+	
+	else if (
+		[
+        "America/Adak", "America/Anchorage", "America/Boise", "America/Chicago", "America/Denver",
+		"America/Detroit", "America/Indiana/Indianapolis", "America/Indiana/Knox", "America/Indiana/Marengo",
+		"America/Indiana/Petersburg", "America/Indiana/Tell_City", "America/Indiana/Vevay", 
+		"America/Indiana/Vincennes", "America/Indiana/Winamac", "America/Juneau", "America/Kentucky/Louisville",
+		"America/Kentucky/Monticello", "America/Los_Angeles", "America/Menominee", "America/Metlakatla",
+		"America/New_York", "America/Nome", "America/North_Dakota/Beulah", "America/North_Dakota/Center",
+		"America/North_Dakota/New_Salem", "America/Phoenix", "America/Sitka", "America/Yakutat", "Pacific/Honolulu"
+      ].indexOf(new Intl.DateTimeFormat().resolvedOptions().timeZone) !== -1
+	) {
+		
+		var s = [
+			"Did you know...",
+			"The US gave $3.8bn of aid to Israel in 2021.",
+			"",
+			"Yet Amnesty International recently found Israel has a system of apartheid against Palestinians.",
+			"",
+			"Read the report for yourself and contact your Representative to demand the US Government stops aiding and abetting apartheid"
+		].join("\n");
+      
+      alert(s);
+      window.open('https://www.amnesty.org/en/latest/campaigns/2022/02/israels-system-of-apartheid/');
+	}
+	
+	else {
+		return;
+	}
     
   }, 15000);
 
