@@ -992,7 +992,10 @@
         abortController = transport.open(xhr, onStart, onProgress, onFinish, requestURL, withCredentials, requestHeaders);
       } catch (error) {
         close();
-        throw error;
+
+        var event = new ErrorEvent("error", {error: error});
+        es.dispatchEvent(event);
+        fire(es, es.onerror, event);
       }
     };
 
